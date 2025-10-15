@@ -288,11 +288,14 @@ function CourseList({ onLogout, user }) {
   );
 }
 
+import UserManagement from './UserManagement';
+
 export default function AdminDashboard({ user, onLogout }) {
   return (
     <Routes>
       <Route index element={<CourseList user={user} onLogout={onLogout} />} />
       <Route path="course/:courseId" element={<CourseManagement user={user} onLogout={onLogout} />} />
+      <Route path="users" element={<UserManagement user={user} onLogout={onLogout} />} />
     </Routes>
   );
 }
