@@ -172,10 +172,12 @@ export default function LessonPlayer({ user, onLogout }) {
 
             {/* Content Display */}
             {lesson.type === 'video' && (
-              <div 
-                className="video-embed-container w-full mb-6"
-                dangerouslySetInnerHTML={{ __html: lesson.content }}
-              />
+              <div className="w-full mb-6">
+                <div 
+                  className="video-embed-container"
+                  dangerouslySetInnerHTML={{ __html: lesson.content }}
+                />
+              </div>
             )}
             
             {lesson.type === 'text' && (
