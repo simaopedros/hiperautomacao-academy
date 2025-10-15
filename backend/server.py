@@ -618,6 +618,14 @@ async def create_comment(comment_data: CommentCreate, current_user: User = Depen
     comment_dict['created_at'] = comment_dict['created_at'].isoformat()
     
     await db.comments.insert_one(comment_dict)
+    
+    # Update replies count for parent if this is a reply
+    if comment.parent_id:
+        await db.comments.update_one(
+            {"id": comment.parent_id},
+            {"$inc": {"replies_count": 1}}
+        )
+    
     return comment
 
 @api_router.get("/comments/{lesson_id}", response_model=List[Comment])
