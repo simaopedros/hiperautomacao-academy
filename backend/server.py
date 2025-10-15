@@ -662,13 +662,57 @@ async def delete_comment(comment_id: str, current_user: User = Depends(get_curre
 # ==================== SOCIAL FEED ====================
 
 @api_router.get("/social/feed", response_model=List[Comment])
-async def get_social_feed(current_user: User = Depends(get_current_user)):
-    # Get all comments from courses the user has access to
-    comments = await db.comments.find({}, {"_id": 0}).sort("created_at", -1).limit(50).to_list(50)
+async def get_social_feed(current_user: User = Depends(get_current_user), filter: Optional[str] = None):
+    # Get all top-level comments/posts (no parent_id) with reply counts
+    query = {"parent_id": None}
+    if filter == "discussions":
+        query["lesson_id"] = None  # Only social posts
+    elif filter == "lessons":
+        query["lesson_id"] = {"$ne": None}  # Only lesson comments
+    
+    comments = await db.comments.find(query, {"_id": 0}).sort("created_at", -1).limit(50).to_list(50)
+    
     for comment in comments:
         if isinstance(comment['created_at'], str):
             comment['created_at'] = datetime.fromisoformat(comment['created_at'])
+        
+        # Count replies
+        replies_count = await db.comments.count_documents({"parent_id": comment['id']})
+        comment['replies_count'] = replies_count
+    
     return comments
+
+@api_router.get("/social/post/{post_id}")
+async def get_post_detail(post_id: str, current_user: User = Depends(get_current_user)):
+    # Get the post
+    post = await db.comments.find_one({"id": post_id}, {"_id": 0})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    if isinstance(post['created_at'], str):
+        post['created_at'] = datetime.fromisoformat(post['created_at'])
+    
+    # Get replies
+    replies = await db.comments.find({"parent_id": post_id}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    for reply in replies:
+        if isinstance(reply['created_at'], str):
+            reply['created_at'] = datetime.fromisoformat(reply['created_at'])
+    
+    # Get lesson info if applicable
+    lesson_info = None
+    if post.get('lesson_id'):
+        lesson = await db.lessons.find_one({"id": post['lesson_id']}, {"_id": 0})
+        if lesson:
+            lesson_info = {
+                "lesson_id": lesson['id'],
+                "lesson_title": lesson['title']
+            }
+    
+    return {
+        "post": post,
+        "replies": replies,
+        "lesson_info": lesson_info
+    }
 
 # Include the router in the main app
 app.include_router(api_router)
