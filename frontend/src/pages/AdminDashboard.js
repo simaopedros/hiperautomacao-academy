@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { BookOpen, LogOut, Plus, Edit, Trash2, FolderOpen, FileText } from 'lucide-react';
+import { BookOpen, LogOut, Plus, Edit, Trash2, FolderOpen, FileText, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
