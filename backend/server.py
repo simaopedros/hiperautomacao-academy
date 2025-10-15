@@ -40,9 +40,17 @@ class UserBase(BaseModel):
     email: EmailStr
     name: str
     role: str = "student"  # admin or student
+    full_access: bool = False  # Access to all courses
 
 class UserCreate(UserBase):
     password: str
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: Optional[str] = None
+    full_access: Optional[bool] = None
+    password: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -58,6 +66,16 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     user: User
+
+# Enrollment Models
+class EnrollmentBase(BaseModel):
+    user_id: str
+    course_id: str
+
+class Enrollment(EnrollmentBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    enrolled_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Course Models
 class CourseBase(BaseModel):
