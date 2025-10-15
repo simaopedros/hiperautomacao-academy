@@ -171,9 +171,9 @@ export default function LessonPlayer({ user, onLogout }) {
             </div>
 
             {/* Content Display */}
-            <div className="bg-[#1a1a1a] border border-[#252525] rounded-xl overflow-hidden">
-              {lesson.type === 'video' && (
-                <div className="video-container">
+            {lesson.type === 'video' && (
+              <div className="w-full">
+                <div className="video-container rounded-xl overflow-hidden">
                   <iframe
                     src={lesson.content}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -181,6 +181,11 @@ export default function LessonPlayer({ user, onLogout }) {
                     onLoad={markAsCompleted}
                   ></iframe>
                 </div>
+              </div>
+            )}
+            {lesson.type !== 'video' && (
+              <div className="bg-[#1a1a1a] border border-[#252525] rounded-xl overflow-hidden">{lesson.type === 'video' ? null : (
+                <></>
               )}
               {lesson.type === 'text' && (
                 <div className="p-8 prose prose-invert max-w-none">
