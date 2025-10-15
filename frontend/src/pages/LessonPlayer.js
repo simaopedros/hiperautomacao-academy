@@ -172,12 +172,13 @@ export default function LessonPlayer({ user, onLogout }) {
 
             {/* Content Display */}
             {lesson.type === 'video' && (
-              <div className="w-full">
-                <div className="video-container rounded-xl overflow-hidden shadow-2xl">
+              <div className="w-full shadow-2xl rounded-xl overflow-hidden">
+                <div className="video-container">
                   <iframe
                     src={lesson.content}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
+                    loading="lazy"
+                    allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;"
+                    allowFullScreen={true}
                     onLoad={markAsCompleted}
                   ></iframe>
                 </div>
