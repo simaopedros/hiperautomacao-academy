@@ -173,7 +173,7 @@ export default function LessonPlayer({ user, onLogout }) {
             {/* Content Display */}
             {lesson.type === 'video' && (
               <div className="w-full">
-                <div className="video-container rounded-xl overflow-hidden">
+                <div className="video-container rounded-xl overflow-hidden shadow-2xl">
                   <iframe
                     src={lesson.content}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -183,31 +183,28 @@ export default function LessonPlayer({ user, onLogout }) {
                 </div>
               </div>
             )}
-            {lesson.type !== 'video' && (
-              <div className="bg-[#1a1a1a] border border-[#252525] rounded-xl overflow-hidden">{lesson.type === 'video' ? null : (
-                <></>
-              )}
-              {lesson.type === 'text' && (
-                <div className="p-8 prose prose-invert max-w-none">
-                  <div className="text-gray-300 leading-relaxed whitespace-pre-wrap">
-                    {lesson.content}
-                  </div>
+            
+            {lesson.type === 'text' && (
+              <div className="bg-[#1a1a1a] border border-[#252525] rounded-xl overflow-hidden p-8 prose prose-invert max-w-none">
+                <div className="text-gray-300 leading-relaxed whitespace-pre-wrap">
+                  {lesson.content}
                 </div>
-              )}
-              {lesson.type === 'file' && (
-                <div className="p-8 text-center">
-                  <a
-                    href={lesson.content}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-primary inline-flex items-center gap-2"
-                  >
-                    <Download size={20} />
-                    Baixar Material
-                  </a>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
+            
+            {lesson.type === 'file' && (
+              <div className="bg-[#1a1a1a] border border-[#252525] rounded-xl overflow-hidden p-8 text-center">
+                <a
+                  href={lesson.content}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary inline-flex items-center gap-2"
+                >
+                  <Download size={20} />
+                  Baixar Material
+                </a>
+              </div>
+            )}
 
             <Button
               data-testid="mark-completed-button"
