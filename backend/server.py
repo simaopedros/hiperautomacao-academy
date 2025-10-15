@@ -371,6 +371,128 @@ async def delete_lesson(lesson_id: str, current_user: User = Depends(get_current
         raise HTTPException(status_code=404, detail="Lesson not found")
     return {"message": "Lesson deleted successfully"}
 
+# ==================== ADMIN ROUTES - USER MANAGEMENT ====================
+
+@api_router.get("/admin/users", response_model=List[User])
+async def get_all_users(current_user: User = Depends(get_current_admin)):
+    users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    for user in users:
+        if isinstance(user['created_at'], str):
+            user['created_at'] = datetime.fromisoformat(user['created_at'])
+    return users
+
+@api_router.post("/admin/users", response_model=User)
+async def create_user_by_admin(user_data: UserCreate, current_user: User = Depends(get_current_admin)):
+    # Check if user exists
+    existing_user = await db.users.find_one({"email": user_data.email})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create user
+    user = User(**user_data.model_dump(exclude={"password"}))
+    user_dict = user.model_dump()
+    user_dict['password_hash'] = get_password_hash(user_data.password)
+    user_dict['created_at'] = user_dict['created_at'].isoformat()
+    
+    await db.users.insert_one(user_dict)
+    return user
+
+@api_router.put("/admin/users/{user_id}", response_model=User)
+async def update_user_by_admin(user_id: str, user_data: UserUpdate, current_user: User = Depends(get_current_admin)):
+    existing = await db.users.find_one({"id": user_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    update_data = user_data.model_dump(exclude_unset=True)
+    
+    # If password is being updated, hash it
+    if "password" in update_data and update_data["password"]:
+        update_data["password_hash"] = get_password_hash(update_data["password"])
+        del update_data["password"]
+    
+    if update_data:
+        await db.users.update_one({"id": user_id}, {"$set": update_data})
+    
+    updated = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    if isinstance(updated['created_at'], str):
+        updated['created_at'] = datetime.fromisoformat(updated['created_at'])
+    return User(**updated)
+
+@api_router.delete("/admin/users/{user_id}")
+async def delete_user_by_admin(user_id: str, current_user: User = Depends(get_current_admin)):
+    # Don't allow deleting yourself
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Also delete user's enrollments
+    await db.enrollments.delete_many({"user_id": user_id})
+    return {"message": "User deleted successfully"}
+
+# ==================== ADMIN ROUTES - ENROLLMENT MANAGEMENT ====================
+
+@api_router.post("/admin/enrollments")
+async def enroll_user_in_course(enrollment: EnrollmentBase, current_user: User = Depends(get_current_admin)):
+    # Check if enrollment already exists
+    existing = await db.enrollments.find_one({
+        "user_id": enrollment.user_id,
+        "course_id": enrollment.course_id
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="User already enrolled in this course")
+    
+    # Verify user and course exist
+    user = await db.users.find_one({"id": enrollment.user_id})
+    course = await db.courses.find_one({"id": enrollment.course_id})
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    # Create enrollment
+    enroll_obj = Enrollment(**enrollment.model_dump())
+    enroll_dict = enroll_obj.model_dump()
+    enroll_dict['enrolled_at'] = enroll_dict['enrolled_at'].isoformat()
+    
+    await db.enrollments.insert_one(enroll_dict)
+    return {"message": "User enrolled successfully"}
+
+@api_router.get("/admin/enrollments/{user_id}")
+async def get_user_enrollments(user_id: str, current_user: User = Depends(get_current_admin)):
+    enrollments = await db.enrollments.find({"user_id": user_id}, {"_id": 0}).to_list(1000)
+    
+    # Get course details for each enrollment
+    result = []
+    for enrollment in enrollments:
+        course = await db.courses.find_one({"id": enrollment["course_id"]}, {"_id": 0})
+        if course:
+            result.append({
+                "enrollment_id": enrollment["id"],
+                "course_id": enrollment["course_id"],
+                "course_title": course["title"],
+                "enrolled_at": enrollment["enrolled_at"]
+            })
+    
+    return result
+
+@api_router.delete("/admin/enrollments/{enrollment_id}")
+async def remove_enrollment(enrollment_id: str, current_user: User = Depends(get_current_admin)):
+    result = await db.enrollments.delete_one({"id": enrollment_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+    return {"message": "Enrollment removed successfully"}
+
+@api_router.delete("/admin/enrollments/user/{user_id}/course/{course_id}")
+async def remove_user_from_course(user_id: str, course_id: str, current_user: User = Depends(get_current_admin)):
+    result = await db.enrollments.delete_one({"user_id": user_id, "course_id": course_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+    return {"message": "User removed from course successfully"}
+
 # ==================== STUDENT ROUTES ====================
 
 @api_router.get("/student/courses", response_model=List[Course])
