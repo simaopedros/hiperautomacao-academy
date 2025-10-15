@@ -525,6 +525,15 @@ async def get_course_detail(course_id: str, current_user: User = Depends(get_cur
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     
+    # Check if user has access to this course
+    if not current_user.full_access:
+        enrollment = await db.enrollments.find_one({
+            "user_id": current_user.id,
+            "course_id": course_id
+        })
+        if not enrollment:
+            raise HTTPException(status_code=403, detail="You don't have access to this course")
+    
     if isinstance(course['created_at'], str):
         course['created_at'] = datetime.fromisoformat(course['created_at'])
     
