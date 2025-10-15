@@ -173,9 +173,8 @@ export default function LessonPlayer({ user, onLogout }) {
             {/* Content Display */}
             {lesson.type === 'video' && (
               <div 
-                className="w-full"
+                className="video-embed-container w-full mb-6"
                 dangerouslySetInnerHTML={{ __html: lesson.content }}
-                onLoad={markAsCompleted}
               />
             )}
             
