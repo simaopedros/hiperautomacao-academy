@@ -146,10 +146,10 @@ input::placeholder, textarea::placeholder {
 /* Video Container */
 .video-container {
   position: relative;
-  padding-bottom: 56.25%;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
   height: 0;
   overflow: hidden;
-  border-radius: 12px;
   background: #000;
 }
 
@@ -160,6 +160,7 @@ input::placeholder, textarea::placeholder {
   width: 100%;
   height: 100%;
   border: none;
+  border-radius: 12px;
 }
 
 /* Gradient Text */
