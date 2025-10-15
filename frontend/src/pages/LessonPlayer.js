@@ -172,17 +172,11 @@ export default function LessonPlayer({ user, onLogout }) {
 
             {/* Content Display */}
             {lesson.type === 'video' && (
-              <div className="w-full shadow-2xl rounded-xl overflow-hidden">
-                <div className="video-container">
-                  <iframe
-                    src={lesson.content}
-                    loading="lazy"
-                    allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;"
-                    allowFullScreen={true}
-                    onLoad={markAsCompleted}
-                  ></iframe>
-                </div>
-              </div>
+              <div 
+                className="w-full"
+                dangerouslySetInnerHTML={{ __html: lesson.content }}
+                onLoad={markAsCompleted}
+              />
             )}
             
             {lesson.type === 'text' && (
