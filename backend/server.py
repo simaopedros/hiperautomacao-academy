@@ -132,16 +132,17 @@ class CommentBase(BaseModel):
     parent_id: Optional[str] = None
 
 class CommentCreate(CommentBase):
-    lesson_id: str
+    lesson_id: Optional[str] = None  # Optional for social posts
 
 class Comment(CommentBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    lesson_id: str
+    lesson_id: Optional[str] = None  # Optional for social posts
     user_id: str
     user_name: str
     user_avatar: Optional[str] = None
     likes: int = 0
+    replies_count: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Progress Models
