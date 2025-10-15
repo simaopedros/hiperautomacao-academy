@@ -203,8 +203,12 @@ async def register(user_data: UserCreate):
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Create user
-    user = User(**user_data.model_dump(exclude={"password"}))
+    # Create user - default full_access to False for new registrations
+    user_data_dict = user_data.model_dump(exclude={"password"})
+    if "full_access" not in user_data_dict:
+        user_data_dict["full_access"] = False
+    
+    user = User(**user_data_dict)
     user_dict = user.model_dump()
     user_dict['password_hash'] = get_password_hash(user_data.password)
     user_dict['created_at'] = user_dict['created_at'].isoformat()
