@@ -497,7 +497,23 @@ async def remove_user_from_course(user_id: str, course_id: str, current_user: Us
 
 @api_router.get("/student/courses", response_model=List[Course])
 async def get_published_courses(current_user: User = Depends(get_current_user)):
-    courses = await db.courses.find({"published": True}, {"_id": 0}).to_list(1000)
+    # If user has full_access, return all published courses
+    if current_user.full_access:
+        courses = await db.courses.find({"published": True}, {"_id": 0}).to_list(1000)
+    else:
+        # Get user's enrolled courses
+        enrollments = await db.enrollments.find({"user_id": current_user.id}).to_list(1000)
+        enrolled_course_ids = [e["course_id"] for e in enrollments]
+        
+        if not enrolled_course_ids:
+            return []
+        
+        # Return only enrolled courses that are published
+        courses = await db.courses.find({
+            "published": True,
+            "id": {"$in": enrolled_course_ids}
+        }, {"_id": 0}).to_list(1000)
+    
     for course in courses:
         if isinstance(course['created_at'], str):
             course['created_at'] = datetime.fromisoformat(course['created_at'])
