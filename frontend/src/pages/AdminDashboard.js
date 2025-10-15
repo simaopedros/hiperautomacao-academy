@@ -96,6 +96,22 @@ function CourseList({ onLogout, user }) {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <h1 className="text-2xl font-bold gradient-text">Hiperautomação Admin</h1>
+            <nav className="flex gap-4">
+              <button
+                onClick={() => navigate('/admin')}
+                className="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-colors"
+              >
+                <BookOpen size={20} />
+                Cursos
+              </button>
+              <button
+                onClick={() => navigate('/admin/users')}
+                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+              >
+                <Users size={20} />
+                Usuários
+              </button>
+            </nav>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
