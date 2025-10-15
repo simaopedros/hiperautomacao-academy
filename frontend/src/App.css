@@ -143,23 +143,15 @@ input::placeholder, textarea::placeholder {
   animation: slideIn 0.4s ease-out;
 }
 
-/* Video Container - Bunny.net Embed Style */
-.video-container {
-  position: relative;
-  padding-top: 56.25%;
+/* Video Container - Direct HTML Embed Support */
+/* This ensures Bunny.net embeds work correctly when pasted as HTML */
+.video-embed-container {
   width: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #000;
+  max-width: 100%;
 }
 
-.video-container iframe {
-  border: 0;
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 100%;
+.video-embed-container iframe {
+  border-radius: 12px;
 }
 
 /* Gradient Text */
