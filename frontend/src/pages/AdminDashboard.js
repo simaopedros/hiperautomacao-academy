@@ -624,16 +624,20 @@ function CourseManagement({ user, onLogout }) {
                         </div>
                         <div>
                           <Label>
-                            {lessonForm.type === 'video' ? 'URL do Vídeo (Bunny.net embed)' : 
+                            {lessonForm.type === 'video' ? 'Código HTML Embed (Bunny.net)' : 
                              lessonForm.type === 'text' ? 'Conteúdo de Texto' : 'URL do Arquivo'}
                           </Label>
-                          {lessonForm.type === 'text' ? (
+                          {lessonForm.type === 'video' || lessonForm.type === 'text' ? (
                             <Textarea
                               value={lessonForm.content}
                               onChange={(e) => setLessonForm({ ...lessonForm, content: e.target.value })}
                               required
-                              rows={6}
-                              className="bg-[#111111] border-[#2a2a2a]"
+                              rows={lessonForm.type === 'video' ? 4 : 6}
+                              placeholder={lessonForm.type === 'video' 
+                                ? '<div style="position:relative;padding-top:56.25%;"><iframe src="..." ... ></iframe></div>'
+                                : 'Digite o conteúdo da aula...'
+                              }
+                              className="bg-[#111111] border-[#2a2a2a] font-mono text-sm"
                             />
                           ) : (
                             <Input
@@ -643,6 +647,11 @@ function CourseManagement({ user, onLogout }) {
                               placeholder="https://..."
                               className="bg-[#111111] border-[#2a2a2a]"
                             />
+                          )}
+                          {lessonForm.type === 'video' && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Cole o código embed completo do Bunny.net (incluindo as tags &lt;div&gt; e &lt;iframe&gt;)
+                            </p>
                           )}
                         </div>
                         <div>
