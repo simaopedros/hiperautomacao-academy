@@ -296,6 +296,7 @@ function CourseList({ onLogout, user }) {
 }
 
 import UserManagement from './UserManagement';
+import CommunityModeration from './CommunityModeration';
 
 export default function AdminDashboard({ user, onLogout }) {
   return (
@@ -303,6 +304,7 @@ export default function AdminDashboard({ user, onLogout }) {
       <Route index element={<CourseList user={user} onLogout={onLogout} />} />
       <Route path="course/:courseId" element={<CourseManagement user={user} onLogout={onLogout} />} />
       <Route path="users" element={<UserManagement user={user} onLogout={onLogout} />} />
+      <Route path="community" element={<CommunityModeration user={user} onLogout={onLogout} />} />
     </Routes>
   );
 }
