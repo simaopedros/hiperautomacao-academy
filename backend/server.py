@@ -53,6 +53,23 @@ async def generate_referral_code():
     import random
     import string
     while True:
+
+
+# Migration: Add referral codes to existing users
+async def migrate_referral_codes():
+    """Add referral codes to users that don't have one"""
+    users_without_code = await db.users.find({"$or": [{"referral_code": {"$exists": False}}, {"referral_code": ""}]}).to_list(None)
+    
+    if users_without_code:
+        logger.info(f"Migrating {len(users_without_code)} users to have referral codes...")
+        for user in users_without_code:
+            referral_code = await generate_referral_code()
+            await db.users.update_one(
+                {"id": user["id"]},
+                {"$set": {"referral_code": referral_code}}
+            )
+        logger.info("Referral code migration complete")
+
         code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
         existing = await db.users.find_one({"referral_code": code})
         if not existing:
