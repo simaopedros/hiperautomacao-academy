@@ -327,7 +327,7 @@ export default function StudentDashboard({ user, onLogout }) {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleBuyCourse(course.id);
+                            handleBuyCourse(course.id, course.title);
                           }}
                           className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors"
                         >
