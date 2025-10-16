@@ -197,6 +197,16 @@ function App() {
               )
             }
           />
+          <Route
+            path="/referral"
+            element={
+              user ? (
+                <ReferralPage user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
         </Routes>
       </BrowserRouter>
     </div>
