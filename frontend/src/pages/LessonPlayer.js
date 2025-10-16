@@ -277,9 +277,16 @@ export default function LessonPlayer({ user, onLogout }) {
             <Button
               data-testid="mark-completed-button"
               onClick={markAsCompleted}
-              className="w-full bg-emerald-500 hover:bg-emerald-600"
+              className="w-full bg-emerald-500 hover:bg-emerald-600 py-6"
             >
-              Marcar como Concluído
+              <div className="flex flex-col items-center">
+                <span className="font-semibold">Marcar como Concluído</span>
+                {nextLesson && (
+                  <span className="text-xs text-emerald-200 mt-1">
+                    Próxima: {nextLesson.title}
+                  </span>
+                )}
+              </div>
             </Button>
           </div>
 
