@@ -738,15 +738,20 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
     CSV format: name,email
     """
     try:
+        print("Starting bulk import...")
         # Get email configuration
         email_config = await db.email_config.find_one({})
         if not email_config:
             raise HTTPException(status_code=400, detail="Email configuration not set. Please configure email settings first.")
         
+        print(f"Email config found: {email_config.get('sender_email')}")
+        
         # Decode CSV
         csv_content = base64.b64decode(request.csv_content).decode('utf-8')
         csv_file = io.StringIO(csv_content)
         csv_reader = csv.DictReader(csv_file)
+        
+        print(f"CSV decoded successfully, course_id: {request.course_id}")
         
         imported_count = 0
         errors = []
