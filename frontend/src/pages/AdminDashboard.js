@@ -270,6 +270,17 @@ function CourseList({ onLogout, user }) {
                     />
                   </div>
                 </div>
+                <div>
+                  <Label>ID Produto Hotmart (Opcional)</Label>
+                  <Input
+                    type="text"
+                    value={formData.hotmart_product_id || ''}
+                    onChange={(e) => setFormData({ ...formData, hotmart_product_id: e.target.value })}
+                    placeholder="Ex: 6315704"
+                    className="bg-[#111111] border-[#2a2a2a]"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Configure se vender este curso pela Hotmart</p>
+                </div>
                 <div className="flex items-center gap-2">
                   <input
                     data-testid="course-published-checkbox"
