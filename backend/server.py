@@ -1055,6 +1055,371 @@ async def get_post_detail(post_id: str, current_user: User = Depends(get_current
         "lesson_info": lesson_info
     }
 
+
+# ==================== CREDITS SYSTEM ====================
+
+# Helper function to get or create user credits
+async def get_user_credits(user_id: str) -> dict:
+    """Get user credits balance or create if not exists"""
+    credits = await db.user_credits.find_one({"user_id": user_id}, {"_id": 0})
+    if not credits:
+        credits = {
+            "user_id": user_id,
+            "balance": 0,
+            "total_earned": 0,
+            "total_spent": 0,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.user_credits.insert_one(credits.copy())
+    return credits
+
+# Helper function to add credits transaction
+async def add_credit_transaction(user_id: str, amount: int, transaction_type: str, description: str, reference_id: Optional[str] = None):
+    """Add a credit transaction and update user balance"""
+    # Get current balance
+    credits = await get_user_credits(user_id)
+    
+    # Create transaction
+    transaction = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "amount": amount,
+        "transaction_type": transaction_type,
+        "description": description,
+        "reference_id": reference_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.credit_transactions.insert_one(transaction.copy())
+    
+    # Update user balance
+    new_balance = credits["balance"] + amount
+    update_data = {
+        "balance": new_balance,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    if amount > 0:
+        update_data["total_earned"] = credits.get("total_earned", 0) + amount
+    else:
+        update_data["total_spent"] = credits.get("total_spent", 0) + abs(amount)
+    
+    await db.user_credits.update_one(
+        {"user_id": user_id},
+        {"$set": update_data}
+    )
+    
+    return transaction
+
+# Get user credits balance
+@api_router.get("/credits/balance")
+async def get_credits_balance(current_user: User = Depends(get_current_user)):
+    """Get current user's credit balance"""
+    credits = await get_user_credits(current_user.id)
+    return credits
+
+# Get user credits transaction history
+@api_router.get("/credits/transactions")
+async def get_credits_transactions(current_user: User = Depends(get_current_user)):
+    """Get current user's credit transaction history"""
+    transactions = await db.credit_transactions.find(
+        {"user_id": current_user.id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(length=100)
+    return {"transactions": transactions}
+
+# Get available credit packages
+@api_router.get("/credits/packages")
+async def get_credit_packages():
+    """Get available credit packages for purchase"""
+    return {"packages": CREDIT_PACKAGES}
+
+# Enroll in course using credits
+@api_router.post("/courses/{course_id}/enroll-with-credits")
+async def enroll_with_credits(course_id: str, current_user: User = Depends(get_current_user)):
+    """Enroll in a course using credits"""
+    # Get course
+    course = await db.courses.find_one({"id": course_id}, {"_id": 0})
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    # Check if already enrolled
+    existing_enrollment = await db.enrollments.find_one({
+        "user_id": current_user.id,
+        "course_id": course_id
+    })
+    if existing_enrollment:
+        raise HTTPException(status_code=400, detail="Already enrolled in this course")
+    
+    # Get user credits
+    credits = await get_user_credits(current_user.id)
+    course_price = course.get("price_credits", 50)
+    
+    # Check if user has enough credits
+    if credits["balance"] < course_price:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient credits. You have {credits['balance']} credits but need {course_price}"
+        )
+    
+    # Deduct credits
+    await add_credit_transaction(
+        user_id=current_user.id,
+        amount=-course_price,
+        transaction_type="spent",
+        description=f"Matricula no curso: {course['title']}",
+        reference_id=course_id
+    )
+    
+    # Create enrollment
+    enrollment = {
+        "id": str(uuid.uuid4()),
+        "user_id": current_user.id,
+        "course_id": course_id,
+        "enrolled_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.enrollments.insert_one(enrollment)
+    
+    logger.info(f"User {current_user.email} enrolled in course {course_id} using {course_price} credits")
+    
+    return {
+        "message": "Successfully enrolled in course",
+        "credits_spent": course_price,
+        "remaining_balance": credits["balance"] - course_price
+    }
+
+# ==================== ABACATE PAY INTEGRATION ====================
+
+# Create billing for credit purchase or direct course purchase
+@api_router.post("/billing/create")
+async def create_billing(request: CreateBillingRequest, current_user: User = Depends(get_current_user)):
+    """Create a billing for credit package or direct course purchase"""
+    try:
+        # Determine what we're selling
+        if request.package_id:
+            # Buying credits
+            package = next((p for p in CREDIT_PACKAGES if p["id"] == request.package_id), None)
+            if not package:
+                raise HTTPException(status_code=404, detail="Package not found")
+            
+            amount_brl = package["price_brl"]
+            credits = package["credits"]
+            product_name = package["name"]
+            product_description = f"{package['credits']} créditos"
+            
+        elif request.course_id:
+            # Buying course directly
+            course = await db.courses.find_one({"id": request.course_id}, {"_id": 0})
+            if not course:
+                raise HTTPException(status_code=404, detail="Course not found")
+            
+            amount_brl = course.get("price_brl", 0)
+            if amount_brl <= 0:
+                raise HTTPException(status_code=400, detail="Course price not set")
+            
+            credits = None
+            product_name = course["title"]
+            product_description = f"Acesso ao curso: {course['title']}"
+        else:
+            raise HTTPException(status_code=400, detail="Must specify package_id or course_id")
+        
+        # Create billing with Abacate Pay
+        async with httpx.AsyncClient() as client:
+            billing_data = {
+                "frequency": "one_time",
+                "methods": ["PIX", "CARD"],
+                "products": [{
+                    "externalId": request.package_id or request.course_id,
+                    "name": product_name,
+                    "description": product_description,
+                    "quantity": 1,
+                    "price": int(amount_brl * 100)  # Convert to cents
+                }],
+                "customer": {
+                    "email": request.customer_email,
+                    "name": request.customer_name
+                },
+                "returnUrl": f"{os.environ.get('FRONTEND_URL')}/payment-cancelled",
+                "completionUrl": f"{os.environ.get('FRONTEND_URL')}/payment-success"
+            }
+            
+            headers = {
+                "Authorization": f"Bearer {ABACATEPAY_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            
+            response = await client.post(
+                f"{ABACATEPAY_BASE_URL}/billing/create",
+                json=billing_data,
+                headers=headers,
+                timeout=30.0
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"Abacate Pay API error: {response.status_code} - {response.text}")
+                raise HTTPException(status_code=500, detail=f"Payment gateway error: {response.text}")
+            
+            billing_response = response.json()
+            billing_id = billing_response.get("id")
+            payment_url = billing_response.get("url")
+            
+            # Save billing to database
+            billing_record = {
+                "billing_id": billing_id,
+                "user_id": current_user.id,
+                "amount_brl": amount_brl,
+                "credits": credits,
+                "course_id": request.course_id,
+                "package_id": request.package_id,
+                "status": "pending",
+                "payment_url": payment_url,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "paid_at": None
+            }
+            await db.billings.insert_one(billing_record)
+            
+            logger.info(f"Created billing {billing_id} for user {current_user.email}")
+            
+            return {
+                "billing_id": billing_id,
+                "payment_url": payment_url,
+                "amount": amount_brl
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating billing: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create billing: {str(e)}")
+
+# Webhook endpoint for Abacate Pay payment notifications
+@api_router.post("/webhook/abacatepay")
+async def abacatepay_webhook(request: dict):
+    """Handle payment confirmation webhooks from Abacate Pay"""
+    try:
+        logger.info(f"Received webhook: {request}")
+        
+        # Extract event data
+        event_type = request.get("type")
+        billing_data = request.get("data", {})
+        billing_id = billing_data.get("id")
+        status = billing_data.get("status")
+        
+        if not billing_id:
+            logger.error("Webhook missing billing_id")
+            return {"status": "error", "message": "Missing billing_id"}
+        
+        # Get billing from database
+        billing = await db.billings.find_one({"billing_id": billing_id})
+        if not billing:
+            logger.error(f"Billing {billing_id} not found in database")
+            return {"status": "error", "message": "Billing not found"}
+        
+        # Process payment confirmation
+        if event_type == "billing.paid" or status == "PAID":
+            # Check if already processed
+            if billing.get("status") == "paid":
+                logger.warning(f"Billing {billing_id} already processed")
+                return {"status": "ok", "message": "Already processed"}
+            
+            # Update billing status
+            await db.billings.update_one(
+                {"billing_id": billing_id},
+                {"$set": {
+                    "status": "paid",
+                    "paid_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            
+            user_id = billing["user_id"]
+            
+            # Process based on purchase type
+            if billing.get("credits"):
+                # Credit package purchase - add credits to user
+                await add_credit_transaction(
+                    user_id=user_id,
+                    amount=billing["credits"],
+                    transaction_type="purchased",
+                    description=f"Compra de {billing['credits']} créditos",
+                    reference_id=billing_id
+                )
+                logger.info(f"Added {billing['credits']} credits to user {user_id}")
+                
+            elif billing.get("course_id"):
+                # Direct course purchase - create enrollment
+                course_id = billing["course_id"]
+                
+                # Check if already enrolled
+                existing_enrollment = await db.enrollments.find_one({
+                    "user_id": user_id,
+                    "course_id": course_id
+                })
+                
+                if not existing_enrollment:
+                    enrollment = {
+                        "id": str(uuid.uuid4()),
+                        "user_id": user_id,
+                        "course_id": course_id,
+                        "enrolled_at": datetime.now(timezone.utc).isoformat()
+                    }
+                    await db.enrollments.insert_one(enrollment)
+                    logger.info(f"Enrolled user {user_id} in course {course_id} via direct purchase")
+            
+            logger.info(f"Successfully processed payment for billing {billing_id}")
+            return {"status": "ok", "message": "Payment processed"}
+        
+        else:
+            logger.info(f"Webhook event {event_type} - no action needed")
+            return {"status": "ok", "message": "Event received"}
+            
+    except Exception as e:
+        logger.error(f"Error processing webhook: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+# Get billing status
+@api_router.get("/billing/{billing_id}")
+async def get_billing_status(billing_id: str, current_user: User = Depends(get_current_user)):
+    """Get billing status"""
+    billing = await db.billings.find_one(
+        {"billing_id": billing_id, "user_id": current_user.id},
+        {"_id": 0}
+    )
+    
+    if not billing:
+        raise HTTPException(status_code=404, detail="Billing not found")
+    
+    return billing
+
+# Admin: Update course prices
+@api_router.put("/admin/courses/{course_id}/pricing")
+async def update_course_pricing(
+    course_id: str,
+    price_brl: Optional[float] = None,
+    price_credits: Optional[int] = None,
+    current_user: User = Depends(get_current_admin)
+):
+    """Update course pricing (admin only)"""
+    course = await db.courses.find_one({"id": course_id})
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    update_data = {}
+    if price_brl is not None:
+        update_data["price_brl"] = price_brl
+    if price_credits is not None:
+        update_data["price_credits"] = price_credits
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No pricing data provided")
+    
+    await db.courses.update_one(
+        {"id": course_id},
+        {"$set": update_data}
+    )
+    
+    logger.info(f"Admin {current_user.email} updated pricing for course {course_id}")
+    
+    return {"message": "Course pricing updated successfully", "updates": update_data}
+
 # Include the router in the main app
 app.include_router(api_router)
 
