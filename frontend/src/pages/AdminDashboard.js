@@ -77,8 +77,6 @@ function CourseList({ onLogout, user }) {
       published: course.published,
       price_brl: course.price_brl || 0,
       price_credits: course.price_credits || 50
-      category: course.category || '',
-      published: course.published
     });
     setShowDialog(true);
   };
