@@ -833,6 +833,16 @@ async def like_comment(comment_id: str, current_user: User = Depends(get_current
         raise HTTPException(status_code=404, detail="Comment not found")
     
     await db.comments.update_one({"id": comment_id}, {"$inc": {"likes": 1}})
+    
+    # Give gamification reward to the comment author (not the liker)
+    comment_author_id = comment.get("user_id")
+    if comment_author_id:
+        await give_gamification_reward(
+            user_id=comment_author_id,
+            action_type="receive_like",
+            description="Like recebido na comunidade"
+        )
+    
     return {"message": "Comment liked"}
 
 @api_router.delete("/comments/{comment_id}")
