@@ -298,6 +298,40 @@ export default function LessonPlayer({ user, onLogout }) {
               </div>
             )}
 
+            {/* Additional Links */}
+            {lesson.links && lesson.links.length > 0 && (
+              <div className="bg-[#1a1a1a] border border-[#252525] rounded-xl p-6 mb-6">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Download size={20} className="text-emerald-400" />
+                  Links e Recursos Adicionais
+                </h3>
+                <div className="space-y-3">
+                  {lesson.links.map((link, index) => (
+                    <a
+                      key={index}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-4 bg-[#111111] rounded-lg border border-[#2a2a2a] hover:border-emerald-500 transition-all group"
+                    >
+                      <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-500/20 transition-colors">
+                        <Download size={20} className="text-emerald-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-white group-hover:text-emerald-400 transition-colors">
+                          {link.title}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">{link.url}</p>
+                      </div>
+                      <div className="text-gray-400 group-hover:text-emerald-400 transition-colors">
+                        →
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <Button
               data-testid="mark-completed-button"
               onClick={toggleCompleted}
