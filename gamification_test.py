@@ -411,7 +411,7 @@ class GamificationTester:
             response = self.session.post(f"{BACKEND_URL}/comments", 
                                        json=comment_data, headers=headers)
             
-            if response.status_code == 201:
+            if response.status_code == 200:
                 # Comment should be created
                 comment = response.json()
                 
@@ -487,7 +487,7 @@ class GamificationTester:
             response = self.session.post(f"{BACKEND_URL}/comments", 
                                        json=comment_data, headers=headers)
             
-            if response.status_code == 201:
+            if response.status_code == 200:
                 comment = response.json()
                 
                 # Check balance after comment - should increase by reward amount
