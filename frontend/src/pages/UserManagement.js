@@ -422,6 +422,24 @@ export default function UserManagement({ user, onLogout }) {
                       </Button>
                     )}
                     <Button
+                      onClick={() => handleResendPasswordEmail(u.id)}
+                      variant="outline"
+                      size="sm"
+                      className="border-[#2a2a2a] hover:bg-[#252525]"
+                      title="Reenviar email de acesso"
+                    >
+                      <Mail size={16} />
+                    </Button>
+                    <Button
+                      onClick={() => handleResetPassword(u.id)}
+                      variant="outline"
+                      size="sm"
+                      className="border-[#2a2a2a] hover:bg-[#252525]"
+                      title="Resetar senha"
+                    >
+                      <Key size={16} />
+                    </Button>
+                    <Button
                       onClick={() => {
                         setEditingUser(u);
                         setUserForm({
