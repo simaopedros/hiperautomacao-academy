@@ -826,6 +826,15 @@ async def get_lesson_comments(lesson_id: str, current_user: User = Depends(get_c
             comment['created_at'] = datetime.fromisoformat(comment['created_at'])
     return comments
 
+@api_router.get("/comments/{comment_id}/liked")
+async def check_if_liked(comment_id: str, current_user: User = Depends(get_current_user)):
+    """Check if current user has liked this comment"""
+    like = await db.likes.find_one({
+        "comment_id": comment_id,
+        "user_id": current_user.id
+    })
+    return {"liked": like is not None}
+
 @api_router.post("/comments/{comment_id}/like")
 async def like_comment(comment_id: str, current_user: User = Depends(get_current_user)):
     comment = await db.comments.find_one({"id": comment_id})
