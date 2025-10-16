@@ -75,6 +75,39 @@ export default function StudentDashboard({ user, onLogout }) {
     }
   };
 
+  const handleEnrollWithCredits = async (courseId, priceCredits) => {
+    if (!userCredits || userCredits.balance < priceCredits) {
+      alert(`Você precisa de ${priceCredits} créditos para se matricular neste curso. Seu saldo: ${userCredits?.balance || 0}`);
+      navigate('/buy-credits');
+      return;
+    }
+
+    if (!confirm(`Deseja se matricular neste curso usando ${priceCredits} créditos?`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${API}/courses/${courseId}/enroll-with-credits`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      alert('✅ Matrícula realizada com sucesso!');
+      fetchCourses();
+      fetchCredits();
+    } catch (error) {
+      console.error('Error enrolling:', error);
+      alert(error.response?.data?.detail || 'Erro ao se matricular');
+    }
+  };
+
+  const handleBuyCourse = async (courseId) => {
+    navigate('/buy-credits'); // For now, redirect to buy credits
+    // TODO: Implement direct course purchase
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       {/* Header */}
