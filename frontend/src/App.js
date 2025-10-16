@@ -79,6 +79,16 @@ function App() {
             }
           />
           <Route
+            path="/register"
+            element={
+              user ? (
+                <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} replace />
+              ) : (
+                <RegisterPage onLogin={handleLogin} />
+              )
+            }
+          />
+          <Route
             path="/create-password"
             element={
               user ? (
