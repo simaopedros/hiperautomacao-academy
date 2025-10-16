@@ -43,6 +43,17 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
 security = HTTPBearer()
 
+# Abacate Pay Configuration
+ABACATEPAY_API_KEY = os.environ.get('ABACATEPAY_API_KEY')
+ABACATEPAY_BASE_URL = "https://api.abacatepay.com/v1"
+
+# Credit Packages Configuration
+CREDIT_PACKAGES = [
+    {"id": "pkg_small", "name": "Pacote Inicial", "price_brl": 10.0, "credits": 50, "bonus_percentage": 0},
+    {"id": "pkg_medium", "name": "Pacote Médio", "price_brl": 25.0, "credits": 150, "bonus_percentage": 20},
+    {"id": "pkg_large", "name": "Pacote Grande", "price_brl": 50.0, "credits": 350, "bonus_percentage": 40}
+]
+
 # Create the main app
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
