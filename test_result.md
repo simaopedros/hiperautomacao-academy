@@ -107,27 +107,33 @@ user_problem_statement: "Implementar sistema completo de créditos com Abacate P
 backend:
   - task: "Sistema de Créditos - Base"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py (lines 1058-1400)"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: false
           agent: "main"
           comment: "Implementado: modelos de créditos, transações, endpoints de saldo, histórico, matricula com créditos. Precisa testar."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTADO: Todos os endpoints de créditos funcionando corretamente. Saldo inicial zero, pacotes configurados (R$10=50cr, R$25=150cr, R$50=350cr), rejeição de matrícula sem créditos, histórico de transações funcionando."
   
   - task: "Integração Abacate Pay"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py (lines 1180-1380)"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: false
           agent: "main"
           comment: "Implementado: criação de billing, webhook para confirmação de pagamento, compra de créditos e cursos diretos. Precisa testar."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTADO: Integração Abacate Pay funcionando completamente. Billing criado com sucesso, webhook processando pagamentos, créditos sendo adicionados automaticamente, compra direta de cursos funcionando. API Key válida, ambiente sandbox configurado."
 
 frontend:
   - task: "Páginas de Compra de Créditos"
