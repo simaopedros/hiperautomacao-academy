@@ -1473,6 +1473,161 @@ async def check_billing_status(billing_id: str, current_user: User = Depends(get
             
             return {"status": "pending", "message": "Payment still pending"}
             
+
+
+# ==================== ADMIN CREDITS & PAYMENTS MANAGEMENT ====================
+
+# Admin: Get all transactions
+@api_router.get("/admin/credits/transactions")
+async def admin_get_all_transactions(current_user: User = Depends(get_current_admin)):
+    """Get all credit transactions (admin only)"""
+    transactions = await db.credit_transactions.find({}, {"_id": 0}).sort("created_at", -1).to_list(length=500)
+    
+    # Enrich with user info
+    for transaction in transactions:
+        user = await db.users.find_one({"id": transaction["user_id"]}, {"_id": 0, "name": 1, "email": 1})
+        if user:
+            transaction["user_name"] = user["name"]
+            transaction["user_email"] = user["email"]
+    
+    return {"transactions": transactions}
+
+# Admin: Get all billings/purchases
+@api_router.get("/admin/billings")
+async def admin_get_all_billings(current_user: User = Depends(get_current_admin)):
+    """Get all billings (admin only)"""
+    billings = await db.billings.find({}, {"_id": 0}).sort("created_at", -1).to_list(length=500)
+    
+    # Enrich with user info
+    for billing in billings:
+        user = await db.users.find_one({"id": billing["user_id"]}, {"_id": 0, "name": 1, "email": 1})
+        if user:
+            billing["user_name"] = user["name"]
+            billing["user_email"] = user["email"]
+    
+    return {"billings": billings}
+
+# Admin: Add credits manually to a user
+@api_router.post("/admin/credits/add-manual")
+async def admin_add_credits_manually(
+    user_id: str,
+    amount: int,
+    description: str,
+    current_user: User = Depends(get_current_admin)
+):
+    """Manually add credits to a user (admin only)"""
+    # Verify user exists
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Add credits
+    await add_credit_transaction(
+        user_id=user_id,
+        amount=amount,
+        transaction_type="earned",
+        description=f"[Admin] {description}",
+        reference_id=None
+    )
+    
+    logger.info(f"Admin {current_user.email} added {amount} credits to user {user_id}")
+    
+    return {"message": f"Successfully added {amount} credits", "user_id": user_id}
+
+# Admin: Get payment settings
+@api_router.get("/admin/payment-settings")
+async def get_payment_settings(current_user: User = Depends(get_current_admin)):
+    """Get payment gateway settings (admin only)"""
+    settings = await db.payment_settings.find_one({}, {"_id": 0})
+    
+    if not settings:
+        # Return default settings
+        return {
+            "abacatepay_api_key": ABACATEPAY_API_KEY or "",
+            "environment": os.environ.get('ABACATEPAY_ENVIRONMENT', 'sandbox')
+        }
+    
+    return settings
+
+# Admin: Update payment settings
+@api_router.post("/admin/payment-settings")
+async def update_payment_settings(
+    abacatepay_api_key: str,
+    environment: str,
+    current_user: User = Depends(get_current_admin)
+):
+    """Update payment gateway settings (admin only)"""
+    if environment not in ["sandbox", "production"]:
+        raise HTTPException(status_code=400, detail="Environment must be 'sandbox' or 'production'")
+    
+    settings = {
+        "abacatepay_api_key": abacatepay_api_key,
+        "environment": environment,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_by": current_user.email
+    }
+    
+    await db.payment_settings.update_one(
+        {},
+        {"$set": settings},
+        upsert=True
+    )
+    
+    # Update environment variables (note: requires restart to take full effect)
+    os.environ['ABACATEPAY_API_KEY'] = abacatepay_api_key
+    os.environ['ABACATEPAY_ENVIRONMENT'] = environment
+    
+    logger.info(f"Admin {current_user.email} updated payment settings to {environment}")
+    
+    return {"message": "Payment settings updated successfully. Restart backend to apply changes."}
+
+# Admin: Get statistics
+@api_router.get("/admin/statistics")
+async def get_admin_statistics(current_user: User = Depends(get_current_admin)):
+    """Get platform statistics (admin only)"""
+    # Total users
+    total_users = await db.users.count_documents({})
+    
+    # Total courses
+    total_courses = await db.courses.count_documents({})
+    
+    # Total credits distributed
+    all_credits = await db.user_credits.find({}, {"_id": 0}).to_list(length=None)
+    total_credits_distributed = sum(c.get("balance", 0) for c in all_credits)
+    total_credits_earned = sum(c.get("total_earned", 0) for c in all_credits)
+    total_credits_spent = sum(c.get("total_spent", 0) for c in all_credits)
+    
+    # Total billings
+    total_billings = await db.billings.count_documents({})
+    paid_billings = await db.billings.count_documents({"status": "paid"})
+    pending_billings = await db.billings.count_documents({"status": "pending"})
+    
+    # Total revenue (from paid billings)
+    billings_list = await db.billings.find({"status": "paid"}, {"_id": 0, "amount_brl": 1}).to_list(length=None)
+    total_revenue = sum(b.get("amount_brl", 0) for b in billings_list)
+    
+    return {
+        "users": {
+            "total": total_users
+        },
+        "courses": {
+            "total": total_courses
+        },
+        "credits": {
+            "total_distributed": total_credits_distributed,
+            "total_earned": total_credits_earned,
+            "total_spent": total_credits_spent
+        },
+        "billings": {
+            "total": total_billings,
+            "paid": paid_billings,
+            "pending": pending_billings
+        },
+        "revenue": {
+            "total_brl": total_revenue
+        }
+    }
+
     except Exception as e:
         logger.error(f"Error checking billing status: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to check status: {str(e)}")
