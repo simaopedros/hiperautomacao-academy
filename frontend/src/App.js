@@ -134,6 +134,46 @@ function App() {
               )
             }
           />
+          <Route
+            path="/buy-credits"
+            element={
+              user ? (
+                <BuyCredits user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/credit-history"
+            element={
+              user ? (
+                <CreditHistory user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/payment-success"
+            element={
+              user ? (
+                <PaymentSuccess user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/payment-cancelled"
+            element={
+              user ? (
+                <PaymentCancelled user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
         </Routes>
       </BrowserRouter>
     </div>
