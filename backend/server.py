@@ -1850,19 +1850,6 @@ async def get_referral_transactions(current_user: User = Depends(get_current_use
     
     return {"transactions": transactions}
 
-        
-        return {
-            "message": "Billing marked as paid successfully",
-            "credits_added": billing.get("credits"),
-            "course_enrolled": billing.get("course_id")
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error marking billing as paid: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to mark billing as paid: {str(e)}")
-
 # Get billing status
 @api_router.get("/billing/{billing_id}")
 async def get_billing_status(billing_id: str, current_user: User = Depends(get_current_user)):
