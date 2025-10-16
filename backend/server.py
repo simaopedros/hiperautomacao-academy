@@ -97,9 +97,20 @@ class CourseBase(BaseModel):
     thumbnail_url: Optional[str] = None
     category: Optional[str] = None
     published: bool = False
+    price_brl: Optional[float] = 0.0  # Price in BRL (R$)
+    price_credits: Optional[int] = 50  # Price in credits (default 50)
 
 class CourseCreate(CourseBase):
     pass
+
+class CourseUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    category: Optional[str] = None
+    published: Optional[bool] = None
+    price_brl: Optional[float] = None
+    price_credits: Optional[int] = None
 
 class Course(CourseBase):
     model_config = ConfigDict(extra="ignore")
