@@ -377,16 +377,9 @@ async def register(user_data: UserCreate):
     
     await db.users.insert_one(user_dict)
     
-    # Give bonus credits to referrer if applicable
+    # Log the referral for tracking (no bonus given at signup)
     if referrer_id:
-        await add_credit_transaction(
-            user_id=referrer_id,
-            amount=REFERRAL_SIGNUP_BONUS,
-            transaction_type="earned",
-            description=f"Bônus de indicação: {user.name} se cadastrou",
-            reference_id=user.id
-        )
-        logger.info(f"Awarded {REFERRAL_SIGNUP_BONUS} credits to referrer {referrer_id}")
+        logger.info(f"New user {user.email} registered with referral code from {referrer_id}")
     
     # Create token
     access_token = create_access_token(data={"sub": user.id})
