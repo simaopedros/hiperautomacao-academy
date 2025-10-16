@@ -797,7 +797,8 @@ function CourseManagement({ user, onLogout }) {
                                   type: lesson.type,
                                   content: lesson.content,
                                   duration: lesson.duration,
-                                  order: lesson.order
+                                  order: lesson.order,
+                                  links: lesson.links || []
                                 });
                                 setShowLessonDialog(true);
                               }}
