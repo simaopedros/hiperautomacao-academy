@@ -197,7 +197,7 @@ export default function CourseView({ user, onLogout }) {
                     {courseInfo.price_credits} créditos
                   </div>
                   <button
-                    onClick={() => navigate('/dashboard')}
+                    onClick={handleEnrollWithCredits}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg font-semibold transition-colors"
                   >
                     Matricular com Créditos
@@ -212,7 +212,7 @@ export default function CourseView({ user, onLogout }) {
                     R$ {courseInfo.price_brl.toFixed(2)}
                   </div>
                   <button
-                    onClick={() => navigate('/buy-credits')}
+                    onClick={handleBuyCourse}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold transition-colors"
                   >
                     Comprar Curso
