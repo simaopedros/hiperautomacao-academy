@@ -101,3 +101,38 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "CSV bulk import feature failing with 500 error when trying to import users"
+
+backend:
+  - task: "CSV Bulk User Import"
+    implemented: true
+    working: false
+    file: "/app/backend/server.py (lines 740-880)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "User reported 500 error when importing users via CSV"
+        - working: false
+          agent: "main"
+          comment: "Identified issues: synchronous email sending blocking async endpoint, no proper logging. Fixed by: 1) Added proper logging with logger, 2) Used ThreadPoolExecutor to run email sending asynchronously, 3) Added comprehensive error handling around email sending, 4) Moved imports to top of file"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "CSV Bulk User Import"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "Fixed bulk import endpoint with async email sending using ThreadPoolExecutor and proper error handling. Ready for testing."
