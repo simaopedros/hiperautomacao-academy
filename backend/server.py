@@ -1381,6 +1381,102 @@ async def abacatepay_webhook(request: dict):
         logger.error(f"Error processing webhook: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
+
+
+# Check payment status from Abacate Pay
+@api_router.get("/billing/{billing_id}/check-status")
+async def check_billing_status(billing_id: str, current_user: User = Depends(get_current_user)):
+    """Check billing status from Abacate Pay and update if paid"""
+    try:
+        # Get billing from database
+        billing = await db.billings.find_one(
+            {"billing_id": billing_id, "user_id": current_user.id},
+            {"_id": 0}
+        )
+        
+        if not billing:
+            raise HTTPException(status_code=404, detail="Billing not found")
+        
+        # If already paid, return immediately
+        if billing.get("status") == "paid":
+            return {"status": "paid", "message": "Payment already confirmed"}
+        
+        # Check status with Abacate Pay
+        async with httpx.AsyncClient() as client:
+            headers = {
+                "Authorization": f"Bearer {ABACATEPAY_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            
+            response = await client.get(
+                f"{ABACATEPAY_BASE_URL}/billing/{billing_id}",
+                headers=headers,
+                timeout=30.0
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"Abacate Pay API error: {response.status_code} - {response.text}")
+                return {"status": billing.get("status"), "message": "Could not check status"}
+            
+            billing_response = response.json()
+            data = billing_response.get("data", {})
+            status = data.get("status", "PENDING")
+            
+            logger.info(f"Billing {billing_id} status from API: {status}")
+            
+            # If paid, process the payment
+            if status == "PAID":
+                # Update billing status
+                await db.billings.update_one(
+                    {"billing_id": billing_id},
+                    {"$set": {
+                        "status": "paid",
+                        "paid_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
+                
+                user_id = billing["user_id"]
+                
+                # Process based on purchase type
+                if billing.get("credits"):
+                    # Credit package purchase - add credits to user
+                    await add_credit_transaction(
+                        user_id=user_id,
+                        amount=billing["credits"],
+                        transaction_type="purchased",
+                        description=f"Compra de {billing['credits']} créditos",
+                        reference_id=billing_id
+                    )
+                    logger.info(f"Added {billing['credits']} credits to user {user_id} via status check")
+                    
+                elif billing.get("course_id"):
+                    # Direct course purchase - create enrollment
+                    course_id = billing["course_id"]
+                    
+                    # Check if already enrolled
+                    existing_enrollment = await db.enrollments.find_one({
+                        "user_id": user_id,
+                        "course_id": course_id
+                    })
+                    
+                    if not existing_enrollment:
+                        enrollment = {
+                            "id": str(uuid.uuid4()),
+                            "user_id": user_id,
+                            "course_id": course_id,
+                            "enrolled_at": datetime.now(timezone.utc).isoformat()
+                        }
+                        await db.enrollments.insert_one(enrollment)
+                        logger.info(f"Enrolled user {user_id} in course {course_id} via status check")
+                
+                return {"status": "paid", "message": "Payment confirmed! Credits added."}
+            
+            return {"status": "pending", "message": "Payment still pending"}
+            
+    except Exception as e:
+        logger.error(f"Error checking billing status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to check status: {str(e)}")
+
 # Get billing status
 @api_router.get("/billing/{billing_id}")
 async def get_billing_status(billing_id: str, current_user: User = Depends(get_current_user)):
