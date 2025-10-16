@@ -254,11 +254,16 @@ export default function StudentDashboard({ user, onLogout }) {
                         {course.category}
                       </span>
                     )}
-                    {course.price_credits > 0 && (
+                    {course.price_credits > 0 && !course.is_enrolled && (
                       <div className="flex items-center gap-1 text-emerald-400 font-bold">
                         <Coins size={16} />
                         <span>{course.price_credits}</span>
                       </div>
+                    )}
+                    {course.is_enrolled && (
+                      <span className="inline-block bg-blue-500/10 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full">
+                        ✓ Matriculado
+                      </span>
                     )}
                   </div>
                   <h3 className="text-xl font-bold text-white mb-2 line-clamp-2">
@@ -267,21 +272,62 @@ export default function StudentDashboard({ user, onLogout }) {
                   <p className="text-gray-400 text-sm line-clamp-3 mb-4">
                     {course.description}
                   </p>
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2 text-gray-500">
-                      <Clock size={16} />
-                      <span>Ver curso</span>
+                  
+                  {/* Action Buttons */}
+                  {course.is_enrolled ? (
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 text-gray-500">
+                        <Clock size={16} />
+                        <span>Continuar</span>
+                      </div>
+                      <button
+                        className="text-emerald-400 font-semibold hover:text-emerald-300 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/course/${course.id}`);
+                        }}
+                      >
+                        Acessar →
+                      </button>
                     </div>
-                    <button
-                      className="text-emerald-400 font-semibold hover:text-emerald-300 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/course/${course.id}`);
-                      }}
-                    >
-                      Acessar →
-                    </button>
-                  </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {course.price_credits > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEnrollWithCredits(course.id, course.price_credits);
+                          }}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Coins size={16} />
+                          Matricular ({course.price_credits} créditos)
+                        </button>
+                      )}
+                      {course.price_brl > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBuyCourse(course.id);
+                          }}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors"
+                        >
+                          Comprar por R$ {course.price_brl.toFixed(2)}
+                        </button>
+                      )}
+                      {(!course.price_credits || course.price_credits === 0) && (!course.price_brl || course.price_brl === 0) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/course/${course.id}`);
+                          }}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors"
+                        >
+                          Ver Curso Gratuito
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
