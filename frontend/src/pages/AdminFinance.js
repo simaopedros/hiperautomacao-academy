@@ -173,7 +173,7 @@ export default function AdminFinance({ user, onLogout }) {
                   <DollarSign className="text-emerald-400" size={24} />
                 </div>
                 <p className="text-3xl font-bold text-white">
-                  {formatCurrency(statistics.revenue.total_brl)}
+                  {formatCurrency(statistics.revenue?.total_brl || 0)}
                 </p>
               </div>
 
@@ -183,10 +183,10 @@ export default function AdminFinance({ user, onLogout }) {
                   <CreditCard className="text-blue-400" size={24} />
                 </div>
                 <p className="text-3xl font-bold text-white">
-                  {statistics.billings.paid}
+                  {statistics.billings?.paid || 0}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {statistics.billings.pending} pendentes
+                  {statistics.billings?.pending || 0} pendentes
                 </p>
               </div>
 
@@ -196,10 +196,10 @@ export default function AdminFinance({ user, onLogout }) {
                   <Coins className="text-yellow-400" size={24} />
                 </div>
                 <p className="text-3xl font-bold text-white">
-                  {statistics.credits.total_distributed}
+                  {statistics.credits?.total_distributed || 0}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {statistics.credits.total_spent} gastos
+                  {statistics.credits?.total_spent || 0} gastos
                 </p>
               </div>
 
@@ -209,7 +209,7 @@ export default function AdminFinance({ user, onLogout }) {
                   <Users className="text-purple-400" size={24} />
                 </div>
                 <p className="text-3xl font-bold text-white">
-                  {statistics.users.total}
+                  {statistics.users?.total || 0}
                 </p>
               </div>
             </div>
