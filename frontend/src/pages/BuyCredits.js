@@ -69,6 +69,20 @@ function BuyCredits() {
       return;
     }
 
+    // Check if Hotmart is active
+    if (gatewayConfig?.active_gateway === 'hotmart') {
+      // Find the package and redirect to Hotmart checkout
+      const pkg = packages.find(p => p.id === packageId);
+      if (pkg?.hotmart_checkout_url) {
+        window.location.href = pkg.hotmart_checkout_url;
+        return;
+      } else {
+        alert('Link de checkout da Hotmart não configurado para este pacote');
+        return;
+      }
+    }
+
+    // Abacate Pay flow
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
