@@ -832,11 +832,33 @@ async def like_comment(comment_id: str, current_user: User = Depends(get_current
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
     
+    # Check if user already liked this comment
+    existing_like = await db.likes.find_one({
+        "comment_id": comment_id,
+        "user_id": current_user.id
+    })
+    
+    if existing_like:
+        raise HTTPException(
+            status_code=400, 
+            detail="Você já curtiu este comentário"
+        )
+    
+    # Record the like
+    like_record = {
+        "id": str(uuid.uuid4()),
+        "comment_id": comment_id,
+        "user_id": current_user.id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.likes.insert_one(like_record)
+    
+    # Increment like count
     await db.comments.update_one({"id": comment_id}, {"$inc": {"likes": 1}})
     
-    # Give gamification reward to the comment author (not the liker)
+    # Give gamification reward to the comment author (not the liker) - only once per unique like
     comment_author_id = comment.get("user_id")
-    if comment_author_id:
+    if comment_author_id and comment_author_id != current_user.id:  # Don't reward self-likes
         await give_gamification_reward(
             user_id=comment_author_id,
             action_type="receive_like",
