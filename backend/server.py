@@ -1262,8 +1262,11 @@ async def create_billing(request: CreateBillingRequest, current_user: User = Dep
             
             billing_response = response.json()
             logger.info(f"Abacate Pay response: {billing_response}")
-            billing_id = billing_response.get("id")
-            payment_url = billing_response.get("url")
+            
+            # Extract data from the response structure
+            data = billing_response.get("data", {})
+            billing_id = data.get("id")
+            payment_url = data.get("url")
             
             # Save billing to database
             billing_record = {
