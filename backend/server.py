@@ -730,9 +730,10 @@ def send_brevo_email(to_email: str, to_name: str, subject: str, html_content: st
         )
         
         api_response = api_instance.send_transac_email(send_smtp_email)
+        logger.info(f"Email sent successfully to {to_email}")
         return True
     except Exception as e:
-        print(f"Error sending email: {e}")
+        logger.error(f"Error sending email to {to_email}: {str(e)}")
         return False
 
 @api_router.post("/admin/bulk-import")
