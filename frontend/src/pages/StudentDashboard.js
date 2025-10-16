@@ -21,7 +21,7 @@ export default function StudentDashboard({ user, onLogout }) {
 
   const fetchGatewayConfig = async () => {
     try {
-      const response = await axios.get(`${API}/admin/gateway-config`);
+      const response = await axios.get(`${API}/gateway/active`);
       setGatewayConfig(response.data);
     } catch (error) {
       console.error('Error fetching gateway config:', error);
