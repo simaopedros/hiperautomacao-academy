@@ -2275,6 +2275,45 @@ def send_password_creation_email(email: str, name: str, password_link: str):
     except Exception as e:
         logger.error(f"Failed to send welcome email to {email}: {e}")
 
+# Get credit packages with Hotmart IDs
+@api_router.get("/admin/credit-packages-config")
+async def get_credit_packages_config(current_user: User = Depends(get_current_admin)):
+    """Get credit packages configuration including Hotmart product IDs"""
+    config = await db.credit_packages_config.find_one({}, {"_id": 0})
+    
+    if not config:
+        # Return default packages
+        return {"packages": CREDIT_PACKAGES}
+    
+    return config
+
+# Update credit packages Hotmart IDs
+@api_router.post("/admin/credit-packages-config")
+async def update_credit_packages_config(
+    packages: List[dict],
+    current_user: User = Depends(get_current_admin)
+):
+    """Update credit packages Hotmart product IDs"""
+    config = {
+        "packages": packages,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_by": current_user.email
+    }
+    
+    await db.credit_packages_config.update_one(
+        {},
+        {"$set": config},
+        upsert=True
+    )
+    
+    # Update global CREDIT_PACKAGES variable
+    global CREDIT_PACKAGES
+    CREDIT_PACKAGES = packages
+    
+    logger.info(f"Admin {current_user.email} updated credit packages configuration")
+    
+    return {"message": "Credit packages configuration updated successfully"}
+
 
 # ==================== REFERRAL SYSTEM ====================
 
