@@ -86,6 +86,42 @@ export default function StudentDashboard({ user, onLogout }) {
         </div>
       </header>
 
+      {/* Credits Banner */}
+      {userCredits && (
+        <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 border-b border-emerald-500">
+          <div className="max-w-7xl mx-auto px-6 py-6">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-6">
+                <div className="bg-white/20 p-4 rounded-xl">
+                  <Coins size={32} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-emerald-100 text-sm mb-1">Seu Saldo de Créditos</p>
+                  <p className="text-4xl font-bold text-white">{userCredits.balance}</p>
+                  <p className="text-emerald-100 text-sm mt-1">créditos disponíveis</p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => navigate('/credit-history')}
+                  className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-lg font-semibold transition-all"
+                >
+                  <History size={18} />
+                  Histórico
+                </button>
+                <button
+                  onClick={() => navigate('/buy-credits')}
+                  className="flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald-600 px-6 py-3 rounded-lg font-semibold transition-all"
+                >
+                  <Coins size={18} />
+                  Comprar Créditos
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-12">
