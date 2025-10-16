@@ -283,6 +283,17 @@ function CourseList({ onLogout, user }) {
                   />
                   <p className="text-xs text-gray-500 mt-1">Configure se vender este curso pela Hotmart</p>
                 </div>
+                <div>
+                  <Label>URL Checkout Hotmart (Opcional)</Label>
+                  <Input
+                    type="url"
+                    value={formData.hotmart_checkout_url || ''}
+                    onChange={(e) => setFormData({ ...formData, hotmart_checkout_url: e.target.value })}
+                    placeholder="https://pay.hotmart.com/..."
+                    className="bg-[#111111] border-[#2a2a2a]"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Link do checkout da Hotmart para este curso</p>
+                </div>
                 <div className="flex items-center gap-2">
                   <input
                     data-testid="course-published-checkbox"
