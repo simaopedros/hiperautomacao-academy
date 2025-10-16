@@ -1473,6 +1473,9 @@ async def check_billing_status(billing_id: str, current_user: User = Depends(get
             
             return {"status": "pending", "message": "Payment still pending"}
             
+    except Exception as e:
+        logger.error(f"Error checking billing status: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to check status: {str(e)}")
 
 
 # ==================== ADMIN CREDITS & PAYMENTS MANAGEMENT ====================
