@@ -16,7 +16,7 @@ import uuid
 BACKEND_URL = "https://hiperlearn.preview.emergentagent.com/api"
 ADMIN_EMAIL = "admin@exemplo.com"
 ADMIN_PASSWORD = "admin123"
-STUDENT_EMAIL = "student@exemplo.com"
+STUDENT_EMAIL = f"student{int(time.time())}@exemplo.com"
 STUDENT_PASSWORD = "student123"
 
 class GamificationTester:
