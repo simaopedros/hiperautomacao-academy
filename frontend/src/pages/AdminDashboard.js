@@ -106,7 +106,7 @@ function CourseList({ onLogout, user }) {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <h1 className="text-2xl font-bold gradient-text">Hiperautomação Admin</h1>
-            <nav className="flex gap-4">
+            <nav className="flex gap-6">
               <button
                 onClick={() => navigate('/admin')}
                 className="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-colors"
@@ -128,46 +128,94 @@ function CourseList({ onLogout, user }) {
                 <MessageCircle size={20} />
                 Comunidade
               </button>
-              <button
-                onClick={() => navigate('/admin/finance')}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Finanças
-              </button>
-              <button
-                onClick={() => navigate('/admin/payment-settings')}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Config. Pagamentos
-              </button>
-              <button
-                onClick={() => navigate('/admin/gamification')}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-              >
-                <Gift size={20} />
-                Gamificação
-              </button>
-              <button
-                onClick={() => navigate('/admin/gateway')}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-              >
-                <CreditCard size={20} />
-                Gateway
-              </button>
-              <button
-                onClick={() => navigate('/admin/credit-packages')}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-              >
-                <Package size={20} />
-                Pacotes
-              </button>
+              
+              {/* Financeiro Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setShowFinanceMenu(!showFinanceMenu);
+                    setShowSystemMenu(false);
+                  }}
+                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  <DollarSign size={20} />
+                  Financeiro
+                  <ChevronDown size={16} />
+                </button>
+                {showFinanceMenu && (
+                  <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
+                    <button
+                      onClick={() => {
+                        navigate('/admin/finance');
+                        setShowFinanceMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
+                    >
+                      <DollarSign size={16} />
+                      Finanças
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate('/admin/gateway');
+                        setShowFinanceMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
+                    >
+                      <CreditCard size={16} />
+                      Gateway
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate('/admin/payment-settings');
+                        setShowFinanceMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
+                    >
+                      <Settings size={16} />
+                      Config. Pagamentos
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigate('/admin/credit-packages');
+                        setShowFinanceMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
+                    >
+                      <Package size={16} />
+                      Pacotes de Créditos
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Sistema Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setShowSystemMenu(!showSystemMenu);
+                    setShowFinanceMenu(false);
+                  }}
+                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  <Settings size={20} />
+                  Sistema
+                  <ChevronDown size={16} />
+                </button>
+                {showSystemMenu && (
+                  <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
+                    <button
+                      onClick={() => {
+                        navigate('/admin/gamification');
+                        setShowSystemMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-lg"
+                    >
+                      <Gift size={16} />
+                      Gamificação
+                    </button>
+                  </div>
+                )}
+              </div>
             </nav>
           </div>
           <div className="flex items-center gap-4">
