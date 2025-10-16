@@ -53,7 +53,10 @@ async def generate_referral_code():
     import random
     import string
     while True:
-
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        existing = await db.users.find_one({"referral_code": code})
+        if not existing:
+            return code
 
 # Migration: Add referral codes to existing users
 async def migrate_referral_codes():
