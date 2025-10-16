@@ -12,6 +12,8 @@ import BuyCredits from '@/pages/BuyCredits';
 import CreditHistory from '@/pages/CreditHistory';
 import PaymentSuccess from '@/pages/PaymentSuccess';
 import PaymentCancelled from '@/pages/PaymentCancelled';
+import AdminFinance from '@/pages/AdminFinance';
+import PaymentSettings from '@/pages/PaymentSettings';
 
 function App() {
   const [user, setUser] = useState(null);
