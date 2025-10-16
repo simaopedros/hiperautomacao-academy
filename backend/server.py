@@ -2149,8 +2149,9 @@ async def hotmart_webhook(webhook_data: dict):
                     break
         
         if not course and not credit_package:
-            logger.warning(f"⚠️  No course or credit package found for Hotmart product ID: {prod_id}")
-            return {"message": "Product not found in system"}
+            logger.warning(f"⚠️  No course or credit package found for Hotmart product ID/UCODE: {prod_id}")
+            logger.warning(f"📋 Product name from webhook: {prod_name}")
+            return {"message": "Product not found in system", "product_id": prod_id, "product_name": prod_name}
         
         # Get or create user
         user = await db.users.find_one({"email": email})
