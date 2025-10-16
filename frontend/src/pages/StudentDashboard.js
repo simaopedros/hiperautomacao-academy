@@ -103,9 +103,28 @@ export default function StudentDashboard({ user, onLogout }) {
     }
   };
 
-  const handleBuyCourse = async (courseId) => {
-    navigate('/buy-credits'); // For now, redirect to buy credits
-    // TODO: Implement direct course purchase
+  const handleBuyCourse = async (courseId, courseName) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API}/billing/create`,
+        {
+          course_id: courseId,
+          customer_name: user.name,
+          customer_email: user.email
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Save billing ID for status checking
+      localStorage.setItem('last_billing_id', response.data.billing_id);
+
+      // Redirect to payment URL
+      window.location.href = response.data.payment_url;
+    } catch (error) {
+      console.error('Error creating billing:', error);
+      alert(error.response?.data?.detail || 'Erro ao criar pagamento');
+    }
   };
 
   return (
