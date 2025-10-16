@@ -61,7 +61,7 @@ function CourseList({ onLogout, user }) {
       }
       setShowDialog(false);
       setEditingCourse(null);
-      setFormData({ title: '', description: '', thumbnail_url: '', category: '', published: false, price_brl: 0, price_credits: 50 });
+      setFormData({ title: '', description: '', thumbnail_url: '', category: '', published: false, price_brl: 0, price_credits: 50, hotmart_product_id: '' });
       fetchCourses();
     } catch (error) {
       console.error('Error saving course:', error);
@@ -77,7 +77,8 @@ function CourseList({ onLogout, user }) {
       category: course.category || '',
       published: course.published,
       price_brl: course.price_brl || 0,
-      price_credits: course.price_credits || 50
+      price_credits: course.price_credits || 50,
+      hotmart_product_id: course.hotmart_product_id || ''
     });
     setShowDialog(true);
   };
