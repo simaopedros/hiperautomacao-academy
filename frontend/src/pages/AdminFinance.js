@@ -78,6 +78,27 @@ export default function AdminFinance({ user, onLogout }) {
     }
   };
 
+  const handleMarkPaid = async (billingId) => {
+    if (!confirm('Tem certeza que deseja marcar este pagamento como PAGO? Esta ação irá processar os créditos/matrícula.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API}/api/admin/billings/${billingId}/mark-paid`,
+        null,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      alert('✅ ' + response.data.message);
+      fetchData(); // Refresh data
+    } catch (error) {
+      console.error('Error marking as paid:', error);
+      alert(error.response?.data?.detail || 'Erro ao confirmar pagamento');
+    }
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString('pt-BR');
   };
