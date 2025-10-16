@@ -176,6 +176,26 @@ function App() {
               )
             }
           />
+          <Route
+            path="/admin/finance"
+            element={
+              user && user.role === 'admin' ? (
+                <AdminFinance user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/admin/payment-settings"
+            element={
+              user && user.role === 'admin' ? (
+                <PaymentSettings user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
         </Routes>
       </BrowserRouter>
     </div>
