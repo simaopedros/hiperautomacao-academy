@@ -873,11 +873,10 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                 imported_count += 1
                 
             except Exception as e:
-                print(f"Error processing row: {e}")
-                import traceback
-                traceback.print_exc()
+                logger.error(f"Error processing row: {e}")
                 errors.append(f"Error processing {email if 'email' in locals() else 'unknown'}: {str(e)}")
         
+        logger.info(f"Import completed. {imported_count} users processed.")
         return {
             "message": f"Import completed. {imported_count} users processed.",
             "imported_count": imported_count,
@@ -885,9 +884,7 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
         }
         
     except Exception as e:
-        print(f"Bulk import failed: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Bulk import failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
 
 @api_router.post("/create-password")
