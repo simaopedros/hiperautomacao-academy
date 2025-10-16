@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Backend Test Suite for CSV Bulk User Import Functionality
-Tests the /api/admin/bulk-import endpoint with comprehensive scenarios
+Backend Test Suite for Credits System and Abacate Pay Integration
+Tests all credit-related endpoints and payment integration scenarios
 """
 
 import requests
@@ -11,11 +11,14 @@ import time
 import sys
 import os
 from datetime import datetime
+import uuid
 
 # Configuration
 BACKEND_URL = "https://hiperautomacao.preview.emergentagent.com/api"
 ADMIN_EMAIL = "admin@admin.com"
 ADMIN_PASSWORD = "admin"
+STUDENT_EMAIL = "student@test.com"
+STUDENT_PASSWORD = "student123"
 
 class BulkImportTester:
     def __init__(self):
