@@ -57,6 +57,52 @@ export default function CourseView({ user, onLogout }) {
     }
   };
 
+  const handleEnrollWithCredits = async () => {
+    if (!courseInfo) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${API}/courses/${courseId}/enroll-with-credits`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      alert('✅ Matrícula realizada com sucesso!');
+      // Refresh page to show course content
+      window.location.reload();
+    } catch (error) {
+      console.error('Error enrolling:', error);
+      alert(error.response?.data?.detail || 'Erro ao se matricular');
+    }
+  };
+
+  const handleBuyCourse = async () => {
+    if (!courseInfo) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API}/billing/create`,
+        {
+          course_id: courseId,
+          customer_name: user.name,
+          customer_email: user.email
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Save billing ID for status checking
+      localStorage.setItem('last_billing_id', response.data.billing_id);
+
+      // Redirect to payment URL
+      window.location.href = response.data.payment_url;
+    } catch (error) {
+      console.error('Error creating billing:', error);
+      alert(error.response?.data?.detail || 'Erro ao criar pagamento');
+    }
+  };
+
   const fetchProgress = async () => {
     try {
       const token = localStorage.getItem('token');
