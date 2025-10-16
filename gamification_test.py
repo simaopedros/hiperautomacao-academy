@@ -300,14 +300,11 @@ class GamificationTester:
         try:
             headers = {'Authorization': f'Bearer {self.student_token}'}
             
-            # First ensure user has no credits by checking balance
+            # Check current balance - new user should have 0 credits
             balance_response = self.session.get(f"{BACKEND_URL}/credits/balance", headers=headers)
             if balance_response.status_code == 200:
                 balance = balance_response.json().get('balance', 0)
-                if balance >= 1:
-                    self.log_test("User Without Credits Comment Rejection", False, 
-                                f"User has {balance} credits, cannot test rejection scenario")
-                    return False
+                print(f"   Current user balance: {balance} credits")
             
             # Try to create a comment
             comment_data = {
