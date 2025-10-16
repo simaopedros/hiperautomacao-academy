@@ -609,29 +609,30 @@ async def remove_user_from_course(user_id: str, course_id: str, current_user: Us
 
 # ==================== STUDENT ROUTES ====================
 
-@api_router.get("/student/courses", response_model=List[Course])
+@api_router.get("/student/courses")
 async def get_published_courses(current_user: User = Depends(get_current_user)):
-    # If user has full_access, return all published courses
-    if current_user.full_access:
-        courses = await db.courses.find({"published": True}, {"_id": 0}).to_list(1000)
-    else:
-        # Get user's enrolled courses
-        enrollments = await db.enrollments.find({"user_id": current_user.id}).to_list(1000)
-        enrolled_course_ids = [e["course_id"] for e in enrollments]
-        
-        if not enrolled_course_ids:
-            return []
-        
-        # Return only enrolled courses that are published
-        courses = await db.courses.find({
-            "published": True,
-            "id": {"$in": enrolled_course_ids}
-        }, {"_id": 0}).to_list(1000)
+    """Get all published courses with enrollment status"""
+    # Get all published courses
+    courses = await db.courses.find({"published": True}, {"_id": 0}).to_list(1000)
     
+    # Get user's enrollments
+    enrollments = await db.enrollments.find({"user_id": current_user.id}).to_list(1000)
+    enrolled_course_ids = [e["course_id"] for e in enrollments]
+    
+    # Add enrollment status to each course
+    result = []
     for course in courses:
         if isinstance(course['created_at'], str):
             course['created_at'] = datetime.fromisoformat(course['created_at'])
-    return courses
+        
+        # Add enrollment info
+        course_data = dict(course)
+        course_data['is_enrolled'] = course['id'] in enrolled_course_ids or current_user.full_access
+        course_data['has_access'] = course['id'] in enrolled_course_ids or current_user.full_access
+        
+        result.append(course_data)
+    
+    return result
 
 @api_router.get("/student/courses/{course_id}")
 async def get_course_detail(course_id: str, current_user: User = Depends(get_current_user)):
