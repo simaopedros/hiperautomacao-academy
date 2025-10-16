@@ -681,6 +681,74 @@ function CourseManagement({ user, onLogout }) {
                             className="bg-[#111111] border-[#2a2a2a]"
                           />
                         </div>
+
+                        {/* Links Section */}
+                        <div className="border-t border-[#2a2a2a] pt-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <Label>Links Adicionais</Label>
+                            <Button
+                              type="button"
+                              onClick={() => {
+                                const newLinks = [...(lessonForm.links || []), { title: '', url: '' }];
+                                setLessonForm({ ...lessonForm, links: newLinks });
+                              }}
+                              size="sm"
+                              className="bg-cyan-500 hover:bg-cyan-600"
+                            >
+                              <Plus size={14} className="mr-1" /> Adicionar Link
+                            </Button>
+                          </div>
+                          
+                          {lessonForm.links && lessonForm.links.length > 0 && (
+                            <div className="space-y-3">
+                              {lessonForm.links.map((link, index) => (
+                                <div key={index} className="bg-[#111111] p-3 rounded-lg border border-[#2a2a2a] space-y-2">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <span className="text-xs text-gray-400">Link {index + 1}</span>
+                                    <Button
+                                      type="button"
+                                      onClick={() => {
+                                        const newLinks = lessonForm.links.filter((_, i) => i !== index);
+                                        setLessonForm({ ...lessonForm, links: newLinks });
+                                      }}
+                                      size="sm"
+                                      variant="ghost"
+                                      className="text-red-400 hover:text-red-300 h-6 w-6 p-0"
+                                    >
+                                      <Trash2 size={12} />
+                                    </Button>
+                                  </div>
+                                  <Input
+                                    placeholder="Título do link"
+                                    value={link.title}
+                                    onChange={(e) => {
+                                      const newLinks = [...lessonForm.links];
+                                      newLinks[index].title = e.target.value;
+                                      setLessonForm({ ...lessonForm, links: newLinks });
+                                    }}
+                                    className="bg-[#0a0a0a] border-[#2a2a2a] text-sm"
+                                  />
+                                  <Input
+                                    placeholder="https://..."
+                                    value={link.url}
+                                    onChange={(e) => {
+                                      const newLinks = [...lessonForm.links];
+                                      newLinks[index].url = e.target.value;
+                                      setLessonForm({ ...lessonForm, links: newLinks });
+                                    }}
+                                    className="bg-[#0a0a0a] border-[#2a2a2a] text-sm"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {(!lessonForm.links || lessonForm.links.length === 0) && (
+                            <p className="text-xs text-gray-500 text-center py-4">
+                              Nenhum link adicionado. Clique em "Adicionar Link" para começar.
+                            </p>
+                          )}
+                        </div>
+
                         <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600">
                           {editingLesson ? 'Atualizar' : 'Criar'}
                         </Button>
