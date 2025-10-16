@@ -23,8 +23,13 @@ export default function LessonPlayer({ user, onLogout }) {
   useEffect(() => {
     fetchLesson();
     fetchComments();
-    checkProgress();
   }, [lessonId]);
+
+  useEffect(() => {
+    if (courseData) {
+      checkProgress();
+    }
+  }, [courseData, lessonId]);
 
   const fetchLesson = async () => {
     try {
