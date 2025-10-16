@@ -123,6 +123,7 @@ class User(UserBase):
     avatar: Optional[str] = None
     referral_code: str = ""  # This user's unique referral code
     referred_by: Optional[str] = None  # User ID of who referred this user
+    has_purchased: bool = False  # Whether user has made any purchase
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class Token(BaseModel):
