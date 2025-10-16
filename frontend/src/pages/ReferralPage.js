@@ -105,7 +105,7 @@ export default function ReferralPage({ user, onLogout }) {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
           <div className="bg-[#111111] rounded-xl p-6 border border-[#252525]">
             <div className="flex items-center justify-between mb-2">
               <p className="text-gray-400">Total de Indicados</p>
@@ -116,19 +116,13 @@ export default function ReferralPage({ user, onLogout }) {
 
           <div className="bg-[#111111] rounded-xl p-6 border border-[#252525]">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-gray-400">Créditos Ganhos</p>
+              <p className="text-gray-400">Créditos Ganhos por Indicação</p>
               <Gift className="text-emerald-400" size={24} />
             </div>
             <p className="text-4xl font-bold text-white">{referralInfo?.total_credits_earned || 0}</p>
-          </div>
-
-          <div className="bg-[#111111] rounded-xl p-6 border border-[#252525]">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-gray-400">Bônus por Cadastro</p>
-              <TrendingUp className="text-yellow-400" size={24} />
-            </div>
-            <p className="text-4xl font-bold text-white">{referralInfo?.signup_bonus || 0}</p>
-            <p className="text-sm text-gray-500 mt-1">créditos</p>
+            <p className="text-sm text-gray-500 mt-1">
+              {referralInfo?.purchase_percentage}% das compras dos indicados
+            </p>
           </div>
         </div>
 
