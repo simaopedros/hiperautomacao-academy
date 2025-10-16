@@ -829,15 +829,28 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                     </html>
                     """
                     
-                    send_brevo_email(
-                        to_email=email,
-                        to_name=name,
-                        subject="Bem-vindo à Hiperautomação - Crie sua senha",
-                        html_content=html_content,
-                        api_key=email_config['brevo_api_key'],
-                        sender_email=email_config['sender_email'],
-                        sender_name=email_config['sender_name']
-                    )
+                    # Send email in a thread pool to avoid blocking
+                    loop = asyncio.get_event_loop()
+                    try:
+                        email_sent = await loop.run_in_executor(
+                            executor,
+                            send_brevo_email,
+                            email,
+                            name,
+                            "Bem-vindo à Hiperautomação - Crie sua senha",
+                            html_content,
+                            email_config['brevo_api_key'],
+                            email_config['sender_email'],
+                            email_config['sender_name']
+                        )
+                        if email_sent:
+                            logger.info(f"Successfully sent invitation email to {email}")
+                        else:
+                            logger.warning(f"Failed to send email to {email}, but continuing import")
+                            errors.append(f"Failed to send email to {email}")
+                    except Exception as email_error:
+                        logger.error(f"Error sending email to {email}: {email_error}")
+                        errors.append(f"Email error for {email}: {str(email_error)}")
                     
                     imported_count += 1
                     continue
