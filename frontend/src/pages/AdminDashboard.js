@@ -16,6 +16,8 @@ function CourseList({ onLogout, user }) {
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
+  const [showFinanceMenu, setShowFinanceMenu] = useState(false);
+  const [showSystemMenu, setShowSystemMenu] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
