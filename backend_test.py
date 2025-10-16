@@ -14,7 +14,7 @@ from datetime import datetime
 import uuid
 
 # Configuration
-BACKEND_URL = "https://hiperautomacao.preview.emergentagent.com/api"
+BACKEND_URL = "https://hiperlearn.preview.emergentagent.com/api"
 ADMIN_EMAIL = "admin@admin.com"
 ADMIN_PASSWORD = "admin"
 STUDENT_EMAIL = "student@test.com"
