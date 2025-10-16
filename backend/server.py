@@ -151,6 +151,7 @@ class CourseBase(BaseModel):
     price_brl: Optional[float] = 0.0  # Price in BRL (R$)
     price_credits: Optional[int] = 50  # Price in credits (default 50)
     hotmart_product_id: Optional[str] = None  # Hotmart product ID
+    hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL
 
 class CourseCreate(CourseBase):
     pass
@@ -164,6 +165,7 @@ class CourseUpdate(BaseModel):
     price_brl: Optional[float] = None
     price_credits: Optional[int] = None
     hotmart_product_id: Optional[str] = None  # Hotmart product ID
+    hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL
 
 class Course(CourseBase):
     model_config = ConfigDict(extra="ignore")
