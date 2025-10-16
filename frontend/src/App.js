@@ -8,6 +8,10 @@ import CourseView from '@/pages/CourseView';
 import LessonPlayer from '@/pages/LessonPlayer';
 import SocialFeed from '@/pages/SocialFeed';
 import CreatePassword from '@/pages/CreatePassword';
+import BuyCredits from '@/pages/BuyCredits';
+import CreditHistory from '@/pages/CreditHistory';
+import PaymentSuccess from '@/pages/PaymentSuccess';
+import PaymentCancelled from '@/pages/PaymentCancelled';
 
 function App() {
   const [user, setUser] = useState(null);
