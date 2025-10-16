@@ -43,6 +43,10 @@ export default function StudentDashboard({ user, onLogout }) {
     }
   };
 
+  const handleRefreshCredits = async () => {
+    await fetchCredits();
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       {/* Header */}
