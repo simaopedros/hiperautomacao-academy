@@ -7,6 +7,7 @@ import StudentDashboard from '@/pages/StudentDashboard';
 import CourseView from '@/pages/CourseView';
 import LessonPlayer from '@/pages/LessonPlayer';
 import SocialFeed from '@/pages/SocialFeed';
+import CreatePassword from '@/pages/CreatePassword';
 
 function App() {
   const [user, setUser] = useState(null);
