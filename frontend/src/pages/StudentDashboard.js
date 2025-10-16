@@ -117,10 +117,17 @@ export default function StudentDashboard({ user, onLogout }) {
   };
 
   const handleBuyCourse = async (courseId, courseName) => {
+    console.log('Gateway Config:', gatewayConfig);
+    console.log('Active Gateway:', gatewayConfig?.active_gateway);
+    
     // Check if Hotmart is active
     if (gatewayConfig?.active_gateway === 'hotmart') {
+      console.log('Using Hotmart gateway');
       // Find the course and redirect to Hotmart checkout
       const course = courses.find(c => c.id === courseId);
+      console.log('Course found:', course);
+      console.log('Hotmart checkout URL:', course?.hotmart_checkout_url);
+      
       if (course?.hotmart_checkout_url) {
         window.location.href = course.hotmart_checkout_url;
         return;
@@ -130,6 +137,7 @@ export default function StudentDashboard({ user, onLogout }) {
       }
     }
 
+    console.log('Using Abacate Pay gateway');
     // Abacate Pay flow
     try {
       const token = localStorage.getItem('token');
