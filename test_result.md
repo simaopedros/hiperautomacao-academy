@@ -204,9 +204,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Páginas de Compra de Créditos"
-    - "Dashboard com Créditos"
-    - "Admin - Editar Preços"
+    - "Sistema de Gamificação - Backend"
+    - "Admin - Configurar Gamificação"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
