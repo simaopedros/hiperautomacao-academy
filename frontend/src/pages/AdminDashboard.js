@@ -411,7 +411,7 @@ function CourseManagement({ user, onLogout }) {
       }
       setShowLessonDialog(false);
       setEditingLesson(null);
-      setLessonForm({ title: '', type: 'video', content: '', duration: 0, order: 0 });
+      setLessonForm({ title: '', type: 'video', content: '', duration: 0, order: 0, links: [] });
       fetchLessons(selectedModule.id);
     } catch (error) {
       console.error('Error saving lesson:', error);
