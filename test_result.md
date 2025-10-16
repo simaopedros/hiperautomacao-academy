@@ -102,7 +102,7 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Implementar sistema completo de créditos com Abacate Pay (Fases 1-3)"
+user_problem_statement: "Implementar sistema completo de créditos com Abacate Pay (Fases 1-3) + Sistema de Gamificação"
 
 backend:
   - task: "Sistema de Créditos - Base"
