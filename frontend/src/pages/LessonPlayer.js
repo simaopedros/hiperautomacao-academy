@@ -12,6 +12,8 @@ export default function LessonPlayer({ user, onLogout }) {
   const { lessonId } = useParams();
   const navigate = useNavigate();
   const [lesson, setLesson] = useState(null);
+  const [courseData, setCourseData] = useState(null);
+  const [nextLesson, setNextLesson] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [replyTo, setReplyTo] = useState(null);
@@ -29,10 +31,67 @@ export default function LessonPlayer({ user, onLogout }) {
         headers: { Authorization: `Bearer ${token}` }
       });
       setLesson(response.data);
+      
+      // Fetch full course data to find next lesson
+      await fetchCourseAndFindNext(response.data.module_id, token);
     } catch (error) {
       console.error('Error fetching lesson:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCourseAndFindNext = async (moduleId, token) => {
+    try {
+      // Get module to find course
+      const modulesResponse = await axios.get(`${API}/admin/modules/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // Find the course by checking all modules
+      let currentCourseId = null;
+      for (const mod of modulesResponse.data) {
+        if (mod.id === moduleId) {
+          currentCourseId = mod.course_id;
+          break;
+        }
+      }
+      
+      if (!currentCourseId) return;
+      
+      // Get full course data with modules and lessons
+      const courseResponse = await axios.get(`${API}/student/courses/${currentCourseId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setCourseData(courseResponse.data);
+      
+      // Find current lesson and next lesson
+      const modules = courseResponse.data.modules || [];
+      let foundCurrent = false;
+      
+      for (const module of modules) {
+        const lessons = module.lessons || [];
+        for (let i = 0; i < lessons.length; i++) {
+          if (foundCurrent) {
+            setNextLesson(lessons[i]);
+            return;
+          }
+          if (lessons[i].id === lessonId) {
+            foundCurrent = true;
+            // Check if there's a next lesson in same module
+            if (i < lessons.length - 1) {
+              setNextLesson(lessons[i + 1]);
+              return;
+            }
+          }
+        }
+      }
+      
+      // If no next lesson found, set to null
+      setNextLesson(null);
+    } catch (error) {
+      console.error('Error fetching course data:', error);
     }
   };
 
