@@ -60,6 +60,22 @@ export default function ReferralPage({ user, onLogout }) {
     );
   }
 
+  if (!referralInfo) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-white text-xl mb-4">Erro ao carregar informações de indicação</div>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg"
+          >
+            Voltar ao Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       {/* Header */}
