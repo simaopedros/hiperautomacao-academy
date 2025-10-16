@@ -312,25 +312,25 @@ export default function AdminFinance({ user, onLogout }) {
                         {formatDate(transaction.created_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-white">{transaction.user_name}</div>
-                        <div className="text-xs text-gray-500">{transaction.user_email}</div>
+                        <div className="text-sm text-white">{transaction.user_name || 'N/A'}</div>
+                        <div className="text-xs text-gray-500">{transaction.user_email || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-300">
-                        {transaction.description}
+                        {transaction.description || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-700 text-gray-300">
-                          {transaction.transaction_type}
+                          {transaction.transaction_type || 'unknown'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <span
                           className={
-                            transaction.amount > 0 ? 'text-emerald-400' : 'text-red-400'
+                            (transaction.amount || 0) > 0 ? 'text-emerald-400' : 'text-red-400'
                           }
                         >
-                          {transaction.amount > 0 ? '+' : ''}
-                          {transaction.amount}
+                          {(transaction.amount || 0) > 0 ? '+' : ''}
+                          {transaction.amount || 0}
                         </span>
                       </td>
                     </tr>
