@@ -262,6 +262,9 @@ export default function AdminFinance({ user, onLogout }) {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                       ID
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                      Ações
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#252525]">
@@ -293,6 +296,18 @@ export default function AdminFinance({ user, onLogout }) {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
                         {billing.billing_id ? billing.billing_id.substring(0, 20) + '...' : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {billing.status === 'pending' ? (
+                          <button
+                            onClick={() => handleMarkPaid(billing.billing_id)}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors"
+                          >
+                            Confirmar Pagamento
+                          </button>
+                        ) : (
+                          <span className="text-gray-600 text-xs">-</span>
+                        )}
                       </td>
                     </tr>
                   ))}
