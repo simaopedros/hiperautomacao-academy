@@ -9,13 +9,25 @@ function BuyCredits() {
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [userCredits, setUserCredits] = useState(null);
+  const [gatewayConfig, setGatewayConfig] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchPackages();
     fetchUserData();
     fetchCredits();
+    fetchGatewayConfig();
   }, []);
+
+  const fetchGatewayConfig = async () => {
+    try {
+      const response = await axios.get(`${API}/api/admin/gateway-config`);
+      setGatewayConfig(response.data);
+    } catch (error) {
+      console.error('Error fetching gateway config:', error);
+      setGatewayConfig({ active_gateway: 'abacatepay' });
+    }
+  };
 
   const fetchPackages = async () => {
     try {
