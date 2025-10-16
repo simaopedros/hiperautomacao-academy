@@ -774,6 +774,14 @@ async def get_course_progress(course_id: str, current_user: User = Depends(get_c
 
 @api_router.post("/comments", response_model=Comment)
 async def create_comment(comment_data: CommentCreate, current_user: User = Depends(get_current_user)):
+    # Check if user has at least 1 credit to participate in community
+    user_credits = await get_user_credits(current_user.id)
+    if user_credits["balance"] < 1:
+        raise HTTPException(
+            status_code=403, 
+            detail="Você precisa ter pelo menos 1 crédito para participar da comunidade. Compre créditos para começar!"
+        )
+    
     comment = Comment(
         **comment_data.model_dump(),
         user_id=current_user.id,
@@ -790,6 +798,22 @@ async def create_comment(comment_data: CommentCreate, current_user: User = Depen
         await db.comments.update_one(
             {"id": comment.parent_id},
             {"$inc": {"replies_count": 1}}
+        )
+    
+    # Give gamification reward
+    if comment.parent_id:
+        # This is a reply/comment
+        await give_gamification_reward(
+            user_id=current_user.id,
+            action_type="create_comment",
+            description="Comentário na comunidade"
+        )
+    else:
+        # This is a new post/discussion
+        await give_gamification_reward(
+            user_id=current_user.id,
+            action_type="create_post",
+            description="Nova discussão criada"
         )
     
     return comment
