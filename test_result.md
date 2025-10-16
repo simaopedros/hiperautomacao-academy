@@ -184,6 +184,18 @@ frontend:
           agent: "main"
           comment: "Adicionados campos de preço em R$ e créditos no formulário de curso."
 
+  - task: "Admin - Configurar Gamificação"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/GamificationSettings.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Criada página admin para configurar recompensas de gamificação (criar post, comentar, receber like, completar curso). Adicionada rota no App.js e link no AdminDashboard. Precisa testar."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
