@@ -300,14 +300,25 @@ export default function LessonPlayer({ user, onLogout }) {
 
             <Button
               data-testid="mark-completed-button"
-              onClick={markAsCompleted}
-              className="w-full bg-emerald-500 hover:bg-emerald-600 py-6"
+              onClick={toggleCompleted}
+              className={`w-full py-6 transition-all ${
+                isCompleted
+                  ? 'bg-gray-600 hover:bg-gray-700 border-2 border-emerald-500'
+                  : 'bg-emerald-500 hover:bg-emerald-600'
+              }`}
             >
               <div className="flex flex-col items-center">
-                <span className="font-semibold">Marcar como Concluído</span>
-                {nextLesson && (
+                <span className="font-semibold">
+                  {isCompleted ? '✓ Aula Concluída - Desmarcar?' : 'Marcar como Concluído'}
+                </span>
+                {!isCompleted && nextLesson && (
                   <span className="text-xs text-emerald-200 mt-1">
                     Próxima: {nextLesson.title}
+                  </span>
+                )}
+                {isCompleted && nextLesson && (
+                  <span className="text-xs text-gray-300 mt-1">
+                    Próxima aula: {nextLesson.title}
                   </span>
                 )}
               </div>
