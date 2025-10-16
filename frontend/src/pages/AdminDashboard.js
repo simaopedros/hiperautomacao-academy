@@ -60,7 +60,7 @@ function CourseList({ onLogout, user }) {
       }
       setShowDialog(false);
       setEditingCourse(null);
-      setFormData({ title: '', description: '', thumbnail_url: '', category: '', published: false });
+      setFormData({ title: '', description: '', thumbnail_url: '', category: '', published: false, price_brl: 0, price_credits: 50 });
       fetchCourses();
     } catch (error) {
       console.error('Error saving course:', error);
@@ -73,6 +73,10 @@ function CourseList({ onLogout, user }) {
       title: course.title,
       description: course.description,
       thumbnail_url: course.thumbnail_url || '',
+      category: course.category || '',
+      published: course.published,
+      price_brl: course.price_brl || 0,
+      price_credits: course.price_credits || 50
       category: course.category || '',
       published: course.published
     });
