@@ -50,9 +50,6 @@ REFERRAL_SIGNUP_BONUS = 10  # Credits given to referrer when someone signs up
 REFERRAL_PURCHASE_PERCENTAGE = 50  # Percentage of credits given to referrer
 
 # Helper function to generate unique referral code
-import random
-import string
-
 async def generate_referral_code():
     """Generate a unique 8-character referral code"""
     while True:
