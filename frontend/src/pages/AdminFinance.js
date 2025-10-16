@@ -250,14 +250,14 @@ export default function AdminFinance({ user, onLogout }) {
                         {formatDate(billing.created_at)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-white">{billing.user_name}</div>
-                        <div className="text-xs text-gray-500">{billing.user_email}</div>
+                        <div className="text-sm text-white">{billing.user_name || 'N/A'}</div>
+                        <div className="text-xs text-gray-500">{billing.user_email || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                        {billing.credits ? `${billing.credits} créditos` : 'Curso direto'}
+                        {billing.credits ? `${billing.credits} créditos` : billing.course_id ? 'Curso direto' : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
-                        {formatCurrency(billing.amount_brl)}
+                        {formatCurrency(billing.amount_brl || 0)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
