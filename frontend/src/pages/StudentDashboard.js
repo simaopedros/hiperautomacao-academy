@@ -144,6 +144,15 @@ export default function StudentDashboard({ user, onLogout }) {
               </div>
               <div className="flex gap-3">
                 <button
+                  onClick={checkPendingPayments}
+                  className="flex items-center gap-2 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 px-6 py-3 rounded-lg font-semibold transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Verificar Pagamento
+                </button>
+                <button
                   onClick={() => navigate('/credit-history')}
                   className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-lg font-semibold transition-all"
                 >
