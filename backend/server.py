@@ -1973,6 +1973,309 @@ async def admin_mark_billing_paid(billing_id: str, current_user: User = Depends(
         raise HTTPException(status_code=500, detail=f"Failed to mark billing as paid: {str(e)}")
 
 
+# ==================== HOTMART INTEGRATION ====================
+
+# Get payment gateway configuration
+@api_router.get("/admin/gateway-config")
+async def get_gateway_config(current_user: User = Depends(get_current_admin)):
+    """Get payment gateway configuration (admin only)"""
+    config = await db.gateway_config.find_one({}, {"_id": 0})
+    
+    if not config:
+        # Return default config
+        return {
+            "active_gateway": "abacatepay",
+            "hotmart_token": None
+        }
+    
+    return config
+
+# Update payment gateway configuration
+@api_router.post("/admin/gateway-config")
+async def update_gateway_config(
+    active_gateway: str,
+    hotmart_token: Optional[str] = None,
+    current_user: User = Depends(get_current_admin)
+):
+    """Update payment gateway configuration (admin only)"""
+    if active_gateway not in ["abacatepay", "hotmart"]:
+        raise HTTPException(status_code=400, detail="Invalid gateway. Must be 'abacatepay' or 'hotmart'")
+    
+    config = {
+        "active_gateway": active_gateway,
+        "hotmart_token": hotmart_token,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_by": current_user.email
+    }
+    
+    await db.gateway_config.update_one(
+        {},
+        {"$set": config},
+        upsert=True
+    )
+    
+    logger.info(f"Admin {current_user.email} updated gateway config to {active_gateway}")
+    
+    return {"message": "Gateway configuration updated successfully"}
+
+# Hotmart Webhook Endpoint
+@api_router.post("/hotmart/webhook")
+async def hotmart_webhook(webhook_data: dict):
+    """
+    Process Hotmart webhook for purchase notifications
+    Expected webhook format from Hotmart
+    """
+    try:
+        logger.info(f"🔔 Received Hotmart webhook: {webhook_data}")
+        
+        # Extract data from webhook
+        callback_type = webhook_data.get("callback_type", "")
+        status = webhook_data.get("status", "")
+        transaction = webhook_data.get("transaction", "")
+        prod_id = webhook_data.get("prod", "")
+        email = webhook_data.get("email", "")
+        name = webhook_data.get("name", "")
+        
+        # Validate hottok if configured
+        hottok = webhook_data.get("hottok", "")
+        gateway_config = await db.gateway_config.find_one({})
+        if gateway_config and gateway_config.get("hotmart_token"):
+            if hottok != gateway_config.get("hotmart_token"):
+                logger.warning(f"❌ Invalid Hotmart token received")
+                raise HTTPException(status_code=403, detail="Invalid hotmart token")
+        
+        # Store webhook data
+        webhook_record = {
+            "id": str(uuid.uuid4()),
+            "callback_type": callback_type,
+            "transaction": transaction,
+            "prod": prod_id,
+            "prod_name": webhook_data.get("prod_name", ""),
+            "status": status,
+            "email": email,
+            "name": name,
+            "purchase_date": webhook_data.get("purchase_date", ""),
+            "price": webhook_data.get("price", ""),
+            "currency": webhook_data.get("currency", ""),
+            "raw_data": webhook_data,
+            "processed": False,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.hotmart_webhooks.insert_one(webhook_record)
+        
+        # Only process approved purchases (status=approved, callback_type=1)
+        if status != "approved" or callback_type != "1":
+            logger.info(f"⏭️  Skipping webhook - status: {status}, callback_type: {callback_type}")
+            return {"message": "Webhook received but not processed (not approved purchase)"}
+        
+        # Find course or credit package by Hotmart product ID
+        course = await db.courses.find_one({"hotmart_product_id": prod_id})
+        credit_package = None
+        
+        # Check if it's a credit package
+        if not course:
+            for pkg in CREDIT_PACKAGES:
+                if pkg.get("hotmart_product_id") == prod_id:
+                    credit_package = pkg
+                    break
+        
+        if not course and not credit_package:
+            logger.warning(f"⚠️  No course or credit package found for Hotmart product ID: {prod_id}")
+            return {"message": "Product not found in system"}
+        
+        # Get or create user
+        user = await db.users.find_one({"email": email})
+        
+        if not user:
+            # Create new user
+            logger.info(f"👤 Creating new user from Hotmart purchase: {email}")
+            
+            # Generate password creation token
+            password_token = secrets.token_urlsafe(32)
+            
+            # Extract first and last name
+            name_parts = name.split(" ", 1)
+            first_name = name_parts[0] if len(name_parts) > 0 else name
+            last_name = name_parts[1] if len(name_parts) > 1 else ""
+            
+            user_id = str(uuid.uuid4())
+            referral_code = await generate_referral_code()
+            
+            new_user = {
+                "id": user_id,
+                "email": email,
+                "name": name,
+                "password": None,  # Will be set when user creates password
+                "role": "student",
+                "avatar": None,
+                "full_access": False,
+                "enrolled_courses": [],
+                "has_purchased": True,  # Mark as purchased
+                "referral_code": referral_code,
+                "referred_by": None,
+                "password_creation_token": password_token,
+                "password_token_expires": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            await db.users.insert_one(new_user)
+            user = new_user
+            
+            # Send welcome email with password creation link
+            try:
+                frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+                password_link = f"{frontend_url}/create-password?token={password_token}"
+                
+                # Send email in background
+                loop = asyncio.get_event_loop()
+                loop.run_in_executor(
+                    executor,
+                    send_password_creation_email,
+                    email,
+                    name,
+                    password_link
+                )
+                logger.info(f"📧 Welcome email sent to {email}")
+            except Exception as e:
+                logger.error(f"❌ Failed to send welcome email: {e}")
+        else:
+            # Mark existing user as having purchased
+            await db.users.update_one(
+                {"id": user["id"]},
+                {"$set": {"has_purchased": True}}
+            )
+            user["has_purchased"] = True
+        
+        user_id = user["id"]
+        
+        # Process based on type (course or credit package)
+        if course:
+            # Grant access to course
+            logger.info(f"🎓 Granting course access: {course['title']} to {email}")
+            
+            await db.users.update_one(
+                {"id": user_id},
+                {"$addToSet": {"enrolled_courses": course["id"]}}
+            )
+            
+            # Add credit transaction record
+            transaction_record = {
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "amount": 0,  # No credits, direct course access
+                "transaction_type": "course_purchase",
+                "description": f"Curso comprado via Hotmart: {course['title']}",
+                "reference_id": course["id"],
+                "hotmart_transaction": transaction,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.credit_transactions.insert_one(transaction_record)
+            
+            logger.info(f"✅ Course access granted for transaction {transaction}")
+            
+        elif credit_package:
+            # Add credits to user
+            credits_to_add = credit_package["credits"]
+            logger.info(f"💰 Adding {credits_to_add} credits to {email}")
+            
+            await add_credit_transaction(
+                user_id=user_id,
+                amount=credits_to_add,
+                transaction_type="purchased",
+                description=f"Créditos comprados via Hotmart: {credit_package['name']}",
+                reference_id=transaction
+            )
+            
+            logger.info(f"✅ Credits added for transaction {transaction}")
+        
+        # Mark webhook as processed
+        await db.hotmart_webhooks.update_one(
+            {"transaction": transaction},
+            {
+                "$set": {
+                    "processed": True,
+                    "processed_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+        
+        return {"message": "Webhook processed successfully"}
+        
+    except Exception as e:
+        logger.error(f"❌ Error processing Hotmart webhook: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error processing webhook: {str(e)}")
+
+# Helper function to send password creation email
+def send_password_creation_email(email: str, name: str, password_link: str):
+    """Send password creation email to new user from Hotmart"""
+    try:
+        import sib_api_v3_sdk
+        from sib_api_v3_sdk.rest import ApiException
+        
+        # Get Brevo configuration
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        async def get_config():
+            return await db.email_config.find_one({})
+        
+        config = loop.run_until_complete(get_config())
+        loop.close()
+        
+        if not config:
+            logger.warning("No email configuration found, skipping welcome email")
+            return
+        
+        configuration = sib_api_v3_sdk.Configuration()
+        configuration.api_key['api-key'] = config.get('api_key')
+        
+        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
+        
+        sender = {
+            "name": config.get('sender_name', 'Hiperautomação'),
+            "email": config.get('sender_email')
+        }
+        
+        to = [{"email": email, "name": name}]
+        
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #10b981;">Bem-vindo à Hiperautomação! 🎉</h2>
+            <p>Olá {name},</p>
+            <p>Sua compra foi confirmada com sucesso! Agora você precisa criar sua senha para acessar a plataforma.</p>
+            <p style="margin: 30px 0;">
+                <a href="{password_link}" 
+                   style="background-color: #10b981; color: white; padding: 12px 30px; 
+                          text-decoration: none; border-radius: 5px; display: inline-block;">
+                    Criar Minha Senha
+                </a>
+            </p>
+            <p>Este link é válido por 7 dias.</p>
+            <p>Após criar sua senha, você terá acesso completo ao conteúdo adquirido.</p>
+            <p>Bem-vindo a bordo!</p>
+            <p style="color: #666; font-size: 12px; margin-top: 30px;">
+                Se você não fez esta compra, ignore este email.
+            </p>
+        </body>
+        </html>
+        """
+        
+        send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+            to=to,
+            sender=sender,
+            subject="Bem-vindo! Crie sua senha - Hiperautomação",
+            html_content=html_content
+        )
+        
+        api_instance.send_transac_email(send_smtp_email)
+        logger.info(f"Welcome email sent successfully to {email}")
+        
+    except Exception as e:
+        logger.error(f"Failed to send welcome email to {email}: {e}")
+
+
 # ==================== REFERRAL SYSTEM ====================
 
 # Get user's referral info
