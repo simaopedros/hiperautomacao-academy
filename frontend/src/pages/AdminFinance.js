@@ -271,7 +271,7 @@ export default function AdminFinance({ user, onLogout }) {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                        {billing.billing_id.substring(0, 20)}...
+                        {billing.billing_id ? billing.billing_id.substring(0, 20) + '...' : 'N/A'}
                       </td>
                     </tr>
                   ))}
