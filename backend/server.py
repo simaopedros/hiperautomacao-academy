@@ -2060,7 +2060,8 @@ async def hotmart_webhook(webhook_data: dict):
             buyer = data.get("buyer", {})
             purchase = data.get("purchase", {})
             
-            prod_id = str(product.get("id", ""))
+            # Use ucode (unique code) instead of id, as id can be 0 in tests
+            prod_id = product.get("ucode", "") or str(product.get("id", ""))
             email = buyer.get("email", "")
             name = buyer.get("name", "")
             status = purchase.get("status", "")
