@@ -179,53 +179,48 @@ export default function StudentDashboard({ user, onLogout }) {
         </div>
       </header>
 
-      {/* Credits Banner */}
+      {/* Credits Bar - Minimalist */}
       {userCredits && (
-        <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 border-b border-emerald-500">
-          <div className="max-w-7xl mx-auto px-6 py-6">
-            <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="bg-[#111111] border-b border-[#252525]">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-6">
-                <div className="bg-white/20 p-4 rounded-xl">
-                  <Coins size={32} className="text-white" />
-                </div>
-                <div>
-                  <p className="text-emerald-100 text-sm mb-1">Seu Saldo de Créditos</p>
-                  <p className="text-4xl font-bold text-white">{userCredits.balance}</p>
-                  <p className="text-emerald-100 text-sm mt-1">créditos disponíveis</p>
+                <div className="flex items-center gap-3">
+                  <Coins size={20} className="text-emerald-400" />
+                  <div>
+                    <p className="text-emerald-400 font-bold text-lg">{userCredits.balance} créditos</p>
+                  </div>
                 </div>
                 <button
                   onClick={handleRefreshCredits}
-                  className="ml-4 p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all"
+                  className="p-1.5 hover:bg-[#1a1a1a] rounded transition-colors"
                   title="Atualizar saldo"
                 >
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-gray-400 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                 </button>
               </div>
-              <div className="flex gap-3">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={checkPendingPayments}
-                  className="flex items-center gap-2 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 px-6 py-3 rounded-lg font-semibold transition-all"
+                  className="text-xs bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 px-3 py-1.5 rounded font-medium transition-colors"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
                   Verificar Pagamento
                 </button>
                 <button
                   onClick={() => navigate('/credit-history')}
-                  className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-lg font-semibold transition-all"
+                  className="text-xs bg-[#1a1a1a] hover:bg-[#252525] text-gray-300 px-3 py-1.5 rounded font-medium transition-colors flex items-center gap-1"
                 >
-                  <History size={18} />
+                  <History size={14} />
                   Histórico
                 </button>
                 <button
                   onClick={() => navigate('/buy-credits')}
-                  className="flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald-600 px-6 py-3 rounded-lg font-semibold transition-all"
+                  className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded font-semibold transition-colors flex items-center gap-1"
                 >
-                  <Coins size={18} />
-                  Comprar Créditos
+                  <Coins size={14} />
+                  Comprar
                 </button>
               </div>
             </div>
