@@ -236,8 +236,25 @@ export default function UserManagement({ user, onLogout }) {
             <p className="text-gray-400">Gerencie usuários e suas permissões de acesso</p>
           </div>
           
-          {/* Create User Dialog */}
-          <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => navigate('/admin/email-settings')}
+              variant="outline"
+              className="border-[#2a2a2a] hover:bg-[#252525]"
+            >
+              <Settings size={18} className="mr-2" />
+              Config. Email
+            </Button>
+            <Button
+              onClick={() => setShowBulkImportDialog(true)}
+              variant="outline"
+              className="border-cyan-500/30 hover:bg-cyan-500/10 text-cyan-400"
+            >
+              <Upload size={18} className="mr-2" />
+              Importar CSV
+            </Button>
+            {/* Create User Dialog */}
+            <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
             <DialogTrigger asChild>
               <Button
                 data-testid="create-user-button"
