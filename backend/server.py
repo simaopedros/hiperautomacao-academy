@@ -1993,6 +1993,18 @@ async def get_gateway_config(current_user: User = Depends(get_current_admin)):
     
     return config
 
+# Get active gateway (public endpoint for students)
+@api_router.get("/gateway/active")
+async def get_active_gateway():
+    """Get active payment gateway (public endpoint)"""
+    config = await db.gateway_config.find_one({}, {"_id": 0})
+    
+    if not config:
+        return {"active_gateway": "abacatepay"}
+    
+    # Return only the active gateway, not the token
+    return {"active_gateway": config.get("active_gateway", "abacatepay")}
+
 # Update payment gateway configuration
 @api_router.post("/admin/gateway-config")
 async def update_gateway_config(
