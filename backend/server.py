@@ -1894,6 +1894,13 @@ async def update_course_pricing(
     return {"message": "Course pricing updated successfully", "updates": update_data}
 
 # Include the router in the main app
+
+@app.on_event("startup")
+async def startup_event():
+    """Run migrations on startup"""
+    await migrate_referral_codes()
+
+
 app.include_router(api_router)
 
 app.add_middleware(
