@@ -326,7 +326,7 @@ function CourseManagement({ user, onLogout }) {
   // Lesson dialog state
   const [showLessonDialog, setShowLessonDialog] = useState(false);
   const [editingLesson, setEditingLesson] = useState(null);
-  const [lessonForm, setLessonForm] = useState({ title: '', type: 'video', content: '', duration: 0, order: 0 });
+  const [lessonForm, setLessonForm] = useState({ title: '', type: 'video', content: '', duration: 0, order: 0, links: [] });
 
   useEffect(() => {
     fetchCourseData();
