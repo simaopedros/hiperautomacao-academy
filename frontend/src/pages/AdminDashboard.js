@@ -21,7 +21,9 @@ function CourseList({ onLogout, user }) {
     description: '',
     thumbnail_url: '',
     category: '',
-    published: false
+    published: false,
+    price_brl: 0,
+    price_credits: 50
   });
   const navigate = useNavigate();
 
