@@ -1876,7 +1876,30 @@ async def admin_mark_billing_paid(billing_id: str, current_user: User = Depends(
 async def get_referral_info(current_user: User = Depends(get_current_user)):
     """Get user's referral code and statistics"""
     # Get referral statistics
-
+    referrals = await db.users.find({"referred_by": current_user.id}, {"_id": 0, "id": 1, "name": 1, "email": 1, "created_at": 1}).to_list(1000)
+    
+    # Count total credits earned from referrals
+    referral_transactions = await db.credit_transactions.find({
+        "user_id": current_user.id,
+        "transaction_type": "earned",
+        "description": {"$regex": "Bônus de indicação"}
+    }, {"_id": 0}).to_list(1000)
+    
+    total_referral_credits = sum(t.get("amount", 0) for t in referral_transactions)
+    
+    # Get referral link
+    frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+    referral_link = f"{frontend_url}/register?ref={current_user.referral_code}"
+    
+    return {
+        "referral_code": current_user.referral_code,
+        "referral_link": referral_link,
+        "total_referrals": len(referrals),
+        "total_credits_earned": total_referral_credits,
+        "referrals": referrals,
+        "signup_bonus": REFERRAL_SIGNUP_BONUS,
+        "purchase_percentage": REFERRAL_PURCHASE_PERCENTAGE
+    }
 
 # ==================== GAMIFICATION SYSTEM ====================
 
