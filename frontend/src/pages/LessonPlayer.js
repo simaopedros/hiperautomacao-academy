@@ -107,6 +107,23 @@ export default function LessonPlayer({ user, onLogout }) {
     }
   };
 
+  const checkProgress = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      // We need to get course_id first to check progress
+      // For now, we'll check directly when we have courseData
+      if (courseData) {
+        const response = await axios.get(`${API}/progress/${courseData.id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const progressItem = response.data.find(p => p.lesson_id === lessonId);
+        setIsCompleted(progressItem?.completed || false);
+      }
+    } catch (error) {
+      console.error('Error checking progress:', error);
+    }
+  };
+
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
     if (!newComment.trim()) return;
