@@ -201,6 +201,29 @@ function CourseList({ onLogout, user }) {
                     className="bg-[#111111] border-[#2a2a2a]"
                   />
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Preço em R$</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.price_brl || 0}
+                      onChange={(e) => setFormData({ ...formData, price_brl: parseFloat(e.target.value) })}
+                      placeholder="0.00"
+                      className="bg-[#111111] border-[#2a2a2a]"
+                    />
+                  </div>
+                  <div>
+                    <Label>Preço em Créditos</Label>
+                    <Input
+                      type="number"
+                      value={formData.price_credits || 50}
+                      onChange={(e) => setFormData({ ...formData, price_credits: parseInt(e.target.value) })}
+                      placeholder="50"
+                      className="bg-[#111111] border-[#2a2a2a]"
+                    />
+                  </div>
+                </div>
                 <div className="flex items-center gap-2">
                   <input
                     data-testid="course-published-checkbox"
