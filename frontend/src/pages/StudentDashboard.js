@@ -47,6 +47,34 @@ export default function StudentDashboard({ user, onLogout }) {
     await fetchCredits();
   };
 
+  const checkPendingPayments = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const billingId = localStorage.getItem('last_billing_id');
+      
+      if (!billingId) {
+        alert('Nenhum pagamento pendente encontrado');
+        return;
+      }
+
+      const response = await axios.get(
+        `${API}/billing/${billingId}/check-status`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.status === 'paid') {
+        alert('✅ Pagamento confirmado! Seus créditos foram adicionados.');
+        localStorage.removeItem('last_billing_id');
+        await fetchCredits();
+      } else {
+        alert('⏳ Pagamento ainda não foi confirmado. Por favor, aguarde ou tente novamente em alguns minutos.');
+      }
+    } catch (error) {
+      console.error('Error checking payment:', error);
+      alert('Erro ao verificar pagamento. Tente novamente.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       {/* Header */}
