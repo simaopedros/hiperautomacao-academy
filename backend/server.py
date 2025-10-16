@@ -867,6 +867,39 @@ async def like_comment(comment_id: str, current_user: User = Depends(get_current
     
     return {"message": "Comment liked"}
 
+@api_router.delete("/comments/{comment_id}/like")
+async def unlike_comment(comment_id: str, current_user: User = Depends(get_current_user)):
+    """Remove a like from a comment"""
+    comment = await db.comments.find_one({"id": comment_id})
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    
+    # Check if user has liked this comment
+    existing_like = await db.likes.find_one({
+        "comment_id": comment_id,
+        "user_id": current_user.id
+    })
+    
+    if not existing_like:
+        raise HTTPException(
+            status_code=400, 
+            detail="Você não curtiu este comentário"
+        )
+    
+    # Remove the like record
+    await db.likes.delete_one({
+        "comment_id": comment_id,
+        "user_id": current_user.id
+    })
+    
+    # Decrement like count (don't go below 0)
+    await db.comments.update_one(
+        {"id": comment_id, "likes": {"$gt": 0}}, 
+        {"$inc": {"likes": -1}}
+    )
+    
+    return {"message": "Like removed"}
+
 @api_router.delete("/comments/{comment_id}")
 async def delete_comment(comment_id: str, current_user: User = Depends(get_current_user)):
     comment = await db.comments.find_one({"id": comment_id})
