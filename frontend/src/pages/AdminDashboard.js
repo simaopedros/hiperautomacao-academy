@@ -195,7 +195,7 @@ function CourseList({ onLogout, user }) {
                 data-testid="create-course-button"
                 onClick={() => {
                   setEditingCourse(null);
-                  setFormData({ title: '', description: '', thumbnail_url: '', category: '', published: false, price_brl: 0, price_credits: 50, hotmart_product_id: '' });
+                  setFormData({ title: '', description: '', thumbnail_url: '', category: '', published: false, price_brl: 0, price_credits: 50, hotmart_product_id: '', hotmart_checkout_url: '' });
                 }}
                 className="bg-emerald-500 hover:bg-emerald-600"
               >
