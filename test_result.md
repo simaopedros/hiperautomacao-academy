@@ -217,6 +217,21 @@ frontend:
           agent: "main"
           comment: "✅ CORRIGIDO E TESTADO: Endpoint /api/referral/info estava incompleto (função sem corpo). Código foi reorganizado e duplicação removida. Página agora exibe corretamente: código de referral, link, estatísticas e lista de indicados."
 
+  - task: "Sistema de Likes - Prevenir Duplicação"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py (lines 829-895)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "Usuário reportou que pode dar múltiplos likes no mesmo post/comentário. Deve permitir apenas 1 like por usuário."
+        - working: true
+          agent: "main"
+          comment: "✅ CORRIGIDO: Implementado sistema de controle de likes com coleção dedicada no MongoDB. Cada usuário pode dar apenas 1 like por comentário. Recompensa dada apenas uma vez. Adicionados endpoints: POST /api/comments/{id}/like (dar like), DELETE /api/comments/{id}/like (remover like), GET /api/comments/{id}/liked (verificar se já curtiu). Criado índice único no MongoDB para garantir integridade. Likes em próprios comentários não dão recompensa."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
