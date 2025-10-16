@@ -1852,6 +1852,96 @@ async def admin_mark_billing_paid(billing_id: str, current_user: User = Depends(
 async def get_referral_info(current_user: User = Depends(get_current_user)):
     """Get user's referral code and statistics"""
     # Get referral statistics
+
+
+# ==================== GAMIFICATION SYSTEM ====================
+
+# Default gamification rewards
+DEFAULT_REWARDS = {
+    "create_post": 5,
+    "create_comment": 2,
+    "receive_like": 1,
+    "complete_course": 20
+}
+
+# Get gamification settings
+@api_router.get("/admin/gamification-settings")
+async def get_gamification_settings(current_user: User = Depends(get_current_admin)):
+    """Get gamification reward settings (admin only)"""
+    settings = await db.gamification_settings.find_one({}, {"_id": 0})
+    
+    if not settings:
+        return DEFAULT_REWARDS
+    
+    return settings
+
+# Update gamification settings
+@api_router.post("/admin/gamification-settings")
+async def update_gamification_settings(
+    create_post: int,
+    create_comment: int,
+    receive_like: int,
+    complete_course: int,
+    current_user: User = Depends(get_current_admin)
+):
+    """Update gamification reward settings (admin only)"""
+    settings = {
+        "create_post": create_post,
+        "create_comment": create_comment,
+        "receive_like": receive_like,
+        "complete_course": complete_course,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_by": current_user.email
+    }
+    
+    await db.gamification_settings.update_one(
+        {},
+        {"$set": settings},
+        upsert=True
+    )
+    
+    logger.info(f"Admin {current_user.email} updated gamification settings")
+    
+    return {"message": "Gamification settings updated successfully"}
+
+# Helper function to get reward amount
+async def get_reward_amount(action_type: str) -> int:
+    """Get reward amount for a specific action"""
+    settings = await db.gamification_settings.find_one({}, {"_id": 0})
+    
+    if not settings:
+        return DEFAULT_REWARDS.get(action_type, 0)
+    
+    return settings.get(action_type, 0)
+
+# Helper function to give gamification reward
+async def give_gamification_reward(user_id: str, action_type: str, description: str):
+    """Give credits reward for gamification action (only if user has purchased)"""
+    user = await db.users.find_one({"id": user_id})
+    
+    if not user:
+        return False
+    
+    # Only give rewards to users who have made a purchase
+    if not user.get("has_purchased", False):
+        logger.info(f"User {user_id} has not purchased yet, no gamification reward for {action_type}")
+        return False
+    
+    reward_amount = await get_reward_amount(action_type)
+    
+    if reward_amount > 0:
+        await add_credit_transaction(
+            user_id=user_id,
+            amount=reward_amount,
+            transaction_type="earned",
+            description=description,
+            reference_id=None
+        )
+        logger.info(f"Awarded {reward_amount} credits to user {user_id} for {action_type}")
+        return True
+    
+    return False
+
     referrals = await db.users.find({"referred_by": current_user.id}, {"_id": 0, "id": 1, "name": 1, "email": 1, "created_at": 1}).to_list(1000)
     
     # Count total credits earned from referrals
