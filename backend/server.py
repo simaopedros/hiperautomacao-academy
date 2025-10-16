@@ -2124,9 +2124,14 @@ async def hotmart_webhook(webhook_data: dict):
             return {"message": "Webhook received but not processed (not approved purchase)"}
         
         logger.info(f"✅ Processing approved purchase for {email}")
+        logger.info(f"🔍 Looking for product with ID/UCODE: {prod_id}")
         
         # Find course or credit package by Hotmart product ID
         course = await db.courses.find_one({"hotmart_product_id": prod_id})
+        
+        if course:
+            logger.info(f"📚 Found course: {course.get('title')}")
+        
         credit_package = None
         
         # Check if it's a credit package
