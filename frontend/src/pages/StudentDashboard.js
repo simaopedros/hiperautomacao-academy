@@ -117,6 +117,20 @@ export default function StudentDashboard({ user, onLogout }) {
   };
 
   const handleBuyCourse = async (courseId, courseName) => {
+    // Check if Hotmart is active
+    if (gatewayConfig?.active_gateway === 'hotmart') {
+      // Find the course and redirect to Hotmart checkout
+      const course = courses.find(c => c.id === courseId);
+      if (course?.hotmart_checkout_url) {
+        window.location.href = course.hotmart_checkout_url;
+        return;
+      } else {
+        alert('Link de checkout da Hotmart não configurado para este curso');
+        return;
+      }
+    }
+
+    // Abacate Pay flow
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
