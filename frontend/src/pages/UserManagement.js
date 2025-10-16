@@ -253,8 +253,10 @@ export default function UserManagement({ user, onLogout }) {
               <Upload size={18} className="mr-2" />
               Importar CSV
             </Button>
-            {/* Create User Dialog */}
-            <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
+          </div>
+          
+          {/* Create User Dialog */}
+          <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
             <DialogTrigger asChild>
               <Button
                 data-testid="create-user-button"
