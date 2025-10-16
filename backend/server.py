@@ -2379,6 +2379,165 @@ async def update_credit_packages_config(
     
     return {"message": "Credit packages configuration updated successfully"}
 
+# Resend password creation email
+@api_router.post("/admin/users/{user_id}/resend-password-email")
+async def resend_password_email(user_id: str, current_user: User = Depends(get_current_admin)):
+    """Resend password creation email to user"""
+    user = await db.users.find_one({"id": user_id})
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Generate new token
+    password_token = secrets.token_urlsafe(32)
+    
+    # Update user with new token
+    await db.users.update_one(
+        {"id": user_id},
+        {
+            "$set": {
+                "password_creation_token": password_token,
+                "password_token_expires": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+            }
+        }
+    )
+    
+    # Send email
+    try:
+        frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+        password_link = f"{frontend_url}/create-password?token={password_token}"
+        
+        # Send email in background
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(
+            executor,
+            send_password_creation_email,
+            user["email"],
+            user["name"],
+            password_link
+        )
+        
+        logger.info(f"📧 Password creation email resent to {user['email']} by admin {current_user.email}")
+        
+        return {"message": "Email enviado com sucesso"}
+    except Exception as e:
+        logger.error(f"Failed to send email: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao enviar email")
+
+# Reset user password (admin)
+@api_router.post("/admin/users/{user_id}/reset-password")
+async def reset_user_password(user_id: str, current_user: User = Depends(get_current_admin)):
+    """Reset user password and send password reset email"""
+    user = await db.users.find_one({"id": user_id})
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Generate new token
+    password_token = secrets.token_urlsafe(32)
+    
+    # Clear current password and set token
+    await db.users.update_one(
+        {"id": user_id},
+        {
+            "$set": {
+                "password": None,
+                "password_creation_token": password_token,
+                "password_token_expires": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+            }
+        }
+    )
+    
+    # Send email
+    try:
+        frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+        password_link = f"{frontend_url}/create-password?token={password_token}"
+        
+        # Send email in background
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(
+            executor,
+            send_password_reset_email,
+            user["email"],
+            user["name"],
+            password_link
+        )
+        
+        logger.info(f"🔐 Password reset for {user['email']} by admin {current_user.email}")
+        
+        return {"message": "Senha resetada e email enviado com sucesso"}
+    except Exception as e:
+        logger.error(f"Failed to send reset email: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao enviar email")
+
+# Helper function to send password reset email
+def send_password_reset_email(email: str, name: str, password_link: str):
+    """Send password reset email"""
+    try:
+        import sib_api_v3_sdk
+        from sib_api_v3_sdk.rest import ApiException
+        
+        # Get Brevo configuration
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        async def get_config():
+            return await db.email_config.find_one({})
+        
+        config = loop.run_until_complete(get_config())
+        loop.close()
+        
+        if not config:
+            logger.warning("No email configuration found, skipping reset email")
+            return
+        
+        configuration = sib_api_v3_sdk.Configuration()
+        configuration.api_key['api-key'] = config.get('api_key')
+        
+        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
+        
+        sender = {
+            "name": config.get('sender_name', 'Hiperautomação'),
+            "email": config.get('sender_email')
+        }
+        
+        to = [{"email": email, "name": name}]
+        
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #10b981;">Redefinir Senha</h2>
+            <p>Olá {name},</p>
+            <p>Um administrador solicitou a redefinição da sua senha.</p>
+            <p style="margin: 30px 0;">
+                <a href="{password_link}" 
+                   style="background-color: #10b981; color: white; padding: 12px 30px; 
+                          text-decoration: none; border-radius: 5px; display: inline-block;">
+                    Criar Nova Senha
+                </a>
+            </p>
+            <p>Este link é válido por 7 dias.</p>
+            <p style="color: #666; font-size: 12px; margin-top: 30px;">
+                Se você não solicitou esta redefinição, ignore este email.
+            </p>
+        </body>
+        </html>
+        """
+        
+        send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+            to=to,
+            sender=sender,
+            subject="Redefinir Senha - Hiperautomação",
+            html_content=html_content
+        )
+        
+        api_instance.send_transac_email(send_smtp_email)
+        logger.info(f"Password reset email sent successfully to {email}")
+        
+    except Exception as e:
+        logger.error(f"Failed to send password reset email to {email}: {e}")
+
 
 # ==================== REFERRAL SYSTEM ====================
 
