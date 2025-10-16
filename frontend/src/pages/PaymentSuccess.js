@@ -6,7 +6,6 @@ const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 function PaymentSuccess() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [credits, setCredits] = useState(null);
   const [checking, setChecking] = useState(true);
   const [message, setMessage] = useState('Verificando pagamento...');
