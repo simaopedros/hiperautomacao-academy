@@ -1631,6 +1631,78 @@ async def get_admin_statistics(current_user: User = Depends(get_current_admin)):
         }
     }
 
+
+
+# Admin: Manually mark billing as paid
+@api_router.post("/admin/billings/{billing_id}/mark-paid")
+async def admin_mark_billing_paid(billing_id: str, current_user: User = Depends(get_current_admin)):
+    """Manually mark a billing as paid and process credits/enrollment (admin only)"""
+    try:
+        # Get billing from database
+        billing = await db.billings.find_one({"billing_id": billing_id}, {"_id": 0})
+        
+        if not billing:
+            raise HTTPException(status_code=404, detail="Billing not found")
+        
+        # Check if already paid
+        if billing.get("status") == "paid":
+            return {"message": "Billing already marked as paid"}
+        
+        # Update billing status
+        await db.billings.update_one(
+            {"billing_id": billing_id},
+            {"$set": {
+                "status": "paid",
+                "paid_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+        user_id = billing["user_id"]
+        
+        # Process based on purchase type
+        if billing.get("credits"):
+            # Credit package purchase - add credits to user
+            await add_credit_transaction(
+                user_id=user_id,
+                amount=billing["credits"],
+                transaction_type="purchased",
+                description=f"Compra de {billing['credits']} créditos (confirmado manualmente)",
+                reference_id=billing_id
+            )
+            logger.info(f"Admin {current_user.email} manually confirmed billing {billing_id} - added {billing['credits']} credits to user {user_id}")
+            
+        elif billing.get("course_id"):
+            # Direct course purchase - create enrollment
+            course_id = billing["course_id"]
+            
+            # Check if already enrolled
+            existing_enrollment = await db.enrollments.find_one({
+                "user_id": user_id,
+                "course_id": course_id
+            })
+            
+            if not existing_enrollment:
+                enrollment = {
+                    "id": str(uuid.uuid4()),
+                    "user_id": user_id,
+                    "course_id": course_id,
+                    "enrolled_at": datetime.now(timezone.utc).isoformat()
+                }
+                await db.enrollments.insert_one(enrollment)
+                logger.info(f"Admin {current_user.email} manually confirmed billing {billing_id} - enrolled user {user_id} in course {course_id}")
+        
+        return {
+            "message": "Billing marked as paid successfully",
+            "credits_added": billing.get("credits"),
+            "course_enrolled": billing.get("course_id")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error marking billing as paid: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to mark billing as paid: {str(e)}")
+
 # Get billing status
 @api_router.get("/billing/{billing_id}")
 async def get_billing_status(billing_id: str, current_user: User = Depends(get_current_user)):
