@@ -2000,10 +2000,14 @@ async def get_active_gateway():
     config = await db.gateway_config.find_one({}, {"_id": 0})
     
     if not config:
+        logger.info("No gateway config found, returning default: abacatepay")
         return {"active_gateway": "abacatepay"}
     
+    active = config.get("active_gateway", "abacatepay")
+    logger.info(f"Gateway config found, active gateway: {active}")
+    
     # Return only the active gateway, not the token
-    return {"active_gateway": config.get("active_gateway", "abacatepay")}
+    return {"active_gateway": active}
 
 # Update payment gateway configuration
 @api_router.post("/admin/gateway-config")
