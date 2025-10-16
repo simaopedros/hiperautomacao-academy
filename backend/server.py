@@ -1631,10 +1631,6 @@ async def get_admin_statistics(current_user: User = Depends(get_current_admin)):
         }
     }
 
-    except Exception as e:
-        logger.error(f"Error checking billing status: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to check status: {str(e)}")
-
 # Get billing status
 @api_router.get("/billing/{billing_id}")
 async def get_billing_status(billing_id: str, current_user: User = Depends(get_current_user)):
