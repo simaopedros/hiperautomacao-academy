@@ -315,15 +315,22 @@ testuser2,test address 2"""
             response = self.session.post(f"{BACKEND_URL}/admin/bulk-import", 
                                        json=import_data)
             
-            if response.status_code in [400, 500]:
-                result = response.json() if response.headers.get('content-type', '').startswith('application/json') else response.text
-                self.log_test("Missing CSV Columns", True, 
-                            "Correctly handled CSV with missing required columns", 
-                            str(result)[:200])
-                return True
+            if response.status_code == 200:
+                result = response.json()
+                # Should import 0 users and report errors for missing columns
+                if result.get('imported_count', 0) == 0 and 'errors' in result and len(result['errors']) > 0:
+                    self.log_test("Missing CSV Columns", True, 
+                                "Correctly handled CSV with missing required columns - no users imported, errors reported", 
+                                f"Imported: {result['imported_count']}, Errors: {len(result['errors'])}")
+                    return True
+                else:
+                    self.log_test("Missing CSV Columns", False, 
+                                "Did not handle missing columns correctly", 
+                                result)
+                    return False
             else:
                 self.log_test("Missing CSV Columns", False, 
-                            f"Expected error, got {response.status_code}", 
+                            f"Unexpected status {response.status_code}", 
                             response.text[:200])
                 return False
         except Exception as e:
