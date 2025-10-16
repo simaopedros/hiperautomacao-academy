@@ -84,9 +84,9 @@ ABACATEPAY_BASE_URL = "https://api.abacatepay.com/v1"
 
 # Credit Packages Configuration
 CREDIT_PACKAGES = [
-    {"id": "pkg_small", "name": "Pacote Inicial", "price_brl": 10.0, "credits": 50, "bonus_percentage": 0, "hotmart_product_id": None},
-    {"id": "pkg_medium", "name": "Pacote Médio", "price_brl": 25.0, "credits": 150, "bonus_percentage": 20, "hotmart_product_id": None},
-    {"id": "pkg_large", "name": "Pacote Grande", "price_brl": 50.0, "credits": 350, "bonus_percentage": 40, "hotmart_product_id": None}
+    {"id": "pkg_small", "name": "Pacote Inicial", "price_brl": 10.0, "credits": 50, "bonus_percentage": 0, "hotmart_product_id": None, "hotmart_checkout_url": None},
+    {"id": "pkg_medium", "name": "Pacote Médio", "price_brl": 25.0, "credits": 150, "bonus_percentage": 20, "hotmart_product_id": None, "hotmart_checkout_url": None},
+    {"id": "pkg_large", "name": "Pacote Grande", "price_brl": 50.0, "credits": 350, "bonus_percentage": 40, "hotmart_product_id": None, "hotmart_checkout_url": None}
 ]
 
 # Create the main app
