@@ -94,7 +94,7 @@ export default function CourseView({ user, onLogout }) {
     );
   }
 
-  if (!course) {
+  if (!course && !courseInfo) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <div className="text-center">
@@ -105,6 +105,92 @@ export default function CourseView({ user, onLogout }) {
         </div>
       </div>
     );
+  }
+
+  // If user doesn't have access, show purchase page
+  if (!hasAccess && courseInfo) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a]">
+        <header className="bg-[#111111] border-b border-[#252525] sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/dashboard')}
+              className="text-gray-400 hover:text-white"
+            >
+              <ArrowLeft size={20} className="mr-2" />
+              Voltar aos Cursos
+            </Button>
+          </div>
+        </header>
+
+        <div className="max-w-4xl mx-auto px-6 py-12">
+          <div className="bg-[#111111] rounded-xl border border-[#252525] p-8">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h1 className="text-3xl font-bold text-white mb-2">{courseInfo.title}</h1>
+              <p className="text-gray-400">{courseInfo.description}</p>
+            </div>
+
+            <div className="space-y-4 mb-8">
+              <h2 className="text-xl font-bold text-white">Este curso requer matrícula</h2>
+              <p className="text-gray-400">
+                Para acessar o conteúdo deste curso, você precisa se matricular usando créditos ou fazer a compra direta.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              {courseInfo.price_credits > 0 && (
+                <div className="bg-[#1a1a1a] rounded-lg p-6 border-2 border-emerald-500/30">
+                  <h3 className="text-lg font-semibold text-white mb-2">Usar Créditos</h3>
+                  <div className="text-3xl font-bold text-emerald-400 mb-4">
+                    {courseInfo.price_credits} créditos
+                  </div>
+                  <button
+                    onClick={() => navigate('/dashboard')}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg font-semibold transition-colors"
+                  >
+                    Matricular com Créditos
+                  </button>
+                </div>
+              )}
+
+              {courseInfo.price_brl > 0 && (
+                <div className="bg-[#1a1a1a] rounded-lg p-6 border-2 border-blue-500/30">
+                  <h3 className="text-lg font-semibold text-white mb-2">Compra Direta</h3>
+                  <div className="text-3xl font-bold text-blue-400 mb-4">
+                    R$ {courseInfo.price_brl.toFixed(2)}
+                  </div>
+                  <button
+                    onClick={() => navigate('/buy-credits')}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold transition-colors"
+                  >
+                    Comprar Curso
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {(!courseInfo.price_credits || courseInfo.price_credits === 0) && (!courseInfo.price_brl || courseInfo.price_brl === 0) && (
+              <div className="text-center">
+                <p className="text-gray-400 mb-4">Este curso não está disponível para compra no momento.</p>
+                <Button onClick={() => navigate('/dashboard')}>
+                  Voltar aos Cursos
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!course) {
+    return null;
   }
 
   return (
