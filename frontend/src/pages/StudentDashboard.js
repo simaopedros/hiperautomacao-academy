@@ -104,6 +104,15 @@ export default function StudentDashboard({ user, onLogout }) {
                   <p className="text-4xl font-bold text-white">{userCredits.balance}</p>
                   <p className="text-emerald-100 text-sm mt-1">créditos disponíveis</p>
                 </div>
+                <button
+                  onClick={handleRefreshCredits}
+                  className="ml-4 p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-all"
+                  title="Atualizar saldo"
+                >
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
               </div>
               <div className="flex gap-3">
                 <button
