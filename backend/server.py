@@ -683,6 +683,220 @@ async def delete_comment(comment_id: str, current_user: User = Depends(get_curre
     await db.comments.delete_many({"parent_id": comment_id})
     return {"message": "Comment deleted"}
 
+# ==================== EMAIL CONFIGURATION ====================
+
+@api_router.get("/admin/email-config")
+async def get_email_config(current_user: User = Depends(get_current_admin)):
+    config = await db.email_config.find_one({}, {"_id": 0})
+    if not config:
+        return {"brevo_api_key": "", "sender_email": "", "sender_name": ""}
+    # Don't expose the full API key
+    config['brevo_api_key'] = config.get('brevo_api_key', '')[:10] + '...' if config.get('brevo_api_key') else ''
+    return config
+
+@api_router.post("/admin/email-config")
+async def save_email_config(config: EmailConfig, current_user: User = Depends(get_current_admin)):
+    await db.email_config.delete_many({})  # Only one config
+    await db.email_config.insert_one(config.model_dump())
+    return {"message": "Email configuration saved successfully"}
+
+# ==================== BULK IMPORT ====================
+
+import base64
+import io
+import csv
+import secrets
+
+def send_brevo_email(to_email: str, to_name: str, subject: str, html_content: str, api_key: str, sender_email: str, sender_name: str):
+    """Send email using Brevo API"""
+    try:
+        import sib_api_v3_sdk
+        from sib_api_v3_sdk.rest import ApiException
+        
+        configuration = sib_api_v3_sdk.Configuration()
+        configuration.api_key['api-key'] = api_key
+        
+        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
+        
+        send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+            to=[{"email": to_email, "name": to_name}],
+            sender={"email": sender_email, "name": sender_name},
+            subject=subject,
+            html_content=html_content
+        )
+        
+        api_response = api_instance.send_transac_email(send_smtp_email)
+        return True
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return False
+
+@api_router.post("/admin/bulk-import")
+async def bulk_import_users(request: BulkImportRequest, current_user: User = Depends(get_current_admin)):
+    """
+    Import users in bulk from CSV
+    CSV format: name,email
+    """
+    try:
+        # Get email configuration
+        email_config = await db.email_config.find_one({})
+        if not email_config:
+            raise HTTPException(status_code=400, detail="Email configuration not set. Please configure email settings first.")
+        
+        # Decode CSV
+        csv_content = base64.b64decode(request.csv_content).decode('utf-8')
+        csv_file = io.StringIO(csv_content)
+        csv_reader = csv.DictReader(csv_file)
+        
+        imported_count = 0
+        errors = []
+        
+        for row in csv_reader:
+            try:
+                name = row.get('name', '').strip()
+                email = row.get('email', '').strip().lower()
+                
+                if not name or not email:
+                    errors.append(f"Missing name or email in row: {row}")
+                    continue
+                
+                # Check if user already exists
+                existing_user = await db.users.find_one({"email": email})
+                
+                if existing_user:
+                    # Just enroll in course
+                    user_id = existing_user['id']
+                else:
+                    # Create token for password creation
+                    token = secrets.token_urlsafe(32)
+                    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+                    
+                    token_data = {
+                        "token": token,
+                        "email": email,
+                        "name": name,
+                        "course_id": request.course_id,
+                        "expires_at": expires_at.isoformat(),
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    }
+                    
+                    await db.password_tokens.insert_one(token_data)
+                    
+                    # Send email with password creation link
+                    password_link = f"{os.environ.get('FRONTEND_URL', 'http://localhost:3000')}/create-password?token={token}"
+                    
+                    html_content = f"""
+                    <html>
+                        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                                <h2 style="color: #10b981;">Bem-vindo à Hiperautomação!</h2>
+                                <p>Olá <strong>{name}</strong>,</p>
+                                <p>Você foi matriculado em um curso na plataforma Hiperautomação.</p>
+                                <p>Para acessar sua conta e começar a aprender, você precisa criar sua senha.</p>
+                                <div style="margin: 30px 0; text-align: center;">
+                                    <a href="{password_link}" 
+                                       style="background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                                        Criar Minha Senha
+                                    </a>
+                                </div>
+                                <p>Ou copie e cole este link no seu navegador:</p>
+                                <p style="background-color: #f5f5f5; padding: 10px; border-radius: 5px; word-break: break-all;">
+                                    {password_link}
+                                </p>
+                                <p><strong>Este link expira em 7 dias.</strong></p>
+                                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                                <p style="color: #666; font-size: 12px;">
+                                    Se você não solicitou esta matrícula, pode ignorar este email.
+                                </p>
+                            </div>
+                        </body>
+                    </html>
+                    """
+                    
+                    send_brevo_email(
+                        to_email=email,
+                        to_name=name,
+                        subject="Bem-vindo à Hiperautomação - Crie sua senha",
+                        html_content=html_content,
+                        api_key=email_config['brevo_api_key'],
+                        sender_email=email_config['sender_email'],
+                        sender_name=email_config['sender_name']
+                    )
+                    
+                    imported_count += 1
+                    continue
+                
+                # Enroll user in course
+                existing_enrollment = await db.enrollments.find_one({
+                    "user_id": user_id,
+                    "course_id": request.course_id
+                })
+                
+                if not existing_enrollment:
+                    enrollment = {
+                        "id": str(uuid.uuid4()),
+                        "user_id": user_id,
+                        "course_id": request.course_id,
+                        "enrolled_at": datetime.now(timezone.utc).isoformat()
+                    }
+                    await db.enrollments.insert_one(enrollment)
+                
+                imported_count += 1
+                
+            except Exception as e:
+                errors.append(f"Error processing {email}: {str(e)}")
+        
+        return {
+            "message": f"Import completed. {imported_count} users processed.",
+            "imported_count": imported_count,
+            "errors": errors
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+
+@api_router.post("/create-password")
+async def create_password_from_token(token: str, password: str):
+    """Create user account from invitation token"""
+    token_data = await db.password_tokens.find_one({"token": token}, {"_id": 0})
+    
+    if not token_data:
+        raise HTTPException(status_code=404, detail="Invalid or expired token")
+    
+    # Check expiration
+    expires_at = datetime.fromisoformat(token_data['expires_at'])
+    if datetime.now(timezone.utc) > expires_at:
+        raise HTTPException(status_code=400, detail="Token has expired")
+    
+    # Create user
+    user = User(
+        email=token_data['email'],
+        name=token_data['name'],
+        role="student"
+    )
+    
+    user_dict = user.model_dump()
+    user_dict['password_hash'] = get_password_hash(password)
+    user_dict['created_at'] = user_dict['created_at'].isoformat()
+    
+    await db.users.insert_one(user_dict)
+    
+    # Enroll in course
+    enrollment = {
+        "id": str(uuid.uuid4()),
+        "user_id": user.id,
+        "course_id": token_data['course_id'],
+        "enrolled_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.enrollments.insert_one(enrollment)
+    
+    # Delete used token
+    await db.password_tokens.delete_one({"token": token})
+    
+    # Create access token
+    access_token = create_access_token(data={"sub": user.id})
+    return Token(access_token=access_token, token_type="bearer", user=user)
+
 # ==================== SOCIAL FEED ====================
 
 @api_router.get("/social/feed", response_model=List[Comment])
