@@ -62,7 +62,7 @@ function CourseList({ onLogout, user }) {
       }
       setShowDialog(false);
       setEditingCourse(null);
-      setFormData({ title: '', description: '', thumbnail_url: '', category: '', published: false, price_brl: 0, price_credits: 50, hotmart_product_id: '' });
+      setFormData({ title: '', description: '', thumbnail_url: '', category: '', published: false, price_brl: 0, price_credits: 50, hotmart_product_id: '', hotmart_checkout_url: '' });
       fetchCourses();
     } catch (error) {
       console.error('Error saving course:', error);
