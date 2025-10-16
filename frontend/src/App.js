@@ -17,6 +17,8 @@ import AdminFinance from '@/pages/AdminFinance';
 import PaymentSettings from '@/pages/PaymentSettings';
 import ReferralPage from '@/pages/ReferralPage';
 import GamificationSettings from '@/pages/GamificationSettings';
+import GatewaySettings from '@/pages/GatewaySettings';
+import CreditPackagesConfig from '@/pages/CreditPackagesConfig';
 
 function App() {
   const [user, setUser] = useState(null);
