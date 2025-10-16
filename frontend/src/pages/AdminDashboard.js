@@ -111,6 +111,13 @@ function CourseList({ onLogout, user }) {
                 <Users size={20} />
                 Usuários
               </button>
+              <button
+                onClick={() => navigate('/admin/community')}
+                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+              >
+                <MessageCircle size={20} />
+                Comunidade
+              </button>
             </nav>
           </div>
           <div className="flex items-center gap-4">
