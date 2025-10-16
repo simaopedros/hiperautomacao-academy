@@ -375,12 +375,12 @@ async def get_admin_course(course_id: str, current_user: User = Depends(get_curr
     return Course(**course)
 
 @api_router.put("/admin/courses/{course_id}", response_model=Course)
-async def update_course(course_id: str, course_data: CourseCreate, current_user: User = Depends(get_current_admin)):
+async def update_course(course_id: str, course_data: CourseUpdate, current_user: User = Depends(get_current_admin)):
     existing = await db.courses.find_one({"id": course_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Course not found")
     
-    update_data = course_data.model_dump()
+    update_data = course_data.model_dump(exclude_unset=True)
     await db.courses.update_one({"id": course_id}, {"$set": update_data})
     
     updated = await db.courses.find_one({"id": course_id}, {"_id": 0})
