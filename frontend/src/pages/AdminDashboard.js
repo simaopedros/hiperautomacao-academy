@@ -143,7 +143,8 @@ function CourseList({ onLogout, user }) {
               {/* Financeiro Dropdown */}
               <div className="relative">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setShowFinanceMenu(!showFinanceMenu);
                     setShowSystemMenu(false);
                   }}
@@ -156,7 +157,8 @@ function CourseList({ onLogout, user }) {
                 {showFinanceMenu && (
                   <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         navigate('/admin/finance');
                         setShowFinanceMenu(false);
                       }}
@@ -166,7 +168,8 @@ function CourseList({ onLogout, user }) {
                       Finanças
                     </button>
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         navigate('/admin/gateway');
                         setShowFinanceMenu(false);
                       }}
@@ -176,7 +179,8 @@ function CourseList({ onLogout, user }) {
                       Gateway
                     </button>
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         navigate('/admin/payment-settings');
                         setShowFinanceMenu(false);
                       }}
@@ -186,7 +190,8 @@ function CourseList({ onLogout, user }) {
                       Config. Pagamentos
                     </button>
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         navigate('/admin/credit-packages');
                         setShowFinanceMenu(false);
                       }}
@@ -202,7 +207,8 @@ function CourseList({ onLogout, user }) {
               {/* Sistema Dropdown */}
               <div className="relative">
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setShowSystemMenu(!showSystemMenu);
                     setShowFinanceMenu(false);
                   }}
@@ -215,7 +221,8 @@ function CourseList({ onLogout, user }) {
                 {showSystemMenu && (
                   <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         navigate('/admin/gamification');
                         setShowSystemMenu(false);
                       }}
