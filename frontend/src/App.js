@@ -222,6 +222,26 @@ function App() {
             }
           />
           <Route
+            path="/admin/gateway"
+            element={
+              user && user.role === 'admin' ? (
+                <GatewaySettings user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/admin/credit-packages"
+            element={
+              user && user.role === 'admin' ? (
+                <CreditPackagesConfig user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
             path="/referral"
             element={
               user ? (
