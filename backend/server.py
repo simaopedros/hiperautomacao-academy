@@ -205,6 +205,55 @@ class Progress(ProgressBase):
     user_id: str
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# ==================== CREDITS MODELS ====================
+
+# User Credits Balance
+class UserCredits(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    user_id: str
+    balance: int = 0
+    total_earned: int = 0
+    total_spent: int = 0
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Credit Transaction
+class CreditTransaction(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    amount: int  # Positive for earning, negative for spending
+    transaction_type: str  # earned, spent, purchased, refund
+    description: str
+    reference_id: Optional[str] = None  # course_id, billing_id, etc
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Credit Package
+class CreditPackage(BaseModel):
+    id: str
+    name: str
+    price_brl: float  # Price in BRL
+    credits: int  # Number of credits
+    bonus_percentage: int = 0  # Bonus percentage
+
+# Abacate Pay Models
+class AbacatePayBilling(BaseModel):
+    billing_id: str
+    user_id: str
+    amount_brl: float
+    credits: Optional[int] = None  # For credit packages
+    course_id: Optional[str] = None  # For direct course purchase
+    package_id: Optional[str] = None  # For credit packages
+    status: str = "pending"  # pending, paid, failed, cancelled
+    payment_url: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    paid_at: Optional[datetime] = None
+
+class CreateBillingRequest(BaseModel):
+    package_id: Optional[str] = None  # For buying credits
+    course_id: Optional[str] = None  # For buying course directly
+    customer_name: str
+    customer_email: EmailStr
+
 # ==================== AUTH HELPERS ====================
 
 def verify_password(plain_password, hashed_password):
