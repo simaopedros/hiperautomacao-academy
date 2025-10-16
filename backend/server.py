@@ -1226,7 +1226,7 @@ async def create_billing(request: CreateBillingRequest, current_user: User = Dep
         async with httpx.AsyncClient() as client:
             billing_data = {
                 "frequency": "ONE_TIME",
-                "methods": ["PIX", "CARD"],
+                "methods": ["PIX"],  # Only PIX for sandbox testing
                 "products": [{
                     "externalId": request.package_id or request.course_id,
                     "name": product_name,
