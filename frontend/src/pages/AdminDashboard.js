@@ -24,7 +24,8 @@ function CourseList({ onLogout, user }) {
     published: false,
     price_brl: 0,
     price_credits: 50,
-    hotmart_product_id: ''
+    hotmart_product_id: '',
+    hotmart_checkout_url: ''
   });
   const navigate = useNavigate();
 
