@@ -25,50 +25,36 @@ function PaymentSuccess() {
   const checkPaymentStatus = async () => {
     try {
       const token = localStorage.getItem('token');
-      const billingId = searchParams.get('billing_id') || localStorage.getItem('last_billing_id');
+      const billingId = localStorage.getItem('last_billing_id');
       
       if (!billingId) {
-        setMessage('ID de pagamento não encontrado');
+        setMessage('Retornando ao dashboard...');
         setChecking(false);
         await fetchCredits();
         return;
       }
 
-      // Poll for payment status
-      let attempts = 0;
-      const maxAttempts = 10;
+      setMessage('Verificando status do pagamento...');
+
+      // Check payment status
+      const response = await axios.get(
+        `${API}/api/billing/${billingId}/check-status`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       
-      const pollStatus = async () => {
-        try {
-          const response = await axios.get(
-            `${API}/api/billing/${billingId}/check-status`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          
-          if (response.data.status === 'paid') {
-            setMessage('✅ Pagamento confirmado!');
-            setChecking(false);
-            await fetchCredits();
-            localStorage.removeItem('last_billing_id');
-          } else if (attempts < maxAttempts) {
-            attempts++;
-            setMessage(`Aguardando confirmação... (${attempts}/${maxAttempts})`);
-            setTimeout(pollStatus, 3000); // Check every 3 seconds
-          } else {
-            setMessage('⏳ Pagamento ainda pendente. Seus créditos serão adicionados em breve.');
-            setChecking(false);
-            await fetchCredits();
-          }
-        } catch (error) {
-          console.error('Error checking status:', error);
-          setChecking(false);
-          await fetchCredits();
-        }
-      };
-      
-      pollStatus();
+      if (response.data.status === 'paid') {
+        setMessage('✅ ' + response.data.message);
+        setChecking(false);
+        await fetchCredits();
+        localStorage.removeItem('last_billing_id');
+      } else {
+        setMessage('⏳ Pagamento pendente. Clique em "Verificar Pagamento" no dashboard para confirmar.');
+        setChecking(false);
+        await fetchCredits();
+      }
     } catch (error) {
       console.error('Error in checkPaymentStatus:', error);
+      setMessage('Use o botão "Verificar Pagamento" no dashboard para confirmar.');
       setChecking(false);
       await fetchCredits();
     }
