@@ -14,6 +14,7 @@ import PaymentSuccess from '@/pages/PaymentSuccess';
 import PaymentCancelled from '@/pages/PaymentCancelled';
 import AdminFinance from '@/pages/AdminFinance';
 import PaymentSettings from '@/pages/PaymentSettings';
+import ReferralPage from '@/pages/ReferralPage';
 
 function App() {
   const [user, setUser] = useState(null);
