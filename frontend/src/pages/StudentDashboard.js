@@ -165,11 +165,19 @@ export default function StudentDashboard({ user, onLogout }) {
 
                 {/* Course Info */}
                 <div className="p-6">
-                  {course.category && (
-                    <span className="inline-block bg-emerald-500/10 text-emerald-400 text-xs font-semibold px-3 py-1 rounded-full mb-3">
-                      {course.category}
-                    </span>
-                  )}
+                  <div className="flex items-center justify-between mb-3">
+                    {course.category && (
+                      <span className="inline-block bg-emerald-500/10 text-emerald-400 text-xs font-semibold px-3 py-1 rounded-full">
+                        {course.category}
+                      </span>
+                    )}
+                    {course.price_credits > 0 && (
+                      <div className="flex items-center gap-1 text-emerald-400 font-bold">
+                        <Coins size={16} />
+                        <span>{course.price_credits}</span>
+                      </div>
+                    )}
+                  </div>
                   <h3 className="text-xl font-bold text-white mb-2 line-clamp-2">
                     {course.title}
                   </h3>
