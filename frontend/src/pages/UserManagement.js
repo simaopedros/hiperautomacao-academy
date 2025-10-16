@@ -498,6 +498,100 @@ export default function UserManagement({ user, onLogout }) {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Bulk Import Dialog */}
+        <Dialog open={showBulkImportDialog} onOpenChange={setShowBulkImportDialog}>
+          <DialogContent className="bg-[#1a1a1a] border-[#252525] text-white max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Importação em Massa de Usuários</DialogTitle>
+            </DialogHeader>
+            
+            <form onSubmit={handleBulkImport} className="space-y-4">
+              <div>
+                <Label>Curso para Matrícula</Label>
+                <select
+                  value={bulkImportCourse}
+                  onChange={(e) => setBulkImportCourse(e.target.value)}
+                  required
+                  className="w-full bg-[#111111] border border-[#2a2a2a] text-white py-2 px-3 rounded-lg"
+                >
+                  <option value="">Selecione um curso</option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <Label>Arquivo CSV</Label>
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => setCsvFile(e.target.files[0])}
+                    required
+                    className="w-full bg-[#111111] border border-[#2a2a2a] text-white py-2 px-3 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-500 file:text-white hover:file:bg-emerald-600"
+                  />
+                  <Button
+                    type="button"
+                    onClick={downloadTemplate}
+                    variant="outline"
+                    className="border-[#2a2a2a] hover:bg-[#252525] text-sm"
+                  >
+                    <Download size={16} className="mr-2" />
+                    Baixar Template CSV
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="bg-[#111111] border border-[#2a2a2a] rounded-lg p-4">
+                <h4 className="font-semibold text-white mb-2">Formato do CSV:</h4>
+                <p className="text-gray-400 text-sm mb-2">O arquivo deve conter as colunas: name, email</p>
+                <code className="text-xs text-cyan-400 bg-[#0a0a0a] p-2 rounded block">
+                  name,email<br/>
+                  João Silva,joao@example.com<br/>
+                  Maria Santos,maria@example.com
+                </code>
+              </div>
+              
+              <Button 
+                type="submit" 
+                disabled={importing}
+                className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50"
+              >
+                {importing ? 'Importando...' : 'Importar Usuários'}
+              </Button>
+            </form>
+            
+            {importResult && (
+              <div className={`mt-4 p-4 rounded-lg border ${
+                importResult.imported_count > 0 
+                  ? 'bg-emerald-500/10 border-emerald-500/30' 
+                  : 'bg-red-500/10 border-red-500/30'
+              }`}>
+                <h4 className="font-semibold mb-2">Resultado da Importação:</h4>
+                <p className="text-sm mb-2">
+                  Usuários importados: {importResult.imported_count}
+                </p>
+                {importResult.errors && importResult.errors.length > 0 && (
+                  <div>
+                    <p className="text-sm font-semibold mb-1">Erros:</p>
+                    <ul className="text-xs space-y-1">
+                      {importResult.errors.map((error, index) => (
+                        <li key={index} className="text-red-400">• {error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {importResult.message && (
+                  <p className="text-sm mt-2">{importResult.message}</p>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
