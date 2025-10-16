@@ -1225,7 +1225,7 @@ async def create_billing(request: CreateBillingRequest, current_user: User = Dep
         # Create billing with Abacate Pay
         async with httpx.AsyncClient() as client:
             billing_data = {
-                "frequency": "one_time",
+                "frequency": "ONE_TIME",
                 "methods": ["PIX", "CARD"],
                 "products": [{
                     "externalId": request.package_id or request.course_id,
