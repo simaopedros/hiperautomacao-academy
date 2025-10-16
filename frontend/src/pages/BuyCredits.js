@@ -70,8 +70,12 @@ function BuyCredits() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // Redirect to payment URL
-      window.location.href = response.data.payment_url;
+      // Save billing ID for status checking
+      localStorage.setItem('last_billing_id', response.data.billing_id);
+
+      // Redirect to payment URL with billing_id as query param
+      const paymentUrl = new URL(response.data.payment_url);
+      window.location.href = paymentUrl.toString();
     } catch (error) {
       console.error('Error creating billing:', error);
       alert(error.response?.data?.detail || 'Erro ao criar pagamento');
