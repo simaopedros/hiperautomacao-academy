@@ -48,10 +48,11 @@ REFERRAL_SIGNUP_BONUS = 10  # Credits given to referrer when someone signs up
 REFERRAL_PURCHASE_PERCENTAGE = 50  # Percentage of credits given to referrer
 
 # Helper function to generate unique referral code
+import random
+import string
+
 async def generate_referral_code():
     """Generate a unique 8-character referral code"""
-    import random
-    import string
     while True:
         code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
         existing = await db.users.find_one({"referral_code": code})
