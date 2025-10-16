@@ -331,17 +331,41 @@ async def register(user_data: UserCreate):
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
+    # Check if referral code is valid
+    referrer_id = None
+    if user_data.referral_code:
+        referrer = await db.users.find_one({"referral_code": user_data.referral_code})
+        if referrer:
+            referrer_id = referrer["id"]
+            logger.info(f"New user referred by {referrer['email']} (code: {user_data.referral_code})")
+        else:
+            logger.warning(f"Invalid referral code: {user_data.referral_code}")
+    
     # Create user - default full_access to False for new registrations
-    user_data_dict = user_data.model_dump(exclude={"password"})
+    user_data_dict = user_data.model_dump(exclude={"password", "referral_code"})
     if "full_access" not in user_data_dict:
         user_data_dict["full_access"] = False
     
-    user = User(**user_data_dict)
+    # Generate unique referral code for this new user
+    new_referral_code = await generate_referral_code()
+    
+    user = User(**user_data_dict, referral_code=new_referral_code, referred_by=referrer_id)
     user_dict = user.model_dump()
     user_dict['password_hash'] = get_password_hash(user_data.password)
     user_dict['created_at'] = user_dict['created_at'].isoformat()
     
     await db.users.insert_one(user_dict)
+    
+    # Give bonus credits to referrer if applicable
+    if referrer_id:
+        await add_credit_transaction(
+            user_id=referrer_id,
+            amount=REFERRAL_SIGNUP_BONUS,
+            transaction_type="earned",
+            description=f"Bônus de indicação: {user.name} se cadastrou",
+            reference_id=user.id
+        )
+        logger.info(f"Awarded {REFERRAL_SIGNUP_BONUS} credits to referrer {referrer_id}")
     
     # Create token
     access_token = create_access_token(data={"sub": user.id})
