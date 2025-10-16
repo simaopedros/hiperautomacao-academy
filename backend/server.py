@@ -109,6 +109,11 @@ class Module(ModuleBase):
     course_id: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# Link Model for lessons
+class LinkItem(BaseModel):
+    title: str
+    url: str
+
 # Lesson Models
 class LessonBase(BaseModel):
     title: str
@@ -116,6 +121,7 @@ class LessonBase(BaseModel):
     content: str  # video URL, text content, or file URL
     duration: Optional[int] = 0  # in seconds
     order: int = 0
+    links: List[LinkItem] = []  # Additional links for the lesson
 
 class LessonCreate(LessonBase):
     module_id: str
