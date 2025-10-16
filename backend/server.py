@@ -69,6 +69,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    referral_code: Optional[str] = None  # Code of person who referred this user
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
@@ -85,6 +86,8 @@ class User(UserBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     avatar: Optional[str] = None
+    referral_code: str = ""  # This user's unique referral code
+    referred_by: Optional[str] = None  # User ID of who referred this user
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class Token(BaseModel):
