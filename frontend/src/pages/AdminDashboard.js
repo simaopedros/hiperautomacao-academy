@@ -79,7 +79,8 @@ function CourseList({ onLogout, user }) {
       published: course.published,
       price_brl: course.price_brl || 0,
       price_credits: course.price_credits || 50,
-      hotmart_product_id: course.hotmart_product_id || ''
+      hotmart_product_id: course.hotmart_product_id || '',
+      hotmart_checkout_url: course.hotmart_checkout_url || ''
     });
     setShowDialog(true);
   };
