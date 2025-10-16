@@ -120,6 +120,32 @@ export default function UserManagement({ user, onLogout }) {
     }
   };
 
+  const handleResendPasswordEmail = async (userId) => {
+    if (!window.confirm('Reenviar email de criação de senha para este usuário?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API}/admin/users/${userId}/resend-password-email`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert('Email enviado com sucesso!');
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Erro ao enviar email');
+    }
+  };
+
+  const handleResetPassword = async (userId) => {
+    if (!window.confirm('Resetar senha deste usuário? Um email será enviado para ele criar uma nova senha.')) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API}/admin/users/${userId}/reset-password`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert('Senha resetada e email enviado com sucesso!');
+    } catch (error) {
+      alert(error.response?.data?.detail || 'Erro ao resetar senha');
+    }
+  };
+
   const handleEnrollUser = async (e) => {
     e.preventDefault();
     try {
