@@ -210,6 +210,16 @@ function App() {
             }
           />
           <Route
+            path="/admin/gamification"
+            element={
+              user && user.role === 'admin' ? (
+                <GamificationSettings user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
             path="/referral"
             element={
               user ? (
