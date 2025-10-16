@@ -1792,6 +1792,18 @@ async def admin_mark_billing_paid(billing_id: str, current_user: User = Depends(
                 }
                 await db.enrollments.insert_one(enrollment)
                 logger.info(f"Admin {current_user.email} manually confirmed billing {billing_id} - enrolled user {user_id} in course {course_id}")
+        
+        return {
+            "message": "Billing marked as paid successfully",
+            "credits_added": billing.get("credits"),
+            "course_enrolled": billing.get("course_id")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error marking billing as paid: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to mark billing as paid: {str(e)}")
 
 
 # ==================== REFERRAL SYSTEM ====================
