@@ -202,6 +202,21 @@ frontend:
           agent: "main"
           comment: "✅ TESTADO MANUALMENTE: Página de gamificação funcionando perfeitamente. Link aparece na navegação do admin. Valores padrão sendo carregados (10, 5, 2, 30). Interface responsiva e intuitiva com resumo visual das recompensas."
 
+  - task: "Página de Referral - Bug Fix"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py (lines 1875-1901), /app/frontend/src/pages/ReferralPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "Usuário reportou erro 'Erro ao carregar informações de indicação' na página /referral."
+        - working: true
+          agent: "main"
+          comment: "✅ CORRIGIDO E TESTADO: Endpoint /api/referral/info estava incompleto (função sem corpo). Código foi reorganizado e duplicação removida. Página agora exibe corretamente: código de referral, link, estatísticas e lista de indicados."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
