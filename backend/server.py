@@ -285,6 +285,34 @@ class CreditPackage(BaseModel):
     price_brl: float  # Price in BRL
     credits: int  # Number of credits
     bonus_percentage: int = 0  # Bonus percentage
+    hotmart_product_id: Optional[str] = None  # Hotmart product ID
+
+# Payment Gateway Configuration
+class PaymentGatewayConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    active_gateway: str = "abacatepay"  # "abacatepay" or "hotmart"
+    hotmart_token: Optional[str] = None  # Hotmart security token (hottok)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_by: Optional[str] = None
+
+# Hotmart Webhook Models
+class HotmartWebhookData(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    callback_type: str
+    transaction: str
+    prod: str  # Product ID
+    prod_name: str
+    status: str
+    email: str
+    name: str
+    purchase_date: str
+    price: str
+    currency: str
+    raw_data: dict  # Store full webhook data
+    processed: bool = False
+    processed_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Abacate Pay Models
 class AbacatePayBilling(BaseModel):
