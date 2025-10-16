@@ -35,6 +35,17 @@ function CourseList({ onLogout, user }) {
     fetchCourses();
   }, []);
 
+  useEffect(() => {
+    // Close dropdowns when clicking outside
+    const handleClickOutside = () => {
+      setShowFinanceMenu(false);
+      setShowSystemMenu(false);
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
   const fetchCourses = async () => {
     try {
       const token = localStorage.getItem('token');
