@@ -290,6 +290,7 @@ class CreditPackage(BaseModel):
     credits: int  # Number of credits
     bonus_percentage: int = 0  # Bonus percentage
     hotmart_product_id: Optional[str] = None  # Hotmart product ID
+    hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL
 
 # Payment Gateway Configuration
 class PaymentGatewayConfig(BaseModel):
