@@ -13,6 +13,8 @@ export default function CourseView({ user, onLogout }) {
   const [course, setCourse] = useState(null);
   const [progress, setProgress] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hasAccess, setHasAccess] = useState(true);
+  const [courseInfo, setCourseInfo] = useState(null);
 
   useEffect(() => {
     fetchCourseData();
@@ -26,10 +28,32 @@ export default function CourseView({ user, onLogout }) {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCourse(response.data);
+      setHasAccess(true);
     } catch (error) {
       console.error('Error fetching course:', error);
+      if (error.response?.status === 403) {
+        // User doesn't have access, fetch basic course info
+        setHasAccess(false);
+        fetchBasicCourseInfo();
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBasicCourseInfo = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      // Get course from all courses list
+      const response = await axios.get(`${API}/student/courses`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const foundCourse = response.data.find(c => c.id === courseId);
+      if (foundCourse) {
+        setCourseInfo(foundCourse);
+      }
+    } catch (error) {
+      console.error('Error fetching basic course info:', error);
     }
   };
 
