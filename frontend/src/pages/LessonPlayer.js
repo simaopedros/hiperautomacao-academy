@@ -163,6 +163,19 @@ export default function LessonPlayer({ user, onLogout }) {
         { lesson_id: lessonId, completed: true, last_position: 0 },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      
+      // Navigate to next lesson if available
+      if (nextLesson) {
+        navigate(`/lesson/${nextLesson.id}`);
+      } else {
+        // If no next lesson, show completion message and go back to course
+        alert('Parabéns! Você concluiu todas as aulas disponíveis!');
+        if (courseData) {
+          navigate(`/course/${courseData.id}`);
+        } else {
+          navigate('/dashboard');
+        }
+      }
     } catch (error) {
       console.error('Error marking as completed:', error);
     }
