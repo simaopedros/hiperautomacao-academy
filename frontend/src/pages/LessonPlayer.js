@@ -414,5 +414,3 @@ export default function LessonPlayer({ user, onLogout }) {
     </div>
   );
 }
-
-import { Download } from 'lucide-react';
