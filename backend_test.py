@@ -802,6 +802,6 @@ class CreditsSystemTester:
         return failed == 0
 
 if __name__ == "__main__":
-    tester = BulkImportTester()
+    tester = CreditsSystemTester()
     success = tester.run_all_tests()
     sys.exit(0 if success else 1)
