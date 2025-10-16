@@ -599,7 +599,7 @@ function CourseManagement({ user, onLogout }) {
                         className="bg-emerald-500 hover:bg-emerald-600"
                         onClick={() => {
                           setEditingLesson(null);
-                          setLessonForm({ title: '', type: 'video', content: '', duration: 0, order: lessons.length });
+                          setLessonForm({ title: '', type: 'video', content: '', duration: 0, order: lessons.length, links: [] });
                         }}
                       >
                         <Plus size={16} className="mr-1" /> Aula
