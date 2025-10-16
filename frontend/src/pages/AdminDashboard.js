@@ -23,7 +23,8 @@ function CourseList({ onLogout, user }) {
     category: '',
     published: false,
     price_brl: 0,
-    price_credits: 50
+    price_credits: 50,
+    hotmart_product_id: ''
   });
   const navigate = useNavigate();
 
