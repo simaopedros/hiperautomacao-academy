@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, MessageCircle, ThumbsUp, Send, Trash2 } from 'lucide-react';
+import { ArrowLeft, MessageCircle, ThumbsUp, Send, Trash2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 
