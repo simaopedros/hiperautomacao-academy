@@ -1974,17 +1974,21 @@ async def get_reward_amount(action_type: str) -> int:
 # Helper function to give gamification reward
 async def give_gamification_reward(user_id: str, action_type: str, description: str):
     """Give credits reward for gamification action (only if user has purchased)"""
+    logger.info(f"🎮 Gamification check for user {user_id}, action: {action_type}")
+    
     user = await db.users.find_one({"id": user_id})
     
     if not user:
+        logger.warning(f"❌ User {user_id} not found for gamification reward")
         return False
     
     # Only give rewards to users who have made a purchase
     if not user.get("has_purchased", False):
-        logger.info(f"User {user_id} has not purchased yet, no gamification reward for {action_type}")
+        logger.info(f"❌ User {user.get('email')} has not purchased yet, no gamification reward for {action_type}")
         return False
     
     reward_amount = await get_reward_amount(action_type)
+    logger.info(f"💰 Reward amount for {action_type}: {reward_amount} credits")
     
     if reward_amount > 0:
         await add_credit_transaction(
@@ -1994,9 +1998,10 @@ async def give_gamification_reward(user_id: str, action_type: str, description: 
             description=description,
             reference_id=None
         )
-        logger.info(f"Awarded {reward_amount} credits to user {user_id} for {action_type}")
+        logger.info(f"✅ Awarded {reward_amount} credits to user {user.get('email')} for {action_type}")
         return True
     
+    logger.info(f"⚠️ No reward given - amount is 0 for {action_type}")
     return False
 
 # Get detailed referral transactions
