@@ -14,6 +14,7 @@ export default function LessonPlayer({ user, onLogout }) {
   const [lesson, setLesson] = useState(null);
   const [courseData, setCourseData] = useState(null);
   const [nextLesson, setNextLesson] = useState(null);
+  const [isCompleted, setIsCompleted] = useState(false);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [replyTo, setReplyTo] = useState(null);
@@ -22,6 +23,7 @@ export default function LessonPlayer({ user, onLogout }) {
   useEffect(() => {
     fetchLesson();
     fetchComments();
+    checkProgress();
   }, [lessonId]);
 
   const fetchLesson = async () => {
