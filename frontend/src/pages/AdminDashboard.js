@@ -141,6 +141,13 @@ function CourseList({ onLogout, user }) {
                 </svg>
                 Config. Pagamentos
               </button>
+              <button
+                onClick={() => navigate('/admin/gamification')}
+                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+              >
+                <Gift size={20} />
+                Gamificação
+              </button>
             </nav>
           </div>
           <div className="flex items-center gap-4">
