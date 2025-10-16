@@ -10,12 +10,25 @@ export default function StudentDashboard({ user, onLogout }) {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userCredits, setUserCredits] = useState(null);
+  const [gatewayConfig, setGatewayConfig] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchCourses();
     fetchCredits();
+    fetchGatewayConfig();
   }, []);
+
+  const fetchGatewayConfig = async () => {
+    try {
+      const response = await axios.get(`${API}/admin/gateway-config`);
+      setGatewayConfig(response.data);
+    } catch (error) {
+      console.error('Error fetching gateway config:', error);
+      // Default to abacatepay if error
+      setGatewayConfig({ active_gateway: 'abacatepay' });
+    }
+  };
 
   const fetchCourses = async () => {
     try {
