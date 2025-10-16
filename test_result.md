@@ -102,41 +102,87 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "CSV bulk import feature failing with 500 error when trying to import users"
+user_problem_statement: "Implementar sistema completo de créditos com Abacate Pay (Fases 1-3)"
 
 backend:
-  - task: "CSV Bulk User Import"
+  - task: "Sistema de Créditos - Base"
     implemented: true
-    working: true
-    file: "/app/backend/server.py (lines 740-880)"
+    working: false
+    file: "/app/backend/server.py (lines 1058-1400)"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
         - working: false
-          agent: "user"
-          comment: "User reported 500 error when importing users via CSV"
+          agent: "main"
+          comment: "Implementado: modelos de créditos, transações, endpoints de saldo, histórico, matricula com créditos. Precisa testar."
+  
+  - task: "Integração Abacate Pay"
+    implemented: true
+    working: false
+    file: "/app/backend/server.py (lines 1180-1380)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
         - working: false
           agent: "main"
-          comment: "Identified issues: synchronous email sending blocking async endpoint, no proper logging. Fixed by: 1) Added proper logging with logger, 2) Used ThreadPoolExecutor to run email sending asynchronously, 3) Added comprehensive error handling around email sending, 4) Moved imports to top of file"
-        - working: true
-          agent: "testing"
-          comment: "COMPREHENSIVE TESTING COMPLETED - All 9 test scenarios passed (100% success rate). Core functionality working: 1) Authentication properly blocks unauthorized access, 2) Admin login/registration works, 3) Email config validation works, 4) CSV import successfully processes users and creates password tokens, 5) Error handling works for missing CSV, invalid base64, missing columns, empty fields. Minor: Email sending fails due to invalid API credentials (401 errors) but this doesn't affect core import functionality - users are still imported and password tokens created correctly."
+          comment: "Implementado: criação de billing, webhook para confirmação de pagamento, compra de créditos e cursos diretos. Precisa testar."
+
+frontend:
+  - task: "Páginas de Compra de Créditos"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/pages/BuyCredits.js, PaymentSuccess.js, PaymentCancelled.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "main"
+          comment: "Criadas páginas de compra de créditos, sucesso e cancelamento de pagamento."
+  
+  - task: "Dashboard com Créditos"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/pages/StudentDashboard.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "main"
+          comment: "Adicionado banner de créditos no dashboard, mostrando saldo e botões de compra/histórico."
+  
+  - task: "Admin - Editar Preços"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/pages/AdminDashboard.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "main"
+          comment: "Adicionados campos de preço em R$ e créditos no formulário de curso."
 
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 1
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Sistema de Créditos - Base"
+    - "Integração Abacate Pay"
+    - "Páginas de Compra de Créditos"
+    - "Dashboard com Créditos"
+    - "Admin - Editar Preços"
   stuck_tasks: []
-  test_all: false
+  test_all: true
   test_priority: "high_first"
 
 agent_communication:
     - agent: "main"
-      message: "Fixed bulk import endpoint with async email sending using ThreadPoolExecutor and proper error handling. Ready for testing."
-    - agent: "testing"
-      message: "CSV Bulk Import testing COMPLETED successfully. All 9 comprehensive test scenarios passed (100% success rate). Core functionality is working perfectly - users are imported, password tokens created, proper error handling for all edge cases. Only minor issue: email sending fails due to invalid Brevo API credentials, but this doesn't affect the import process itself. The 500 error reported by user has been resolved."
+      message: "Fase 1-3 implementadas: Sistema de créditos base, compra de créditos/cursos com Abacate Pay, frontend completo. Pronto para teste backend."
