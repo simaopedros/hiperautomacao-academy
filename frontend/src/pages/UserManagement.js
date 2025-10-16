@@ -157,6 +157,56 @@ export default function UserManagement({ user, onLogout }) {
     setShowEnrollDialog(true);
   };
 
+  const handleBulkImport = async (e) => {
+    e.preventDefault();
+    if (!csvFile || !bulkImportCourse) return;
+
+    setImporting(true);
+    setImportResult(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      const reader = new FileReader();
+      
+      reader.onload = async (event) => {
+        const base64Content = btoa(event.target.result);
+        
+        const response = await axios.post(`${API}/admin/bulk-import`, {
+          course_id: bulkImportCourse,
+          csv_content: base64Content
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        setImportResult(response.data);
+        setCsvFile(null);
+        setBulkImportCourse('');
+        fetchUsers();
+      };
+
+      reader.readAsText(csvFile);
+    } catch (error) {
+      setImportResult({
+        message: error.response?.data?.detail || 'Erro ao importar usuários',
+        imported_count: 0,
+        errors: [error.message]
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const csvContent = 'name,email\\nJoão Silva,joao@example.com\\nMaria Santos,maria@example.com';
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'template_importacao.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       {/* Header */}
