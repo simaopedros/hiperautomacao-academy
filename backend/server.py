@@ -114,6 +114,24 @@ class LinkItem(BaseModel):
     title: str
     url: str
 
+# Email Configuration Model
+class EmailConfig(BaseModel):
+    brevo_api_key: str
+    sender_email: str
+    sender_name: str
+
+# Bulk Import Models
+class BulkImportRequest(BaseModel):
+    course_id: str
+    csv_content: str  # Base64 encoded CSV
+
+class PasswordCreationToken(BaseModel):
+    token: str
+    email: str
+    name: str
+    course_id: str
+    expires_at: datetime
+
 # Lesson Models
 class LessonBase(BaseModel):
     title: str
