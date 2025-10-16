@@ -148,6 +148,20 @@ function CourseList({ onLogout, user }) {
                 <Gift size={20} />
                 Gamificação
               </button>
+              <button
+                onClick={() => navigate('/admin/gateway')}
+                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+              >
+                <CreditCard size={20} />
+                Gateway
+              </button>
+              <button
+                onClick={() => navigate('/admin/credit-packages')}
+                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+              >
+                <Package size={20} />
+                Pacotes
+              </button>
             </nav>
           </div>
           <div className="flex items-center gap-4">
