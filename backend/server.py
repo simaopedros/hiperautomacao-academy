@@ -2042,21 +2042,50 @@ async def update_gateway_config(
 async def hotmart_webhook(webhook_data: dict):
     """
     Process Hotmart webhook for purchase notifications
-    Expected webhook format from Hotmart
+    Supports both v1 and v2 webhook formats
     """
     try:
         logger.info(f"🔔 Received Hotmart webhook: {webhook_data}")
         
-        # Extract data from webhook
-        callback_type = webhook_data.get("callback_type", "")
-        status = webhook_data.get("status", "")
-        transaction = webhook_data.get("transaction", "")
-        prod_id = webhook_data.get("prod", "")
-        email = webhook_data.get("email", "")
-        name = webhook_data.get("name", "")
+        # Detect webhook version
+        version = webhook_data.get("version", "1.0.0")
+        
+        if version == "2.0.0":
+            # V2 format
+            hottok = webhook_data.get("hottok", "")
+            event = webhook_data.get("event", "")
+            data = webhook_data.get("data", {})
+            
+            product = data.get("product", {})
+            buyer = data.get("buyer", {})
+            purchase = data.get("purchase", {})
+            
+            prod_id = str(product.get("id", ""))
+            email = buyer.get("email", "")
+            name = buyer.get("name", "")
+            status = purchase.get("status", "")
+            transaction = purchase.get("transaction", "")
+            prod_name = product.get("name", "")
+            price = purchase.get("price", {}).get("value", 0)
+            currency = purchase.get("price", {}).get("currency_value", "BRL")
+            purchase_date = webhook_data.get("creation_date", "")
+            
+        else:
+            # V1 format (legacy)
+            hottok = webhook_data.get("hottok", "")
+            event = ""  # V1 uses callback_type instead
+            callback_type = webhook_data.get("callback_type", "")
+            status = webhook_data.get("status", "")
+            transaction = webhook_data.get("transaction", "")
+            prod_id = webhook_data.get("prod", "")
+            email = webhook_data.get("email", "")
+            name = webhook_data.get("name", "")
+            prod_name = webhook_data.get("prod_name", "")
+            price = webhook_data.get("price", "")
+            currency = webhook_data.get("currency", "")
+            purchase_date = webhook_data.get("purchase_date", "")
         
         # Validate hottok if configured
-        hottok = webhook_data.get("hottok", "")
         gateway_config = await db.gateway_config.find_one({})
         if gateway_config and gateway_config.get("hotmart_token"):
             if hottok != gateway_config.get("hotmart_token"):
@@ -2066,26 +2095,34 @@ async def hotmart_webhook(webhook_data: dict):
         # Store webhook data
         webhook_record = {
             "id": str(uuid.uuid4()),
-            "callback_type": callback_type,
+            "version": version,
+            "event": event,
             "transaction": transaction,
             "prod": prod_id,
-            "prod_name": webhook_data.get("prod_name", ""),
+            "prod_name": prod_name,
             "status": status,
             "email": email,
             "name": name,
-            "purchase_date": webhook_data.get("purchase_date", ""),
-            "price": webhook_data.get("price", ""),
-            "currency": webhook_data.get("currency", ""),
+            "purchase_date": str(purchase_date),
+            "price": str(price),
+            "currency": currency,
             "raw_data": webhook_data,
             "processed": False,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.hotmart_webhooks.insert_one(webhook_record)
         
-        # Only process approved purchases (status=approved, callback_type=1)
-        if status != "approved" or callback_type != "1":
-            logger.info(f"⏭️  Skipping webhook - status: {status}, callback_type: {callback_type}")
+        # Only process approved purchases
+        # V2: event = "PURCHASE_APPROVED" and status = "APPROVED"
+        # V1: callback_type = "1" and status = "approved"
+        is_approved_v2 = (version == "2.0.0" and event == "PURCHASE_APPROVED" and status == "APPROVED")
+        is_approved_v1 = (version != "2.0.0" and callback_type == "1" and status == "approved")
+        
+        if not (is_approved_v2 or is_approved_v1):
+            logger.info(f"⏭️  Skipping webhook - version: {version}, event: {event}, status: {status}")
             return {"message": "Webhook received but not processed (not approved purchase)"}
+        
+        logger.info(f"✅ Processing approved purchase for {email}")
         
         # Find course or credit package by Hotmart product ID
         course = await db.courses.find_one({"hotmart_product_id": prod_id})
@@ -2093,7 +2130,14 @@ async def hotmart_webhook(webhook_data: dict):
         
         # Check if it's a credit package
         if not course:
-            for pkg in CREDIT_PACKAGES:
+            # Load packages from database first
+            packages_config = await db.credit_packages_config.find_one({})
+            if packages_config:
+                packages = packages_config.get("packages", CREDIT_PACKAGES)
+            else:
+                packages = CREDIT_PACKAGES
+                
+            for pkg in packages:
                 if pkg.get("hotmart_product_id") == prod_id:
                     credit_package = pkg
                     break
@@ -2134,7 +2178,9 @@ async def hotmart_webhook(webhook_data: dict):
                 "referred_by": None,
                 "password_creation_token": password_token,
                 "password_token_expires": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
-                "created_at": datetime.now(timezone.utc).isoformat()
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_via": "hotmart",
+                "hotmart_transaction": transaction
             }
             
             await db.users.insert_one(new_user)
@@ -2218,7 +2264,7 @@ async def hotmart_webhook(webhook_data: dict):
             }
         )
         
-        return {"message": "Webhook processed successfully"}
+        return {"message": "Webhook processed successfully", "user_created": user.get("created_via") == "hotmart"}
         
     except Exception as e:
         logger.error(f"❌ Error processing Hotmart webhook: {e}", exc_info=True)
