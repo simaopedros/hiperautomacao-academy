@@ -135,6 +135,18 @@ backend:
           agent: "testing"
           comment: "✅ TESTADO: Integração Abacate Pay funcionando completamente. Billing criado com sucesso, webhook processando pagamentos, créditos sendo adicionados automaticamente, compra direta de cursos funcionando. API Key válida, ambiente sandbox configurado."
 
+  - task: "Sistema de Gamificação - Backend"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py (lines 1881-1980)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implementado: verificação de 1+ crédito para participar da comunidade, recompensas por interações (apenas usuários que já compraram), endpoints admin para configurar valores de recompensas (criar post, comentar, receber like, completar curso). Precisa testar."
+
 frontend:
   - task: "Páginas de Compra de Créditos"
     implemented: true
