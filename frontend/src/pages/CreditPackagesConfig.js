@@ -123,6 +123,20 @@ export default function CreditPackagesConfig({ user, onLogout }) {
                     Deixe em branco se não vender este pacote pela Hotmart
                   </p>
                 </div>
+
+                <div>
+                  <Label className="text-gray-300">URL do Checkout Hotmart</Label>
+                  <Input
+                    type="url"
+                    value={pkg.hotmart_checkout_url || ''}
+                    onChange={(e) => handlePackageChange(index, 'hotmart_checkout_url', e.target.value)}
+                    placeholder="https://pay.hotmart.com/..."
+                    className="bg-[#111111] border-[#2a2a2a] text-white"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Link do checkout da Hotmart para este pacote
+                  </p>
+                </div>
               </div>
             ))}
 
