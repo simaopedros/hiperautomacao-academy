@@ -1238,7 +1238,7 @@ async def create_billing(request: CreateBillingRequest, current_user: User = Dep
                     "email": request.customer_email,
                     "name": request.customer_name,
                     "cellphone": "+5511999999999",  # Default test cellphone for sandbox
-                    "taxId": "12345678901"  # Default test CPF for sandbox
+                    "taxId": "11144477735"  # Valid test CPF for sandbox
                 },
                 "returnUrl": f"{os.environ.get('FRONTEND_URL')}/payment-cancelled",
                 "completionUrl": f"{os.environ.get('FRONTEND_URL')}/payment-success"
