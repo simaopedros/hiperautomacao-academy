@@ -43,53 +43,51 @@ export default function LessonPlayer({ user, onLogout }) {
 
   const fetchCourseAndFindNext = async (moduleId, token) => {
     try {
-      // Get module to find course
-      const modulesResponse = await axios.get(`${API}/admin/modules/`, {
+      // Get all published courses for this student
+      const coursesResponse = await axios.get(`${API}/student/courses`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      // Find the course by checking all modules
-      let currentCourseId = null;
-      for (const mod of modulesResponse.data) {
-        if (mod.id === moduleId) {
-          currentCourseId = mod.course_id;
-          break;
-        }
-      }
-      
-      if (!currentCourseId) return;
-      
-      // Get full course data with modules and lessons
-      const courseResponse = await axios.get(`${API}/student/courses/${currentCourseId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      setCourseData(courseResponse.data);
-      
-      // Find current lesson and next lesson
-      const modules = courseResponse.data.modules || [];
-      let foundCurrent = false;
-      
-      for (const module of modules) {
-        const lessons = module.lessons || [];
-        for (let i = 0; i < lessons.length; i++) {
-          if (foundCurrent) {
-            setNextLesson(lessons[i]);
-            return;
-          }
-          if (lessons[i].id === lessonId) {
-            foundCurrent = true;
-            // Check if there's a next lesson in same module
-            if (i < lessons.length - 1) {
-              setNextLesson(lessons[i + 1]);
-              return;
+      // Find which course contains this module
+      for (const course of coursesResponse.data) {
+        const courseDetailResponse = await axios.get(`${API}/student/courses/${course.id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        const courseDetail = courseDetailResponse.data;
+        const modules = courseDetail.modules || [];
+        
+        // Check if this course has our module
+        const moduleFound = modules.find(m => m.id === moduleId);
+        if (moduleFound) {
+          setCourseData(courseDetail);
+          
+          // Find current lesson and next lesson
+          let foundCurrent = false;
+          
+          for (const module of modules) {
+            const lessons = module.lessons || [];
+            for (let i = 0; i < lessons.length; i++) {
+              if (foundCurrent) {
+                setNextLesson(lessons[i]);
+                return;
+              }
+              if (lessons[i].id === lessonId) {
+                foundCurrent = true;
+                // Check if there's a next lesson in same module
+                if (i < lessons.length - 1) {
+                  setNextLesson(lessons[i + 1]);
+                  return;
+                }
+              }
             }
           }
+          
+          // If no next lesson found, set to null
+          setNextLesson(null);
+          return;
         }
       }
-      
-      // If no next lesson found, set to null
-      setNextLesson(null);
     } catch (error) {
       console.error('Error fetching course data:', error);
     }
