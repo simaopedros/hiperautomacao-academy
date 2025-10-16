@@ -59,8 +59,9 @@ class BulkImportTester:
             return False
     
     def test_admin_login(self):
-        """Test 2: Login as admin and get token"""
+        """Test 2: Login as admin and get token (create admin if needed)"""
         try:
+            # First try to login
             login_data = {
                 "email": ADMIN_EMAIL,
                 "password": ADMIN_PASSWORD
@@ -82,6 +83,38 @@ class BulkImportTester:
                 else:
                     self.log_test("Admin Login", False, 
                                 "No access_token in response", data)
+                    return False
+            elif response.status_code == 401:
+                # Admin doesn't exist, try to register
+                print("   Admin user not found, attempting to register...")
+                register_data = {
+                    "email": ADMIN_EMAIL,
+                    "password": ADMIN_PASSWORD,
+                    "name": "Admin User",
+                    "role": "admin",
+                    "full_access": True
+                }
+                
+                register_response = self.session.post(f"{BACKEND_URL}/auth/register", json=register_data)
+                
+                if register_response.status_code == 200:
+                    data = register_response.json()
+                    if 'access_token' in data:
+                        self.admin_token = data['access_token']
+                        self.session.headers.update({
+                            'Authorization': f'Bearer {self.admin_token}'
+                        })
+                        self.log_test("Admin Login", True, 
+                                    "Successfully registered and logged in as admin")
+                        return True
+                    else:
+                        self.log_test("Admin Login", False, 
+                                    "Registration successful but no token", data)
+                        return False
+                else:
+                    self.log_test("Admin Login", False, 
+                                f"Registration failed with status {register_response.status_code}", 
+                                register_response.text[:200])
                     return False
             else:
                 self.log_test("Admin Login", False, 
