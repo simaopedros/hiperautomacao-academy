@@ -177,18 +177,18 @@ export default function ReferralPage({ user, onLogout }) {
               <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-emerald-400">1</span>
               </div>
-              <h3 className="font-semibold text-white mb-2">Compartilhe seu link</h3>
+              <h3 className="font-semibold text-white mb-2">Faça sua primeira compra</h3>
               <p className="text-sm text-gray-400">
-                Envie seu link de indicação para amigos e família
+                Você precisa ter comprado pelo menos um pacote de créditos ou curso
               </p>
             </div>
             <div className="text-center">
               <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl font-bold text-emerald-400">2</span>
               </div>
-              <h3 className="font-semibold text-white mb-2">Eles se cadastram</h3>
+              <h3 className="font-semibold text-white mb-2">Compartilhe seu link</h3>
               <p className="text-sm text-gray-400">
-                Você ganha {referralInfo?.signup_bonus} créditos quando eles criarem uma conta
+                Envie seu link de indicação para amigos e família
               </p>
             </div>
             <div className="text-center">
@@ -197,7 +197,7 @@ export default function ReferralPage({ user, onLogout }) {
               </div>
               <h3 className="font-semibold text-white mb-2">Ganhe continuamente</h3>
               <p className="text-sm text-gray-400">
-                Receba {referralInfo?.purchase_percentage}% dos créditos que eles comprarem
+                Receba {referralInfo?.purchase_percentage}% dos créditos que seus indicados comprarem
               </p>
             </div>
           </div>
