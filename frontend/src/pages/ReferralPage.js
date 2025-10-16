@@ -21,9 +21,20 @@ export default function ReferralPage({ user, onLogout }) {
       const response = await axios.get(`${API}/api/referral/info`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      console.log('Referral info:', response.data);
       setReferralInfo(response.data);
     } catch (error) {
       console.error('Error fetching referral info:', error);
+      // Set default values if API fails
+      setReferralInfo({
+        referral_code: 'LOADING...',
+        referral_link: '',
+        total_referrals: 0,
+        total_credits_earned: 0,
+        referrals: [],
+        signup_bonus: 10,
+        purchase_percentage: 50
+      });
     } finally {
       setLoading(false);
     }
