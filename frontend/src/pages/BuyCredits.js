@@ -21,7 +21,7 @@ function BuyCredits() {
 
   const fetchGatewayConfig = async () => {
     try {
-      const response = await axios.get(`${API}/api/admin/gateway-config`);
+      const response = await axios.get(`${API}/api/gateway/active`);
       setGatewayConfig(response.data);
     } catch (error) {
       console.error('Error fetching gateway config:', error);
