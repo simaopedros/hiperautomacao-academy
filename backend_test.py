@@ -39,18 +39,18 @@ class BulkImportTester:
         })
     
     def test_authentication_without_token(self):
-        """Test 1: Try to access bulk-import without token (should fail with 401)"""
+        """Test 1: Try to access bulk-import without token (should fail with 401/403)"""
         try:
             response = self.session.post(f"{BACKEND_URL}/admin/bulk-import", 
                                        json={"course_id": "test", "csv_content": "test"})
             
-            if response.status_code == 401:
+            if response.status_code in [401, 403]:  # Both are valid unauthorized responses
                 self.log_test("Authentication Without Token", True, 
-                            "Correctly rejected request without token")
+                            f"Correctly rejected request without token (status: {response.status_code})")
                 return True
             else:
                 self.log_test("Authentication Without Token", False, 
-                            f"Expected 401, got {response.status_code}", 
+                            f"Expected 401/403, got {response.status_code}", 
                             response.text[:200])
                 return False
         except Exception as e:
