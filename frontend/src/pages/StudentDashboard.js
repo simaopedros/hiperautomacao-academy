@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { BookOpen, LogOut, MessageCircle, Play, Clock } from 'lucide-react';
+import { BookOpen, LogOut, MessageCircle, Play, Clock, Coins, History } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -9,10 +9,12 @@ const API = `${BACKEND_URL}/api`;
 export default function StudentDashboard({ user, onLogout }) {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userCredits, setUserCredits] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchCourses();
+    fetchCredits();
   }, []);
 
   const fetchCourses = async () => {
@@ -26,6 +28,18 @@ export default function StudentDashboard({ user, onLogout }) {
       console.error('Error fetching courses:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCredits = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API}/credits/balance`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUserCredits(response.data);
+    } catch (error) {
+      console.error('Error fetching credits:', error);
     }
   };
 
