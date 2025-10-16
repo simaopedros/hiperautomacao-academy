@@ -1261,6 +1261,7 @@ async def create_billing(request: CreateBillingRequest, current_user: User = Dep
                 raise HTTPException(status_code=500, detail=f"Payment gateway error: {response.text}")
             
             billing_response = response.json()
+            logger.info(f"Abacate Pay response: {billing_response}")
             billing_id = billing_response.get("id")
             payment_url = billing_response.get("url")
             
