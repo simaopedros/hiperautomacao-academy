@@ -1041,8 +1041,20 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
         
         logger.info(f"Email config found for: {email_config.get('sender_email')}")
         
-        # Decode CSV
-        csv_content = base64.b64decode(request.csv_content).decode('utf-8')
+        # Decode CSV with error handling for different encodings
+        try:
+            csv_bytes = base64.b64decode(request.csv_content)
+            # Try UTF-8 first
+            csv_content = csv_bytes.decode('utf-8')
+        except UnicodeDecodeError:
+            # Fallback to latin-1 if UTF-8 fails
+            try:
+                csv_content = csv_bytes.decode('latin-1')
+                logger.info("CSV decoded using latin-1 encoding")
+            except Exception as e:
+                logger.error(f"Failed to decode CSV: {e}")
+                raise HTTPException(status_code=400, detail="Invalid CSV encoding. Please use UTF-8 or Latin-1.")
+        
         csv_file = io.StringIO(csv_content)
         csv_reader = csv.DictReader(csv_file)
         
