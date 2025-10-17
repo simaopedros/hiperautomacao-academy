@@ -87,6 +87,12 @@ export default function EmailSettings({ user, onLogout }) {
           <h2 className="text-2xl font-bold text-white mb-6">Configuração Email</h2>
 
           <form onSubmit={handleSave} className="space-y-6">
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
+              <p className="text-blue-300 text-sm">
+                <strong>Configurações SMTP do Brevo:</strong> Use as credenciais fornecidas pelo Brevo em SMTP & API → SMTP
+              </p>
+            </div>
+
             <div>
               <Label>API Key Brevo (Para importação CSV)</Label>
               <Input
@@ -99,19 +105,50 @@ export default function EmailSettings({ user, onLogout }) {
               <p className="text-xs text-gray-500 mt-1">Usada para envio em massa via API</p>
             </div>
 
-            <div>
-              <Label>SMTP Key Brevo (Para emails transacionais)</Label>
-              <Input
-                value={config.brevo_smtp_key || ''}
-                onChange={(e) => setConfig({...config, brevo_smtp_key: e.target.value})}
-                className="bg-[#111111] border-[#2a2a2a] text-white mt-2"
-                placeholder="Gerar em SMTP & API → SMTP Keys"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                <a href="https://app.brevo.com/settings/keys/smtp" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">
-                  Gerar SMTP Key no Brevo →
-                </a>
-              </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>SMTP Username</Label>
+                <Input
+                  value={config.smtp_username || ''}
+                  onChange={(e) => setConfig({...config, smtp_username: e.target.value})}
+                  className="bg-[#111111] border-[#2a2a2a] text-white mt-2"
+                  placeholder="ex: 8cda09001@smtp-brevo.com"
+                />
+                <p className="text-xs text-gray-500 mt-1">Login fornecido pelo Brevo</p>
+              </div>
+
+              <div>
+                <Label>SMTP Password (Senha Mestra)</Label>
+                <Input
+                  type="password"
+                  value={config.smtp_password || ''}
+                  onChange={(e) => setConfig({...config, smtp_password: e.target.value})}
+                  className="bg-[#111111] border-[#2a2a2a] text-white mt-2"
+                  placeholder="Senha mestra do Brevo"
+                />
+                <p className="text-xs text-gray-500 mt-1">Senha mestra do SMTP</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Servidor SMTP</Label>
+                <Input
+                  value={config.smtp_server || 'smtp-relay.brevo.com'}
+                  onChange={(e) => setConfig({...config, smtp_server: e.target.value})}
+                  className="bg-[#111111] border-[#2a2a2a] text-white mt-2"
+                />
+              </div>
+
+              <div>
+                <Label>Porta SMTP</Label>
+                <Input
+                  type="number"
+                  value={config.smtp_port || 587}
+                  onChange={(e) => setConfig({...config, smtp_port: parseInt(e.target.value)})}
+                  className="bg-[#111111] border-[#2a2a2a] text-white mt-2"
+                />
+              </div>
             </div>
 
             <div>
