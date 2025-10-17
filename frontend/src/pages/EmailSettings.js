@@ -84,7 +84,7 @@ export default function EmailSettings({ user, onLogout }) {
 
           <form onSubmit={handleSave} className="space-y-6">
             <div>
-              <Label>API Key Brevo</Label>
+              <Label>API Key Brevo (Para importação CSV)</Label>
               <Input
                 value={config.brevo_api_key}
                 onChange={(e) => setConfig({...config, brevo_api_key: e.target.value})}
@@ -92,6 +92,22 @@ export default function EmailSettings({ user, onLogout }) {
                 placeholder="xkeysib-..."
                 required
               />
+              <p className="text-xs text-gray-500 mt-1">Usada para envio em massa via API</p>
+            </div>
+
+            <div>
+              <Label>SMTP Key Brevo (Para emails transacionais)</Label>
+              <Input
+                value={config.brevo_smtp_key || ''}
+                onChange={(e) => setConfig({...config, brevo_smtp_key: e.target.value})}
+                className="bg-[#111111] border-[#2a2a2a] text-white mt-2"
+                placeholder="Gerar em SMTP & API → SMTP Keys"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                <a href="https://app.brevo.com/settings/keys/smtp" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">
+                  Gerar SMTP Key no Brevo →
+                </a>
+              </p>
             </div>
 
             <div>
