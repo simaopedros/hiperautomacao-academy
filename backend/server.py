@@ -2171,6 +2171,9 @@ async def hotmart_webhook(webhook_data: dict):
             user_id = str(uuid.uuid4())
             referral_code = await generate_referral_code()
             
+            # Prepare enrolled courses - add course ID if it's a course purchase
+            enrolled_courses = [course["id"]] if course else []
+            
             new_user = {
                 "id": user_id,
                 "email": email,
@@ -2179,7 +2182,7 @@ async def hotmart_webhook(webhook_data: dict):
                 "role": "student",
                 "avatar": None,
                 "full_access": False,
-                "enrolled_courses": [],
+                "enrolled_courses": enrolled_courses,
                 "has_purchased": True,  # Mark as purchased
                 "referral_code": referral_code,
                 "referred_by": None,
@@ -2192,6 +2195,9 @@ async def hotmart_webhook(webhook_data: dict):
             
             await db.users.insert_one(new_user)
             user = new_user
+            
+            if course:
+                logger.info(f"🎓 Course access granted to NEW user: {course['title']} to {email}")
             
             # Send welcome email with password creation link
             try:
@@ -2217,19 +2223,19 @@ async def hotmart_webhook(webhook_data: dict):
                 {"$set": {"has_purchased": True}}
             )
             user["has_purchased"] = True
+            
+            # If it's a course purchase, add course to user's enrolled courses
+            if course:
+                await db.users.update_one(
+                    {"id": user["id"]},
+                    {"$addToSet": {"enrolled_courses": course["id"]}}
+                )
+                logger.info(f"🎓 Course access granted to EXISTING user: {course['title']} to {email}")
         
         user_id = user["id"]
         
-        # Process based on type (course or credit package)
+        # Add transaction record
         if course:
-            # Grant access to course
-            logger.info(f"🎓 Granting course access: {course['title']} to {email}")
-            
-            await db.users.update_one(
-                {"id": user_id},
-                {"$addToSet": {"enrolled_courses": course["id"]}}
-            )
-            
             # Add credit transaction record
             transaction_record = {
                 "id": str(uuid.uuid4()),
@@ -2243,7 +2249,7 @@ async def hotmart_webhook(webhook_data: dict):
             }
             await db.credit_transactions.insert_one(transaction_record)
             
-            logger.info(f"✅ Course access granted for transaction {transaction}")
+            logger.info(f"✅ Course purchase recorded for transaction {transaction}")
             
         elif credit_package:
             # Add credits to user
