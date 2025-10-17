@@ -2393,8 +2393,6 @@ def send_password_creation_email(email: str, name: str, password_link: str):
         
     except Exception as e:
         logger.error(f"❌ Failed to send welcome email to {email}: {e}")
-        if 'sync_client' in locals():
-            sync_client.close()
 
 # Get credit packages with Hotmart IDs
 @api_router.get("/admin/credit-packages-config")
