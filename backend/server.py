@@ -1116,6 +1116,17 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                     # Send email in a thread pool to avoid blocking
                     loop = asyncio.get_event_loop()
                     try:
+                        # Get SMTP credentials (priority: smtp_username/password, fallback to old method)
+                        smtp_username = email_config.get('smtp_username')
+                        smtp_password = email_config.get('smtp_password')
+                        smtp_server = email_config.get('smtp_server', 'smtp-relay.brevo.com')
+                        smtp_port = email_config.get('smtp_port', 587)
+                        
+                        # Fallback to old method if new fields not set
+                        if not smtp_username or not smtp_password:
+                            smtp_username = email_config.get('sender_email')
+                            smtp_password = email_config.get('brevo_smtp_key') or email_config.get('brevo_api_key')
+                        
                         email_sent = await loop.run_in_executor(
                             executor,
                             send_brevo_email,
@@ -1123,9 +1134,12 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                             name,
                             "Bem-vindo à Hiperautomação - Crie sua senha",
                             html_content,
-                            email_config.get('brevo_smtp_key') or email_config.get('brevo_api_key'),
+                            smtp_username,
+                            smtp_password,
                             email_config['sender_email'],
-                            email_config['sender_name']
+                            email_config['sender_name'],
+                            smtp_server,
+                            smtp_port
                         )
                         if email_sent:
                             logger.info(f"Successfully sent invitation email to {email}")
