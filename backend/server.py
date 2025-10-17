@@ -997,8 +997,8 @@ async def save_email_config(config: EmailConfig, current_user: User = Depends(ge
 
 # ==================== BULK IMPORT ====================
 
-def send_brevo_email(to_email: str, to_name: str, subject: str, html_content: str, smtp_key: str, sender_email: str, sender_name: str):
-    """Send email using Brevo SMTP"""
+def send_brevo_email(to_email: str, to_name: str, subject: str, html_content: str, smtp_username: str, smtp_password: str, sender_email: str, sender_name: str, smtp_server: str = 'smtp-relay.brevo.com', smtp_port: int = 587):
+    """Send email using SMTP"""
     try:
         import smtplib
         from email.mime.text import MIMEText
@@ -1013,10 +1013,10 @@ def send_brevo_email(to_email: str, to_name: str, subject: str, html_content: st
         part = MIMEText(html_content, 'html')
         msg.attach(part)
         
-        # Send via Brevo SMTP
-        with smtplib.SMTP('smtp-relay.brevo.com', 587) as server:
+        # Send via SMTP
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
             server.starttls()
-            server.login(sender_email, smtp_key)
+            server.login(smtp_username, smtp_password)
             server.send_message(msg)
         
         logger.info(f"Email sent successfully to {to_email} via SMTP")
