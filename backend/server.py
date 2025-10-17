@@ -2399,7 +2399,8 @@ def send_password_creation_email(email: str, name: str, password_link: str):
         
         # Get Brevo configuration synchronously
         from pymongo import MongoClient
-        sync_client = MongoClient('mongodb://localhost:27017')
+        mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+        sync_client = MongoClient(mongo_url)
         sync_db = sync_client[os.environ.get('DB_NAME', 'hiperautomacao_db')]
         
         config = sync_db.email_config.find_one({})
@@ -2613,7 +2614,8 @@ def send_password_reset_email(email: str, name: str, password_link: str):
         
         # Get Brevo configuration synchronously
         from pymongo import MongoClient
-        sync_client = MongoClient('mongodb://localhost:27017')
+        mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+        sync_client = MongoClient(mongo_url)
         sync_db = sync_client[os.environ.get('DB_NAME', 'hiperautomacao_db')]
         
         config = sync_db.email_config.find_one({})
