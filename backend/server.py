@@ -2009,6 +2009,33 @@ async def get_active_gateway():
     # Return only the active gateway, not the token
     return {"active_gateway": active}
 
+# Debug endpoint to check user enrollment
+@api_router.get("/debug/user/{email}")
+async def debug_user(email: str, current_user: User = Depends(get_current_admin)):
+    """Debug endpoint to check user data"""
+    user = await db.users.find_one({"email": email}, {"_id": 0})
+    if not user:
+        return {"error": "User not found"}
+    
+    # Get course names
+    enrolled_course_ids = user.get("enrolled_courses", [])
+    courses = []
+    for course_id in enrolled_course_ids:
+        course = await db.courses.find_one({"id": course_id}, {"_id": 0, "id": 1, "title": 1})
+        if course:
+            courses.append(course)
+    
+    return {
+        "user": {
+            "email": user.get("email"),
+            "name": user.get("name"),
+            "has_purchased": user.get("has_purchased"),
+            "enrolled_courses_count": len(enrolled_course_ids),
+            "enrolled_course_ids": enrolled_course_ids
+        },
+        "courses": courses
+    }
+
 # Update payment gateway configuration
 @api_router.post("/admin/gateway-config")
 async def update_gateway_config(
