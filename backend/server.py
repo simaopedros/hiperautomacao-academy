@@ -993,7 +993,7 @@ async def save_email_config(config: EmailConfig, current_user: User = Depends(ge
 
 # ==================== BULK IMPORT ====================
 
-def send_brevo_email(to_email: str, to_name: str, subject: str, html_content: str, api_key: str, sender_email: str, sender_name: str):
+def send_brevo_email(to_email: str, to_name: str, subject: str, html_content: str, smtp_key: str, sender_email: str, sender_name: str):
     """Send email using Brevo SMTP"""
     try:
         import smtplib
