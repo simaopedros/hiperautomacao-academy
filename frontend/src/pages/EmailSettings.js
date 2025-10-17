@@ -13,6 +13,10 @@ export default function EmailSettings({ user, onLogout }) {
   const [config, setConfig] = useState({
     brevo_api_key: '',
     brevo_smtp_key: '',
+    smtp_username: '',
+    smtp_password: '',
+    smtp_server: 'smtp-relay.brevo.com',
+    smtp_port: 587,
     sender_email: '',
     sender_name: ''
   });
