@@ -666,6 +666,7 @@ async def enroll_user_in_course(enrollment: EnrollmentBase, current_user: User =
 
 @api_router.get("/admin/enrollments/{user_id}")
 async def get_user_enrollments(user_id: str, current_user: User = Depends(get_current_admin)):
+    # First, try to get from enrollments collection (old method)
     enrollments = await db.enrollments.find({"user_id": user_id}, {"_id": 0}).to_list(1000)
     
     # Get course details for each enrollment
@@ -679,6 +680,21 @@ async def get_user_enrollments(user_id: str, current_user: User = Depends(get_cu
                 "course_title": course["title"],
                 "enrolled_at": enrollment["enrolled_at"]
             })
+    
+    # Also get courses from user's enrolled_courses field (new method - Hotmart)
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if user and user.get("enrolled_courses"):
+        for course_id in user.get("enrolled_courses", []):
+            # Check if already in result
+            if not any(e["course_id"] == course_id for e in result):
+                course = await db.courses.find_one({"id": course_id}, {"_id": 0})
+                if course:
+                    result.append({
+                        "enrollment_id": f"direct_{course_id}",  # Synthetic ID for direct enrollments
+                        "course_id": course_id,
+                        "course_title": course["title"],
+                        "enrolled_at": user.get("created_at", "")  # Use user creation date as fallback
+                    })
     
     return result
 
