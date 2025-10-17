@@ -1119,7 +1119,7 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                             name,
                             "Bem-vindo à Hiperautomação - Crie sua senha",
                             html_content,
-                            email_config['brevo_api_key'],
+                            email_config.get('brevo_smtp_key') or email_config.get('brevo_api_key'),
                             email_config['sender_email'],
                             email_config['sender_name']
                         )
