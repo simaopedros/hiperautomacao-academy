@@ -2388,10 +2388,13 @@ def send_password_creation_email(email: str, name: str, password_link: str):
         )
         
         api_instance.send_transac_email(send_smtp_email)
-        logger.info(f"Welcome email sent successfully to {email}")
+        logger.info(f"✅ Welcome email sent successfully to {email}")
+        sync_client.close()
         
     except Exception as e:
-        logger.error(f"Failed to send welcome email to {email}: {e}")
+        logger.error(f"❌ Failed to send welcome email to {email}: {e}")
+        if 'sync_client' in locals():
+            sync_client.close()
 
 # Get credit packages with Hotmart IDs
 @api_router.get("/admin/credit-packages-config")
