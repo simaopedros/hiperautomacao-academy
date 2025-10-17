@@ -2328,7 +2328,7 @@ async def hotmart_webhook(webhook_data: dict):
 
 # Helper function to send password creation email
 def send_password_creation_email(email: str, name: str, password_link: str):
-    """Send password creation email to new user from Hotmart"""
+    """Send password creation email to new user"""
     try:
         import sib_api_v3_sdk
         from sib_api_v3_sdk.rest import ApiException
