@@ -223,10 +223,21 @@ function CourseList({ onLogout, user }) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        navigate('/admin/email-settings');
+                        setShowSystemMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
+                    >
+                      <Mail size={16} />
+                      Config. Email
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
                         navigate('/admin/gamification');
                         setShowSystemMenu(false);
                       }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-lg"
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
                     >
                       <Gift size={16} />
                       Gamificação
