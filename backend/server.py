@@ -2640,10 +2640,10 @@ def send_password_reset_email(email: str, name: str, password_link: str):
         part = MIMEText(html_content, 'html')
         msg.attach(part)
         
-        # Send via Brevo SMTP
-        with smtplib.SMTP('smtp-relay.brevo.com', 587) as server:
+        # Send via SMTP
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
             server.starttls()
-            server.login(sender_email, smtp_key)
+            server.login(smtp_username, smtp_password)
             server.send_message(msg)
         
         logger.info(f"✅ Password reset email sent successfully to {email} via SMTP")
