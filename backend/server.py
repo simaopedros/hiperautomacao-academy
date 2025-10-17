@@ -2356,10 +2356,11 @@ async def hotmart_webhook(webhook_data: dict):
 
 # Helper function to send password creation email
 def send_password_creation_email(email: str, name: str, password_link: str):
-    """Send password creation email to new user"""
+    """Send password creation email to new user via SMTP"""
     try:
-        import sib_api_v3_sdk
-        from sib_api_v3_sdk.rest import ApiException
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
         
         # Get Brevo configuration synchronously
         from pymongo import MongoClient
@@ -2373,17 +2374,15 @@ def send_password_creation_email(email: str, name: str, password_link: str):
             sync_client.close()
             return
         
-        configuration = sib_api_v3_sdk.Configuration()
-        configuration.api_key['api-key'] = config.get('brevo_api_key')
+        sender_email = config.get('sender_email')
+        sender_name = config.get('sender_name', 'Hiperautomação')
+        api_key = config.get('brevo_api_key')
         
-        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
-        
-        sender = {
-            "name": config.get('sender_name', 'Hiperautomação'),
-            "email": config.get('sender_email')
-        }
-        
-        to = [{"email": email, "name": name}]
+        # Create message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = 'Bem-vindo! Crie sua senha - Hiperautomação'
+        msg['From'] = f"{sender_name} <{sender_email}>"
+        msg['To'] = email
         
         html_content = f"""
         <html>
@@ -2408,21 +2407,23 @@ def send_password_creation_email(email: str, name: str, password_link: str):
         </html>
         """
         
-        send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
-            to=to,
-            sender=sender,
-            subject="Bem-vindo! Crie sua senha - Hiperautomação",
-            html_content=html_content
-        )
+        part = MIMEText(html_content, 'html')
+        msg.attach(part)
         
-        api_instance.send_transac_email(send_smtp_email)
-        logger.info(f"✅ Welcome email sent successfully to {email}")
+        # Send via Brevo SMTP
+        # Brevo SMTP: smtp-relay.brevo.com, port 587
+        # Username: your email, Password: your API key
+        with smtplib.SMTP('smtp-relay.brevo.com', 587) as server:
+            server.starttls()
+            server.login(sender_email, api_key)
+            server.send_message(msg)
+        
+        logger.info(f"✅ Welcome email sent successfully to {email} via SMTP")
         sync_client.close()
         
     except Exception as e:
         logger.error(f"❌ Failed to send welcome email to {email}: {e}")
         logger.error(f"Exception type: {type(e).__name__}")
-        logger.error(f"Exception details: {str(e)}")
 
 # Get credit packages with Hotmart IDs
 @api_router.get("/admin/credit-packages-config")
