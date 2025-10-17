@@ -195,7 +195,9 @@ class LinkItem(BaseModel):
 
 # Email Configuration Model
 class EmailConfig(BaseModel):
-    brevo_api_key: str
+    model_config = ConfigDict(extra="ignore")
+    brevo_api_key: str  # API key for bulk operations
+    brevo_smtp_key: Optional[str] = None  # SMTP key for transactional emails
     sender_email: str
     sender_name: str
 
