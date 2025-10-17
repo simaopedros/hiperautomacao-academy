@@ -2349,7 +2349,7 @@ def send_password_creation_email(email: str, name: str, password_link: str):
             return
         
         configuration = sib_api_v3_sdk.Configuration()
-        configuration.api_key['api-key'] = config.get('api_key')
+        configuration.api_key['api-key'] = config.get('brevo_api_key')
         
         api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
         
@@ -2549,7 +2549,7 @@ def send_password_reset_email(email: str, name: str, password_link: str):
             return
         
         configuration = sib_api_v3_sdk.Configuration()
-        configuration.api_key['api-key'] = config.get('api_key')
+        configuration.api_key['api-key'] = config.get('brevo_api_key')
         
         api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
         
