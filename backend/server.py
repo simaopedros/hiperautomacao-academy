@@ -2557,10 +2557,11 @@ async def reset_user_password(user_id: str, current_user: User = Depends(get_cur
 
 # Helper function to send password reset email
 def send_password_reset_email(email: str, name: str, password_link: str):
-    """Send password reset email"""
+    """Send password reset email via SMTP"""
     try:
-        import sib_api_v3_sdk
-        from sib_api_v3_sdk.rest import ApiException
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
         
         # Get Brevo configuration synchronously
         from pymongo import MongoClient
@@ -2574,17 +2575,15 @@ def send_password_reset_email(email: str, name: str, password_link: str):
             sync_client.close()
             return
         
-        configuration = sib_api_v3_sdk.Configuration()
-        configuration.api_key['api-key'] = config.get('brevo_api_key')
+        sender_email = config.get('sender_email')
+        sender_name = config.get('sender_name', 'Hiperautomação')
+        api_key = config.get('brevo_api_key')
         
-        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
-        
-        sender = {
-            "name": config.get('sender_name', 'Hiperautomação'),
-            "email": config.get('sender_email')
-        }
-        
-        to = [{"email": email, "name": name}]
+        # Create message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = 'Redefinir Senha - Hiperautomação'
+        msg['From'] = f"{sender_name} <{sender_email}>"
+        msg['To'] = email
         
         html_content = f"""
         <html>
@@ -2607,15 +2606,16 @@ def send_password_reset_email(email: str, name: str, password_link: str):
         </html>
         """
         
-        send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
-            to=to,
-            sender=sender,
-            subject="Redefinir Senha - Hiperautomação",
-            html_content=html_content
-        )
+        part = MIMEText(html_content, 'html')
+        msg.attach(part)
         
-        api_instance.send_transac_email(send_smtp_email)
-        logger.info(f"✅ Password reset email sent successfully to {email}")
+        # Send via Brevo SMTP
+        with smtplib.SMTP('smtp-relay.brevo.com', 587) as server:
+            server.starttls()
+            server.login(sender_email, api_key)
+            server.send_message(msg)
+        
+        logger.info(f"✅ Password reset email sent successfully to {email} via SMTP")
         sync_client.close()
         
     except Exception as e:
