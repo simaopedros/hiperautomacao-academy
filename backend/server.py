@@ -197,7 +197,11 @@ class LinkItem(BaseModel):
 class EmailConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     brevo_api_key: str  # API key for bulk operations
-    brevo_smtp_key: Optional[str] = None  # SMTP key for transactional emails
+    brevo_smtp_key: Optional[str] = None  # SMTP key for transactional emails (deprecated - use smtp_password)
+    smtp_username: Optional[str] = None  # SMTP username (e.g., 8cda09001@smtp-brevo.com)
+    smtp_password: Optional[str] = None  # SMTP master password
+    smtp_server: str = "smtp-relay.brevo.com"  # SMTP server
+    smtp_port: int = 587  # SMTP port
     sender_email: str
     sender_name: str
 
