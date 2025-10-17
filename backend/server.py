@@ -2333,19 +2333,16 @@ def send_password_creation_email(email: str, name: str, password_link: str):
         import sib_api_v3_sdk
         from sib_api_v3_sdk.rest import ApiException
         
-        # Get Brevo configuration
-        import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # Get Brevo configuration synchronously
+        from pymongo import MongoClient
+        sync_client = MongoClient('mongodb://localhost:27017')
+        sync_db = sync_client[os.environ.get('DB_NAME', 'hiperautomacao_db')]
         
-        async def get_config():
-            return await db.email_config.find_one({})
-        
-        config = loop.run_until_complete(get_config())
-        loop.close()
+        config = sync_db.email_config.find_one({})
         
         if not config:
             logger.warning("No email configuration found, skipping welcome email")
+            sync_client.close()
             return
         
         configuration = sib_api_v3_sdk.Configuration()
