@@ -2052,6 +2052,34 @@ async def debug_user(email: str, current_user: User = Depends(get_current_admin)
         "courses": courses
     }
 
+# Test email endpoint
+@api_router.post("/debug/test-email")
+async def test_email(
+    recipient_email: str,
+    recipient_name: str,
+    current_user: User = Depends(get_current_admin)
+):
+    """Test email sending"""
+    try:
+        frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+        password_token = secrets.token_urlsafe(32)
+        password_link = f"{frontend_url}/create-password?token={password_token}"
+        
+        # Send in thread pool
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(
+            executor,
+            send_password_creation_email,
+            recipient_email,
+            recipient_name,
+            password_link
+        )
+        
+        return {"message": "Email test started, check logs for results"}
+    except Exception as e:
+        logger.error(f"Failed to start email test: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Update payment gateway configuration
 @api_router.post("/admin/gateway-config")
 async def update_gateway_config(
