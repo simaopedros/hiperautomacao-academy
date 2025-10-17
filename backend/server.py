@@ -1012,7 +1012,7 @@ def send_brevo_email(to_email: str, to_name: str, subject: str, html_content: st
         # Send via Brevo SMTP
         with smtplib.SMTP('smtp-relay.brevo.com', 587) as server:
             server.starttls()
-            server.login(sender_email, api_key)
+            server.login(sender_email, smtp_key)
             server.send_message(msg)
         
         logger.info(f"Email sent successfully to {to_email} via SMTP")
@@ -2425,7 +2425,7 @@ def send_password_creation_email(email: str, name: str, password_link: str):
         # Username: your email, Password: your API key
         with smtplib.SMTP('smtp-relay.brevo.com', 587) as server:
             server.starttls()
-            server.login(sender_email, api_key)
+            server.login(sender_email, smtp_key)
             server.send_message(msg)
         
         logger.info(f"✅ Welcome email sent successfully to {email} via SMTP")
@@ -2627,7 +2627,7 @@ def send_password_reset_email(email: str, name: str, password_link: str):
         # Send via Brevo SMTP
         with smtplib.SMTP('smtp-relay.brevo.com', 587) as server:
             server.starttls()
-            server.login(sender_email, api_key)
+            server.login(sender_email, smtp_key)
             server.send_message(msg)
         
         logger.info(f"✅ Password reset email sent successfully to {email} via SMTP")
