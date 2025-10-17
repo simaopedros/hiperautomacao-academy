@@ -2613,10 +2613,20 @@ def send_password_reset_email(email: str, name: str, password_link: str):
         
         sender_email = config.get('sender_email')
         sender_name = config.get('sender_name', 'Hiperautomação')
-        smtp_key = config.get('brevo_smtp_key') or config.get('brevo_api_key')  # Use SMTP key if available, fallback to API key
         
-        if not smtp_key:
-            logger.error("No SMTP key or API key found in configuration")
+        # Get SMTP credentials (priority: smtp_username/password, fallback to old method)
+        smtp_username = config.get('smtp_username')
+        smtp_password = config.get('smtp_password')
+        smtp_server = config.get('smtp_server', 'smtp-relay.brevo.com')
+        smtp_port = config.get('smtp_port', 587)
+        
+        # Fallback to old method if new fields not set
+        if not smtp_username or not smtp_password:
+            smtp_username = config.get('sender_email')
+            smtp_password = config.get('brevo_smtp_key') or config.get('brevo_api_key')
+        
+        if not smtp_username or not smtp_password:
+            logger.error("No SMTP credentials found in configuration")
             sync_client.close()
             return
         
