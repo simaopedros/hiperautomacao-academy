@@ -2587,7 +2587,12 @@ def send_password_reset_email(email: str, name: str, password_link: str):
         
         sender_email = config.get('sender_email')
         sender_name = config.get('sender_name', 'Hiperautomação')
-        api_key = config.get('brevo_api_key')
+        smtp_key = config.get('brevo_smtp_key') or config.get('brevo_api_key')  # Use SMTP key if available, fallback to API key
+        
+        if not smtp_key:
+            logger.error("No SMTP key or API key found in configuration")
+            sync_client.close()
+            return
         
         # Create message
         msg = MIMEMultipart('alternative')
