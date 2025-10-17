@@ -12,6 +12,7 @@ const API = `${BACKEND_URL}/api`;
 export default function EmailSettings({ user, onLogout }) {
   const [config, setConfig] = useState({
     brevo_api_key: '',
+    brevo_smtp_key: '',
     sender_email: '',
     sender_name: ''
   });
