@@ -195,7 +195,17 @@ export default function UserManagement({ user, onLogout }) {
       const reader = new FileReader();
       
       reader.onload = async (event) => {
-        const base64Content = btoa(event.target.result);
+        // Use TextEncoder for proper UTF-8 to base64 conversion
+        const text = event.target.result;
+        const encoder = new TextEncoder();
+        const uint8Array = encoder.encode(text);
+        
+        // Convert to base64
+        let binary = '';
+        uint8Array.forEach((byte) => {
+          binary += String.fromCharCode(byte);
+        });
+        const base64Content = btoa(binary);
         
         const response = await axios.post(`${API}/admin/bulk-import`, {
           course_id: bulkImportCourse,
