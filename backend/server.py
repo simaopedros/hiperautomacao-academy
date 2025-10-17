@@ -2438,12 +2438,10 @@ def send_password_creation_email(email: str, name: str, password_link: str):
         part = MIMEText(html_content, 'html')
         msg.attach(part)
         
-        # Send via Brevo SMTP
-        # Brevo SMTP: smtp-relay.brevo.com, port 587
-        # Username: your email, Password: your API key
-        with smtplib.SMTP('smtp-relay.brevo.com', 587) as server:
+        # Send via SMTP
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
             server.starttls()
-            server.login(sender_email, smtp_key)
+            server.login(smtp_username, smtp_password)
             server.send_message(msg)
         
         logger.info(f"✅ Welcome email sent successfully to {email} via SMTP")
