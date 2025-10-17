@@ -992,25 +992,28 @@ async def save_email_config(config: EmailConfig, current_user: User = Depends(ge
 # ==================== BULK IMPORT ====================
 
 def send_brevo_email(to_email: str, to_name: str, subject: str, html_content: str, api_key: str, sender_email: str, sender_name: str):
-    """Send email using Brevo API"""
+    """Send email using Brevo SMTP"""
     try:
-        import sib_api_v3_sdk
-        from sib_api_v3_sdk.rest import ApiException
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
         
-        configuration = sib_api_v3_sdk.Configuration()
-        configuration.api_key['api-key'] = api_key
+        # Create message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = f"{sender_name} <{sender_email}>"
+        msg['To'] = to_email
         
-        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
+        part = MIMEText(html_content, 'html')
+        msg.attach(part)
         
-        send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
-            to=[{"email": to_email, "name": to_name}],
-            sender={"email": sender_email, "name": sender_name},
-            subject=subject,
-            html_content=html_content
-        )
+        # Send via Brevo SMTP
+        with smtplib.SMTP('smtp-relay.brevo.com', 587) as server:
+            server.starttls()
+            server.login(sender_email, api_key)
+            server.send_message(msg)
         
-        api_response = api_instance.send_transac_email(send_smtp_email)
-        logger.info(f"Email sent successfully to {to_email}")
+        logger.info(f"Email sent successfully to {to_email} via SMTP")
         return True
     except Exception as e:
         logger.error(f"Error sending email to {to_email}: {str(e)}")
