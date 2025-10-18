@@ -420,10 +420,11 @@ async def register(user_data: UserCreate):
         else:
             logger.warning(f"Invalid referral code: {user_data.referral_code}")
     
-    # Create user - default full_access to False for new registrations
+    # SECURITY: Force role to "student" for public registrations
+    # Only admins can create other admin users via the admin panel
     user_data_dict = user_data.model_dump(exclude={"password", "referral_code"})
-    if "full_access" not in user_data_dict:
-        user_data_dict["full_access"] = False
+    user_data_dict["role"] = "student"  # Force student role for public registrations
+    user_data_dict["full_access"] = False  # Force full_access to False
     
     # Generate unique referral code for this new user
     new_referral_code = await generate_referral_code()
