@@ -1351,7 +1351,7 @@ async def get_user_credits(user_id: str) -> dict:
     return credits
 
 # Helper function to add credits transaction
-async def add_credit_transaction(user_id: str, amount: int, transaction_type: str, description: str, reference_id: Optional[str] = None):
+async def add_credit_transaction(user_id: str, amount: int, transaction_type: str, description: str, reference_id: Optional[str] = None, skip_referral_bonus: bool = False):
     """Add a credit transaction and update user balance"""
     # Get current balance
     credits = await get_user_credits(user_id)
@@ -1384,6 +1384,49 @@ async def add_credit_transaction(user_id: str, amount: int, transaction_type: st
         {"user_id": user_id},
         {"$set": update_data}
     )
+    
+    # REFERRAL BONUS LOGIC
+    # Give referral bonus to referrer when referred user earns credits (not spends)
+    # Only if referrer has made a purchase
+    if amount > 0 and transaction_type in ["earned", "purchased"] and not skip_referral_bonus:
+        user = await db.users.find_one({"id": user_id})
+        if user and user.get("referred_by"):
+            referrer = await db.users.find_one({"id": user["referred_by"]})
+            if referrer and referrer.get("has_purchased", False):
+                # Calculate 50% bonus
+                referral_bonus = int(amount * (REFERRAL_PURCHASE_PERCENTAGE / 100))
+                
+                if referral_bonus > 0:
+                    # Add referral bonus (skip_referral_bonus=True to prevent infinite loop)
+                    await add_credit_transaction(
+                        user_id=user["referred_by"],
+                        amount=referral_bonus,
+                        transaction_type="earned",
+                        description=f"Bônus de indicação: {user.get('name', 'Usuário')} ganhou {amount} créditos",
+                        reference_id=transaction["id"],
+                        skip_referral_bonus=True
+                    )
+                    logger.info(f"Awarded {referral_bonus} referral bonus credits to {user['referred_by']} (50% of {amount})")
+                
+                # Check if this is the first purchase/earning - give 10 credits signup bonus
+                # Check if we already gave the signup bonus
+                existing_signup_bonus = await db.credit_transactions.find_one({
+                    "user_id": user["referred_by"],
+                    "description": {"$regex": f"Bônus de cadastro.*{user.get('name', user_id)}"}
+                })
+                
+                if not existing_signup_bonus and user.get("has_purchased", False):
+                    # This is the first time the referred user is earning after making a purchase
+                    # Give 10 credits signup bonus
+                    await add_credit_transaction(
+                        user_id=user["referred_by"],
+                        amount=REFERRAL_SIGNUP_BONUS,
+                        transaction_type="earned",
+                        description=f"Bônus de cadastro: {user.get('name', 'Usuário')} fez a primeira compra",
+                        reference_id=transaction["id"],
+                        skip_referral_bonus=True
+                    )
+                    logger.info(f"Awarded {REFERRAL_SIGNUP_BONUS} signup bonus credits to {user['referred_by']}")
     
     return transaction
 
