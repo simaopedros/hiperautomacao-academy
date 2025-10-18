@@ -11,8 +11,7 @@ export default function LoginPage({ onLogin }) {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    name: '',
-    role: 'student'
+    name: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
