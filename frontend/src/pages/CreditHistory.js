@@ -109,14 +109,6 @@ function CreditHistory() {
                 <p className="text-emerald-100 mt-1 text-sm">créditos</p>
               </div>
             </div>
-            <div className="mt-6 flex gap-4 justify-center md:justify-start">
-              <button
-                onClick={() => navigate('/buy-credits')}
-                className="bg-white text-emerald-600 px-6 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition"
-              >
-                Comprar Mais Créditos
-              </button>
-            </div>
           </div>
         )}
 
