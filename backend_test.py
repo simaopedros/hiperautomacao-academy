@@ -257,7 +257,7 @@ class CreditsSystemTester:
                                     self.full_access_user_id = full_access_user_data['user']['id']
                                     
                                     # Update user to have full access via admin
-                                    update_data = {"has_full_access": True}
+                                    update_data = {"full_access": True}
                                     update_response = self.session.put(
                                         f"{BACKEND_URL}/admin/users/{self.full_access_user_id}",
                                         json=update_data, headers=headers
