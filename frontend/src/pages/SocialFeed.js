@@ -62,15 +62,17 @@ export default function SocialFeed({ user, onLogout }) {
     try {
       const token = localStorage.getItem('token');
       // Try to fetch lesson details - this will fail if user doesn't have access
-      const response = await axios.get(`${API}/lessons/${lessonId}`, {
+      await axios.get(`${API}/student/lessons/${lessonId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       // If successful, navigate to the lesson
       navigate(`/lesson/${lessonId}`);
     } catch (error) {
-      if (error.response?.status === 403 || error.response?.status === 401) {
+      if (error.response?.status === 403) {
         alert('Você precisa estar matriculado neste curso para acessar esta aula');
+      } else if (error.response?.status === 404) {
+        alert('Aula não encontrada');
       } else {
         console.error('Error accessing lesson:', error);
         alert('Erro ao acessar a aula. Tente novamente.');
