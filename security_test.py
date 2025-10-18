@@ -196,7 +196,7 @@ class RegistrationSecurityTester:
             # First register a user attempting to be admin
             timestamp = str(int(time.time()))
             register_data = {
-                "email": f"noadmin{timestamp}@security.test",
+                "email": f"noadmin{timestamp}@example.com",
                 "password": "noadmin123",
                 "name": "No Admin Access User",
                 "role": "admin",  # This should be ignored
