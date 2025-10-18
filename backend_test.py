@@ -245,7 +245,7 @@ class CreditsSystemTester:
                                     "email": "fullaccess@test.com",
                                     "password": "fullaccess123",
                                     "name": "Full Access User",
-                                    "has_full_access": True
+                                    "full_access": True
                                 }
                                 
                                 full_access_register = self.session.post(f"{BACKEND_URL}/auth/register", 
