@@ -229,7 +229,7 @@ class CreditsSystemTester:
                         if enroll_response.status_code == 200:
                             # Create non-enrolled student
                             non_enrolled_student_data = {
-                                "email": "nonenrolled@test.com",
+                                "email": f"nonenrolled{timestamp}@test.com",
                                 "password": "nonenrolled123",
                                 "name": "Non-Enrolled Student"
                             }
