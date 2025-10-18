@@ -216,15 +216,18 @@ frontend:
 
   - task: "Corrigir Sistema de Indicações"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py (add_credit_transaction), /app/frontend/src/pages/ReferralPage.js"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
         - working: "NA"
           agent: "main"
           comment: "Implementado: Nova lógica de indicações - Referrer ganha 10 créditos fixos quando indicado faz primeira compra + 50% de TODOS os créditos que o indicado GANHAR (não apenas compras). Lógica centralizada na função add_credit_transaction para garantir que funcione em todas as formas de ganhar créditos (compras, gamificação, conclusão de cursos). Atualizado frontend para mostrar descrição correta: '10 créditos por indicação + 50% dos créditos que os indicados ganharem'. Precisa testar."
+        - working: false
+          agent: "testing"
+          comment: "❌ TESTADO - 3 de 6 cenários falharam: 1) Bônus de cadastro (10 créditos) não é dado na primeira compra devido ao timing do flag has_purchased (é setado APÓS add_credit_transaction mas verificado DURANTE). 2) Lógica de bônus subsequente inconsistente. 3) Recompensas de conclusão de curso não implementadas (configuradas mas sem lógica no endpoint /progress). ✅ Funcionando: gamificação gera bônus de referral, referrer sem compra não ganha bônus, gastos não geram bônus negativo. CRÍTICO: Corrigir ordem de operações no webhook e implementar recompensas de conclusão de curso."
 
   - task: "Página de Referral - Bug Fix"
     implemented: true
