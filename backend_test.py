@@ -244,7 +244,7 @@ class CreditsSystemTester:
                                 
                                 # Create full access user
                                 full_access_data = {
-                                    "email": "fullaccess@test.com",
+                                    "email": f"fullaccess{timestamp}@test.com",
                                     "password": "fullaccess123",
                                     "name": "Full Access User",
                                     "full_access": True
