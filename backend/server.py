@@ -2004,6 +2004,12 @@ async def admin_mark_billing_paid(billing_id: str, current_user: User = Depends(
         
         user_id = billing["user_id"]
         
+        # Mark user as having made a purchase FIRST (before adding credits)
+        await db.users.update_one(
+            {"id": user_id},
+            {"$set": {"has_purchased": True}}
+        )
+        
         # Process based on purchase type
         if billing.get("credits"):
             # Credit package purchase - add credits to user
@@ -2015,12 +2021,6 @@ async def admin_mark_billing_paid(billing_id: str, current_user: User = Depends(
                 reference_id=billing_id
             )
             logger.info(f"Admin {current_user.email} manually confirmed billing {billing_id} - added {billing['credits']} credits to user {user_id}")
-            
-            # Mark user as having made a purchase
-            await db.users.update_one(
-                {"id": user_id},
-                {"$set": {"has_purchased": True}}
-            )
             
         elif billing.get("course_id"):
             # Direct course purchase - create enrollment
