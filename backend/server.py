@@ -344,6 +344,25 @@ class CreateBillingRequest(BaseModel):
     customer_name: str
     customer_email: EmailStr
 
+# Gamification Configuration
+class GamificationSettings(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    create_post: int = 10
+    create_comment: int = 5
+    receive_like: int = 2
+    complete_course: int = 30
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_by: Optional[str] = None
+
+# Support Configuration
+class SupportConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    support_url: str = "https://wa.me/5511999999999"  # Default WhatsApp
+    support_text: str = "Suporte"
+    enabled: bool = True
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_by: Optional[str] = None
+
 # ==================== AUTH HELPERS ====================
 
 def verify_password(plain_password, hashed_password):
