@@ -294,7 +294,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Remover Opção Comprar Créditos"
+    - "Corrigir Sistema de Indicações"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
