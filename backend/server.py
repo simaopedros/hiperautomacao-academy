@@ -1658,6 +1658,13 @@ async def abacatepay_webhook(request: dict):
             
             user_id = billing["user_id"]
             
+            # Mark user as having made a purchase FIRST (before adding credits)
+            # This is important for referral bonus logic
+            await db.users.update_one(
+                {"id": user_id},
+                {"$set": {"has_purchased": True}}
+            )
+            
             # Process based on purchase type
             if billing.get("credits"):
                 # Credit package purchase - add credits to user
@@ -1669,12 +1676,6 @@ async def abacatepay_webhook(request: dict):
                     reference_id=billing_id
                 )
                 logger.info(f"Added {billing['credits']} credits to user {user_id}")
-                
-                # Mark user as having made a purchase
-                await db.users.update_one(
-                    {"id": user_id},
-                    {"$set": {"has_purchased": True}}
-                )
                 
             elif billing.get("course_id"):
                 # Direct course purchase - create enrollment
