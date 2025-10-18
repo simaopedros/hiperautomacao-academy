@@ -167,6 +167,315 @@ class CreditsSystemTester:
             self.log_test("Test Course Creation", False, f"Course creation error: {str(e)}")
             return False
     
+    def setup_test_data_for_lesson_access(self):
+        """Setup test data for lesson access validation tests"""
+        try:
+            # Create module for the test course
+            headers = {'Authorization': f'Bearer {self.admin_token}'}
+            module_data = {
+                "title": "Test Module for Lesson Access",
+                "description": "Module for testing lesson access validation",
+                "course_id": self.test_course_id,
+                "order": 1
+            }
+            
+            module_response = self.session.post(f"{BACKEND_URL}/admin/modules", 
+                                              json=module_data, headers=headers)
+            
+            if module_response.status_code == 200:
+                self.test_module_id = module_response.json()['id']
+                
+                # Create lesson in the module
+                lesson_data = {
+                    "title": "Test Lesson for Access Validation",
+                    "type": "video",
+                    "content": "https://example.com/test-video.mp4",
+                    "module_id": self.test_module_id,
+                    "order": 1
+                }
+                
+                lesson_response = self.session.post(f"{BACKEND_URL}/admin/lessons", 
+                                                  json=lesson_data, headers=headers)
+                
+                if lesson_response.status_code == 200:
+                    self.test_lesson_id = lesson_response.json()['id']
+                    
+                    # Create enrolled student
+                    enrolled_student_data = {
+                        "email": "enrolled@test.com",
+                        "password": "enrolled123",
+                        "name": "Enrolled Student"
+                    }
+                    
+                    enrolled_register = self.session.post(f"{BACKEND_URL}/auth/register", 
+                                                        json=enrolled_student_data)
+                    
+                    if enrolled_register.status_code == 200:
+                        enrolled_data = enrolled_register.json()
+                        self.enrolled_student_token = enrolled_data['access_token']
+                        self.enrolled_student_id = enrolled_data['user']['id']
+                        
+                        # Enroll this student in the course
+                        enrollment_data = {
+                            "user_id": self.enrolled_student_id,
+                            "course_id": self.test_course_id
+                        }
+                        
+                        enroll_response = self.session.post(f"{BACKEND_URL}/admin/enrollments", 
+                                                          json=enrollment_data, headers=headers)
+                        
+                        if enroll_response.status_code == 200:
+                            # Create non-enrolled student
+                            non_enrolled_student_data = {
+                                "email": "nonenrolled@test.com",
+                                "password": "nonenrolled123",
+                                "name": "Non-Enrolled Student"
+                            }
+                            
+                            non_enrolled_register = self.session.post(f"{BACKEND_URL}/auth/register", 
+                                                                    json=non_enrolled_student_data)
+                            
+                            if non_enrolled_register.status_code == 200:
+                                non_enrolled_data = non_enrolled_register.json()
+                                self.non_enrolled_student_token = non_enrolled_data['access_token']
+                                self.non_enrolled_student_id = non_enrolled_data['user']['id']
+                                
+                                # Create full access user
+                                full_access_data = {
+                                    "email": "fullaccess@test.com",
+                                    "password": "fullaccess123",
+                                    "name": "Full Access User",
+                                    "has_full_access": True
+                                }
+                                
+                                full_access_register = self.session.post(f"{BACKEND_URL}/auth/register", 
+                                                                       json=full_access_data)
+                                
+                                if full_access_register.status_code == 200:
+                                    full_access_user_data = full_access_register.json()
+                                    self.full_access_user_token = full_access_user_data['access_token']
+                                    self.full_access_user_id = full_access_user_data['user']['id']
+                                    
+                                    # Update user to have full access via admin
+                                    update_data = {"has_full_access": True}
+                                    update_response = self.session.put(
+                                        f"{BACKEND_URL}/admin/users/{self.full_access_user_id}",
+                                        json=update_data, headers=headers
+                                    )
+                                    
+                                    if update_response.status_code == 200:
+                                        self.log_test("Test Data Setup", True, 
+                                                    "Successfully created test data for lesson access validation")
+                                        return True
+                                    else:
+                                        self.log_test("Test Data Setup", False, 
+                                                    f"Failed to update full access user: {update_response.status_code}")
+                                        return False
+                                else:
+                                    self.log_test("Test Data Setup", False, 
+                                                f"Failed to create full access user: {full_access_register.status_code}")
+                                    return False
+                            else:
+                                self.log_test("Test Data Setup", False, 
+                                            f"Failed to create non-enrolled student: {non_enrolled_register.status_code}")
+                                return False
+                        else:
+                            self.log_test("Test Data Setup", False, 
+                                        f"Failed to enroll student: {enroll_response.status_code}")
+                            return False
+                    else:
+                        self.log_test("Test Data Setup", False, 
+                                    f"Failed to create enrolled student: {enrolled_register.status_code}")
+                        return False
+                else:
+                    self.log_test("Test Data Setup", False, 
+                                f"Failed to create lesson: {lesson_response.status_code}")
+                    return False
+            else:
+                self.log_test("Test Data Setup", False, 
+                            f"Failed to create module: {module_response.status_code}")
+                return False
+        except Exception as e:
+            self.log_test("Test Data Setup", False, f"Test data setup error: {str(e)}")
+            return False
+
+    # ==================== PRIORITY TESTS - LESSON ACCESS VALIDATION ====================
+    
+    def test_enrolled_user_lesson_access(self):
+        """Test: Enrolled user should be able to access lesson"""
+        try:
+            headers = {'Authorization': f'Bearer {self.enrolled_student_token}'}
+            response = self.session.get(f"{BACKEND_URL}/student/lessons/{self.test_lesson_id}", 
+                                      headers=headers)
+            
+            if response.status_code == 200:
+                lesson_data = response.json()
+                if lesson_data.get('id') == self.test_lesson_id:
+                    self.log_test("Enrolled User Lesson Access", True, 
+                                "Enrolled user successfully accessed lesson", lesson_data.get('title'))
+                    return True
+                else:
+                    self.log_test("Enrolled User Lesson Access", False, 
+                                "Wrong lesson data returned", lesson_data)
+                    return False
+            else:
+                self.log_test("Enrolled User Lesson Access", False, 
+                            f"Enrolled user failed to access lesson: {response.status_code}", 
+                            response.text[:200])
+                return False
+        except Exception as e:
+            self.log_test("Enrolled User Lesson Access", False, f"Enrolled user access error: {str(e)}")
+            return False
+    
+    def test_non_enrolled_user_lesson_access(self):
+        """Test: Non-enrolled user should get 403 error with specific message"""
+        try:
+            headers = {'Authorization': f'Bearer {self.non_enrolled_student_token}'}
+            response = self.session.get(f"{BACKEND_URL}/student/lessons/{self.test_lesson_id}", 
+                                      headers=headers)
+            
+            if response.status_code == 403:
+                error_data = response.json()
+                expected_message = "You need to be enrolled in this course to access this lesson"
+                
+                if expected_message in error_data.get('detail', ''):
+                    self.log_test("Non-Enrolled User Lesson Access", True, 
+                                "Non-enrolled user correctly denied access with proper message", 
+                                error_data.get('detail'))
+                    return True
+                else:
+                    self.log_test("Non-Enrolled User Lesson Access", False, 
+                                f"Wrong error message. Expected: '{expected_message}', Got: '{error_data.get('detail')}'", 
+                                error_data)
+                    return False
+            else:
+                self.log_test("Non-Enrolled User Lesson Access", False, 
+                            f"Expected 403 status, got {response.status_code}", 
+                            response.text[:200])
+                return False
+        except Exception as e:
+            self.log_test("Non-Enrolled User Lesson Access", False, f"Non-enrolled user access error: {str(e)}")
+            return False
+    
+    def test_full_access_user_lesson_access(self):
+        """Test: User with has_full_access=true should access any lesson"""
+        try:
+            headers = {'Authorization': f'Bearer {self.full_access_user_token}'}
+            response = self.session.get(f"{BACKEND_URL}/student/lessons/{self.test_lesson_id}", 
+                                      headers=headers)
+            
+            if response.status_code == 200:
+                lesson_data = response.json()
+                if lesson_data.get('id') == self.test_lesson_id:
+                    self.log_test("Full Access User Lesson Access", True, 
+                                "Full access user successfully accessed lesson", lesson_data.get('title'))
+                    return True
+                else:
+                    self.log_test("Full Access User Lesson Access", False, 
+                                "Wrong lesson data returned", lesson_data)
+                    return False
+            else:
+                self.log_test("Full Access User Lesson Access", False, 
+                            f"Full access user failed to access lesson: {response.status_code}", 
+                            response.text[:200])
+                return False
+        except Exception as e:
+            self.log_test("Full Access User Lesson Access", False, f"Full access user access error: {str(e)}")
+            return False
+    
+    def test_nonexistent_lesson_access(self):
+        """Test: Non-existent lesson should return 404"""
+        try:
+            fake_lesson_id = str(uuid.uuid4())
+            headers = {'Authorization': f'Bearer {self.enrolled_student_token}'}
+            response = self.session.get(f"{BACKEND_URL}/student/lessons/{fake_lesson_id}", 
+                                      headers=headers)
+            
+            if response.status_code == 404:
+                error_data = response.json()
+                if "not found" in error_data.get('detail', '').lower():
+                    self.log_test("Non-Existent Lesson Access", True, 
+                                "Non-existent lesson correctly returned 404", error_data.get('detail'))
+                    return True
+                else:
+                    self.log_test("Non-Existent Lesson Access", False, 
+                                "Wrong error message for non-existent lesson", error_data)
+                    return False
+            else:
+                self.log_test("Non-Existent Lesson Access", False, 
+                            f"Expected 404 status, got {response.status_code}", 
+                            response.text[:200])
+                return False
+        except Exception as e:
+            self.log_test("Non-Existent Lesson Access", False, f"Non-existent lesson test error: {str(e)}")
+            return False
+
+    # ==================== PRIORITY TESTS - SUPPORT CONFIGURATION ====================
+    
+    def test_support_config_endpoint_exists(self):
+        """Test: Support config endpoint should return configuration"""
+        try:
+            # This should be a public endpoint, no auth required
+            response = self.session.get(f"{BACKEND_URL}/support/config")
+            
+            if response.status_code == 200:
+                config_data = response.json()
+                
+                # Check if it has the required fields
+                required_fields = ['support_url', 'support_text']
+                if all(field in config_data for field in required_fields):
+                    self.log_test("Support Config Endpoint", True, 
+                                "Support config endpoint returned valid configuration", 
+                                f"URL: {config_data.get('support_url')}, Text: {config_data.get('support_text')}")
+                    return True
+                else:
+                    self.log_test("Support Config Endpoint", False, 
+                                "Support config missing required fields", config_data)
+                    return False
+            else:
+                self.log_test("Support Config Endpoint", False, 
+                            f"Support config endpoint failed: {response.status_code}", 
+                            response.text[:200])
+                return False
+        except Exception as e:
+            self.log_test("Support Config Endpoint", False, f"Support config test error: {str(e)}")
+            return False
+    
+    def test_support_config_default_values(self):
+        """Test: Support config should return default values if no configuration exists"""
+        try:
+            # This should be a public endpoint, no auth required
+            response = self.session.get(f"{BACKEND_URL}/support/config")
+            
+            if response.status_code == 200:
+                config_data = response.json()
+                
+                # Check for default values
+                expected_defaults = {
+                    'support_url': 'https://wa.me/5511999999999',
+                    'support_text': 'Suporte'
+                }
+                
+                # If no custom config exists, should return defaults
+                # If custom config exists, that's also valid
+                if (config_data.get('support_url') and config_data.get('support_text')):
+                    self.log_test("Support Config Default Values", True, 
+                                "Support config has valid URL and text values", 
+                                f"URL: {config_data.get('support_url')}, Text: {config_data.get('support_text')}")
+                    return True
+                else:
+                    self.log_test("Support Config Default Values", False, 
+                                "Support config missing URL or text values", config_data)
+                    return False
+            else:
+                self.log_test("Support Config Default Values", False, 
+                            f"Support config endpoint failed: {response.status_code}", 
+                            response.text[:200])
+                return False
+        except Exception as e:
+            self.log_test("Support Config Default Values", False, f"Support config default test error: {str(e)}")
+            return False
+
     # ==================== FASE 1 - SISTEMA DE CRÉDITOS BASE ====================
     
     def test_credits_balance_initial(self):
