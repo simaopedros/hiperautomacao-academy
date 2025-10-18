@@ -1772,6 +1772,12 @@ async def check_billing_status(billing_id: str, current_user: User = Depends(get
                 
                 # Process based on purchase type
                 if billing.get("credits"):
+                    # Mark user as having made a purchase FIRST (before adding credits)
+                    await db.users.update_one(
+                        {"id": user_id},
+                        {"$set": {"has_purchased": True}}
+                    )
+                    
                     # Credit package purchase - add credits to user
                     await add_credit_transaction(
                         user_id=user_id,
@@ -1781,12 +1787,6 @@ async def check_billing_status(billing_id: str, current_user: User = Depends(get
                         reference_id=billing_id
                     )
                     logger.info(f"Added {billing['credits']} credits to user {user_id} via status check")
-                    
-                    # Mark user as having made a purchase
-                    await db.users.update_one(
-                        {"id": user_id},
-                        {"$set": {"has_purchased": True}}
-                    )
                     
                 elif billing.get("course_id"):
                     # Direct course purchase - create enrollment
