@@ -804,6 +804,25 @@ async def get_lesson_detail(lesson_id: str, current_user: User = Depends(get_cur
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
     
+    # Get module to find course_id
+    module = await db.modules.find_one({"id": lesson['module_id']}, {"_id": 0})
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found")
+    
+    course_id = module['course_id']
+    
+    # Check if user is enrolled in the course or has full access
+    user = await db.users.find_one({"id": current_user.id}, {"_id": 0})
+    
+    # Check if user has full access or is enrolled in this course
+    if not user.get('has_full_access', False):
+        enrolled_courses = user.get('enrolled_courses', [])
+        if course_id not in enrolled_courses:
+            raise HTTPException(
+                status_code=403, 
+                detail="You need to be enrolled in this course to access this lesson"
+            )
+    
     if isinstance(lesson['created_at'], str):
         lesson['created_at'] = datetime.fromisoformat(lesson['created_at'])
     
