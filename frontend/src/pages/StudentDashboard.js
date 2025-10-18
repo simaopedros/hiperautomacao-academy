@@ -32,6 +32,20 @@ export default function StudentDashboard({ user, onLogout }) {
     }
   };
 
+  const fetchSupportConfig = async () => {
+    try {
+      const response = await axios.get(`${API}/support/config`);
+      setSupportConfig(response.data);
+    } catch (error) {
+      console.error('Error fetching support config:', error);
+      // Default support config
+      setSupportConfig({ 
+        support_url: 'https://wa.me/5511999999999',
+        support_text: 'Suporte'
+      });
+    }
+  };
+
   const fetchCourses = async () => {
     try {
       const token = localStorage.getItem('token');
