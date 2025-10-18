@@ -26,7 +26,12 @@ export default function LoginPage({ onLogin }) {
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
       const payload = isLogin
         ? { email: formData.email, password: formData.password }
-        : formData;
+        : { 
+            email: formData.email, 
+            password: formData.password, 
+            name: formData.name,
+            role: 'student' // Always force student role for public registration
+          };
 
       const response = await axios.post(`${API}${endpoint}`, payload);
       onLogin(response.data.access_token, response.data.user);
