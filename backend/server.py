@@ -1787,21 +1787,6 @@ async def check_billing_status(billing_id: str, current_user: User = Depends(get
                         {"$set": {"has_purchased": True}}
                     )
                     
-                    # Give referral bonus - ONLY if referrer has purchased
-                    user = await db.users.find_one({"id": user_id})
-                    if user and user.get("referred_by"):
-                        referrer = await db.users.find_one({"id": user["referred_by"]})
-                        if referrer and referrer.get("has_purchased", False):
-                            referral_bonus = int(billing["credits"] * (REFERRAL_PURCHASE_PERCENTAGE / 100))
-                            await add_credit_transaction(
-                                user_id=user["referred_by"],
-                                amount=referral_bonus,
-                                transaction_type="earned",
-                                description=f"Bônus de indicação: {user['name']} comprou {billing['credits']} créditos",
-                                reference_id=billing_id
-                            )
-                            logger.info(f"Awarded {referral_bonus} referral bonus credits to {user['referred_by']}")
-                    
                 elif billing.get("course_id"):
                     # Direct course purchase - create enrollment
                     course_id = billing["course_id"]
