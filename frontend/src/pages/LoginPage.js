@@ -134,23 +134,6 @@ export default function LoginPage({ onLogin }) {
               </div>
             </div>
 
-            {!isLogin && (
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Tipo de Conta
-                </label>
-                <select
-                  data-testid="role-select"
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="w-full bg-[#1a1a1a] border border-[#2a2a2a] text-white py-3 px-4 rounded-lg"
-                >
-                  <option value="student">Aluno</option>
-                  <option value="admin">Administrador</option>
-                </select>
-              </div>
-            )}
-
             {error && (
               <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg text-sm">
                 {error}
