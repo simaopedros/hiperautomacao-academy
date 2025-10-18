@@ -251,11 +251,12 @@ export default function StudentDashboard({ user, onLogout }) {
                   Histórico
                 </button>
                 <button
-                  onClick={() => navigate('/buy-credits')}
+                  onClick={() => navigate('/referral')}
                   className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded font-semibold transition-colors flex items-center gap-1"
+                  title="Ganhe créditos indicando amigos"
                 >
-                  <Coins size={14} />
-                  Comprar
+                  <Gift size={14} />
+                  Indicar Amigos
                 </button>
               </div>
             </div>
