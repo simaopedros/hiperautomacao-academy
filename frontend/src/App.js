@@ -212,6 +212,16 @@ function App() {
             }
           />
           <Route
+            path="/admin/support"
+            element={
+              user && user.role === 'admin' ? (
+                <SupportSettings user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
             path="/admin/gateway"
             element={
               user && user.role === 'admin' ? (
