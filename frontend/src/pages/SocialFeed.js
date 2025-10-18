@@ -58,6 +58,26 @@ export default function SocialFeed({ user, onLogout }) {
     }
   };
 
+  const handleViewLesson = async (lessonId) => {
+    try {
+      const token = localStorage.getItem('token');
+      // Try to fetch lesson details - this will fail if user doesn't have access
+      const response = await axios.get(`${API}/lessons/${lessonId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // If successful, navigate to the lesson
+      navigate(`/lesson/${lessonId}`);
+    } catch (error) {
+      if (error.response?.status === 403 || error.response?.status === 401) {
+        alert('Você precisa estar matriculado neste curso para acessar esta aula');
+      } else {
+        console.error('Error accessing lesson:', error);
+        alert('Erro ao acessar a aula. Tente novamente.');
+      }
+    }
+  };
+
   const handleCreatePost = async (e) => {
     e.preventDefault();
     if (!newPostContent.trim()) return;
