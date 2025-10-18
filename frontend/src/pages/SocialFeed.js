@@ -19,6 +19,7 @@ export default function SocialFeed({ user, onLogout }) {
   const [postReplies, setPostReplies] = useState([]);
   const [replyContent, setReplyContent] = useState('');
   const [showPostDetail, setShowPostDetail] = useState(false);
+  const [enrolledCourses, setEnrolledCourses] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
