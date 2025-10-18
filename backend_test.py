@@ -1138,18 +1138,24 @@ class CreditsSystemTester:
         print("=" * 80)
         print("TEST SUMMARY")
         print("=" * 80)
-        print(f"Total Tests: {passed + failed}")
-        print(f"Passed: {passed}")
-        print(f"Failed: {failed}")
-        print(f"Success Rate: {(passed/(passed+failed)*100):.1f}%" if (passed+failed) > 0 else "0%")
+        total_tests = priority_passed + priority_failed + passed + failed
+        total_passed = priority_passed + passed
+        total_failed = priority_failed + failed
         
-        if failed > 0:
+        print(f"PRIORITY TESTS: {priority_passed + priority_failed} (Passed: {priority_passed}, Failed: {priority_failed})")
+        print(f"CREDITS TESTS: {passed + failed} (Passed: {passed}, Failed: {failed})")
+        print(f"TOTAL TESTS: {total_tests}")
+        print(f"TOTAL PASSED: {total_passed}")
+        print(f"TOTAL FAILED: {total_failed}")
+        print(f"Success Rate: {(total_passed/total_tests*100):.1f}%" if total_tests > 0 else "0%")
+        
+        if total_failed > 0:
             print("\nFAILED TESTS:")
             for result in self.test_results:
                 if not result['success']:
                     print(f"- {result['test']}: {result['message']}")
         
-        return failed == 0
+        return total_failed == 0
 
 if __name__ == "__main__":
     tester = CreditsSystemTester()
