@@ -80,7 +80,7 @@ class RegistrationSecurityTester:
         try:
             timestamp = str(int(time.time()))
             register_data = {
-                "email": f"student{timestamp}@security.test",
+                "email": f"student{timestamp}@example.com",
                 "password": "student123",
                 "name": "Normal Student",
                 "role": "student"
