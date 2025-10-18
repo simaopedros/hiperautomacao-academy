@@ -351,7 +351,7 @@ export default function SocialFeed({ user, onLogout }) {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(`/lesson/${post.lesson_id}`);
+                                handleViewLesson(post.lesson_id);
                               }}
                               className="flex items-center gap-2 text-gray-400 hover:text-purple-400 transition-colors group"
                             >
