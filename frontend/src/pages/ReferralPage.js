@@ -121,7 +121,7 @@ export default function ReferralPage({ user, onLogout }) {
             </div>
             <p className="text-4xl font-bold text-white">{referralInfo?.total_credits_earned || 0}</p>
             <p className="text-sm text-gray-500 mt-1">
-              {referralInfo?.purchase_percentage}% das compras dos indicados
+              10 créditos por indicação + {referralInfo?.purchase_percentage}% dos créditos ganhos pelos indicados
             </p>
           </div>
         </div>
