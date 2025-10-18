@@ -1061,6 +1061,39 @@ class CreditsSystemTester:
             print("❌ CRITICAL: Test course creation failed. Cannot continue tests.")
             return False
         
+        if not self.setup_test_data_for_lesson_access():
+            print("❌ CRITICAL: Test data setup for lesson access failed. Cannot continue priority tests.")
+            return False
+        
+        print()
+        print("=" * 80)
+        print("RUNNING PRIORITY TESTS - LESSON ACCESS & SUPPORT CONFIG")
+        print("=" * 80)
+        
+        # Priority tests first
+        priority_tests = [
+            self.test_enrolled_user_lesson_access,
+            self.test_non_enrolled_user_lesson_access,
+            self.test_full_access_user_lesson_access,
+            self.test_nonexistent_lesson_access,
+            self.test_support_config_endpoint_exists,
+            self.test_support_config_default_values
+        ]
+        
+        priority_passed = 0
+        priority_failed = 0
+        
+        for test in priority_tests:
+            try:
+                if test():
+                    priority_passed += 1
+                else:
+                    priority_failed += 1
+            except Exception as e:
+                print(f"❌ FAIL {test.__name__}: Unexpected error - {str(e)}")
+                priority_failed += 1
+            print()  # Add spacing between tests
+        
         print()
         print("=" * 80)
         print("RUNNING CREDITS SYSTEM TESTS")
