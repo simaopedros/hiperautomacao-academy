@@ -18,6 +18,7 @@ import ReferralPage from '@/pages/ReferralPage';
 import GamificationSettings from '@/pages/GamificationSettings';
 import GatewaySettings from '@/pages/GatewaySettings';
 import CreditPackagesConfig from '@/pages/CreditPackagesConfig';
+import SupportSettings from '@/pages/SupportSettings';
 
 function App() {
   const [user, setUser] = useState(null);
