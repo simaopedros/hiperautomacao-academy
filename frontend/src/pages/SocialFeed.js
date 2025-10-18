@@ -24,6 +24,7 @@ export default function SocialFeed({ user, onLogout }) {
 
   useEffect(() => {
     fetchFeed();
+    fetchEnrolledCourses();
   }, [filter]);
 
   const fetchFeed = async () => {
