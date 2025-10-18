@@ -18,6 +18,7 @@ export default function StudentDashboard({ user, onLogout }) {
     fetchCourses();
     fetchCredits();
     fetchGatewayConfig();
+    fetchSupportConfig();
   }, []);
 
   const fetchGatewayConfig = async () => {
