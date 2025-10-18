@@ -76,34 +76,6 @@ export default function StudentDashboard({ user, onLogout }) {
     await fetchCredits();
   };
 
-  const checkPendingPayments = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const billingId = localStorage.getItem('last_billing_id');
-      
-      if (!billingId) {
-        alert('Nenhum pagamento pendente encontrado');
-        return;
-      }
-
-      const response = await axios.get(
-        `${API}/billing/${billingId}/check-status`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (response.data.status === 'paid') {
-        alert('✅ Pagamento confirmado! Seus créditos foram adicionados.');
-        localStorage.removeItem('last_billing_id');
-        await fetchCredits();
-      } else {
-        alert('⏳ Pagamento ainda não foi confirmado. Por favor, aguarde ou tente novamente em alguns minutos.');
-      }
-    } catch (error) {
-      console.error('Error checking payment:', error);
-      alert('Erro ao verificar pagamento. Tente novamente.');
-    }
-  };
-
   const handleEnrollWithCredits = async (courseId, priceCredits) => {
     if (!userCredits || userCredits.balance < priceCredits) {
       alert(`Você precisa de ${priceCredits} créditos para se matricular neste curso. Seu saldo: ${userCredits?.balance || 0}`);
