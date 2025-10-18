@@ -226,12 +226,14 @@ export default function StudentDashboard({ user, onLogout }) {
                 </button>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={checkPendingPayments}
-                  className="text-xs bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 px-3 py-1.5 rounded font-medium transition-colors"
-                >
-                  Verificar Pagamento
-                </button>
+                {supportConfig && (
+                  <button
+                    onClick={() => window.open(supportConfig.support_url, '_blank')}
+                    className="text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 px-3 py-1.5 rounded font-medium transition-colors"
+                  >
+                    {supportConfig.support_text}
+                  </button>
+                )}
                 <button
                   onClick={() => navigate('/credit-history')}
                   className="text-xs bg-[#1a1a1a] hover:bg-[#252525] text-gray-300 px-3 py-1.5 rounded font-medium transition-colors flex items-center gap-1"
