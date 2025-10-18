@@ -224,6 +224,7 @@ export default function StudentDashboard({ user, onLogout }) {
                   <Coins size={20} className="text-emerald-400" />
                   <div>
                     <p className="text-emerald-400 font-bold text-lg">{userCredits.balance} créditos</p>
+                    <p className="text-xs text-gray-500">Ganhe créditos indicando amigos e interagindo na comunidade</p>
                   </div>
                 </div>
                 <button
