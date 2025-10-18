@@ -847,6 +847,54 @@ async def update_progress(progress_data: ProgressBase, current_user: User = Depe
         progress_dict['id'] = str(uuid.uuid4())
         await db.progress.insert_one(progress_dict)
     
+    # Check if user completed a course
+    # Get lesson to find course
+    lesson = await db.lessons.find_one({"id": progress_data.lesson_id})
+    if lesson:
+        module = await db.modules.find_one({"id": lesson['module_id']})
+        if module:
+            course_id = module['course_id']
+            
+            # Get all lessons for this course
+            modules = await db.modules.find({"course_id": course_id}).to_list(1000)
+            module_ids = [m['id'] for m in modules]
+            lessons = await db.lessons.find({"module_id": {"$in": module_ids}}).to_list(1000)
+            lesson_ids = [l['id'] for l in lessons]
+            
+            # Get user's progress on all lessons
+            all_progress = await db.progress.find({
+                "user_id": current_user.id, 
+                "lesson_id": {"$in": lesson_ids}
+            }).to_list(1000)
+            
+            # Check if all lessons are completed
+            completed_lessons = [p for p in all_progress if p.get('completed', False)]
+            
+            if len(completed_lessons) == len(lesson_ids) and len(lesson_ids) > 0:
+                # Course completed! Check if we already rewarded this
+                existing_reward = await db.credit_transactions.find_one({
+                    "user_id": current_user.id,
+                    "reference_id": f"course_completion_{course_id}"
+                })
+                
+                if not existing_reward:
+                    # Get gamification settings for course completion reward
+                    gamification = await db.gamification_settings.find_one({})
+                    complete_course_reward = gamification.get("complete_course", 30) if gamification else 30
+                    
+                    # Give course completion reward
+                    course = await db.courses.find_one({"id": course_id})
+                    course_title = course.get("title", "Unknown Course") if course else "Unknown Course"
+                    
+                    await add_credit_transaction(
+                        user_id=current_user.id,
+                        amount=complete_course_reward,
+                        transaction_type="earned",
+                        description=f"Conclusão do curso: {course_title}",
+                        reference_id=f"course_completion_{course_id}"
+                    )
+                    logger.info(f"User {current_user.id} completed course {course_id}, awarded {complete_course_reward} credits")
+    
     return {"message": "Progress updated"}
 
 @api_router.get("/progress/{course_id}")
