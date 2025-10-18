@@ -27,6 +27,14 @@ class CreditsSystemTester:
         self.student_token = None
         self.student_user_id = None
         self.test_course_id = None
+        self.test_module_id = None
+        self.test_lesson_id = None
+        self.enrolled_student_token = None
+        self.enrolled_student_id = None
+        self.non_enrolled_student_token = None
+        self.non_enrolled_student_id = None
+        self.full_access_user_token = None
+        self.full_access_user_id = None
         self.test_results = []
         
     def log_test(self, test_name, success, message, details=None):
