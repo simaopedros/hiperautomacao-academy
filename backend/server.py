@@ -2079,6 +2079,52 @@ async def get_active_gateway():
     # Return only the active gateway, not the token
     return {"active_gateway": active}
 
+# Get support configuration (public endpoint)
+@api_router.get("/support/config")
+async def get_support_config():
+    """Get support configuration (public endpoint)"""
+    config = await db.support_config.find_one({}, {"_id": 0})
+    
+    if not config:
+        return {
+            "support_url": "https://wa.me/5511999999999",
+            "support_text": "Suporte",
+            "enabled": True
+        }
+    
+    return {
+        "support_url": config.get("support_url", "https://wa.me/5511999999999"),
+        "support_text": config.get("support_text", "Suporte"),
+        "enabled": config.get("enabled", True)
+    }
+
+# Update support configuration (admin only)
+@api_router.post("/admin/support/config")
+async def update_support_config(
+    support_url: str,
+    support_text: str = "Suporte",
+    enabled: bool = True,
+    current_user: User = Depends(get_current_admin)
+):
+    """Update support configuration (admin only)"""
+    config = {
+        "support_url": support_url,
+        "support_text": support_text,
+        "enabled": enabled,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_by": current_user.email
+    }
+    
+    await db.support_config.update_one(
+        {},
+        {"$set": config},
+        upsert=True
+    )
+    
+    logger.info(f"Admin {current_user.email} updated support config")
+    
+    return {"message": "Support configuration updated successfully"}
+
 # Debug endpoint to check user enrollment
 @api_router.get("/debug/user/{email}")
 async def debug_user(email: str, current_user: User = Depends(get_current_admin)):
