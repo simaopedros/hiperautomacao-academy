@@ -811,13 +811,13 @@ async def get_lesson_detail(lesson_id: str, current_user: User = Depends(get_cur
     
     course_id = module['course_id']
     
-    # Check if user is enrolled in the course or has full access
-    user = await db.users.find_one({"id": current_user.id}, {"_id": 0})
-    
-    # Check if user has full access or is enrolled in this course
-    if not user.get('has_full_access', False):
-        enrolled_courses = user.get('enrolled_courses', [])
-        if course_id not in enrolled_courses:
+    # Check if user has access to this course
+    if not current_user.full_access:
+        enrollment = await db.enrollments.find_one({
+            "user_id": current_user.id,
+            "course_id": course_id
+        })
+        if not enrollment:
             raise HTTPException(
                 status_code=403, 
                 detail="You need to be enrolled in this course to access this lesson"
