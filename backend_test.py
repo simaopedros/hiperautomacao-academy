@@ -15,8 +15,8 @@ import uuid
 
 # Configuration
 BACKEND_URL = "https://edupulse-12.preview.emergentagent.com/api"
-ADMIN_EMAIL = "admin@admin.com"
-ADMIN_PASSWORD = "admin"
+ADMIN_EMAIL = "admin@test.com"
+ADMIN_PASSWORD = "admin123"
 STUDENT_EMAIL = "student@test.com"
 STUDENT_PASSWORD = "student123"
 
