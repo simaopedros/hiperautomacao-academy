@@ -151,16 +151,6 @@ function App() {
             }
           />
           <Route
-            path="/buy-credits"
-            element={
-              user ? (
-                <BuyCredits user={user} onLogout={handleLogout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-          <Route
             path="/credit-history"
             element={
               user ? (
