@@ -130,8 +130,8 @@ export default function ReferralPage({ user, onLogout }) {
         <div className="bg-gradient-to-br from-emerald-900/20 to-cyan-900/20 rounded-xl p-8 border border-emerald-500/30 mb-12">
           <h2 className="text-2xl font-bold text-white mb-4">Seu Link de Indicação</h2>
           <p className="text-gray-400 mb-4">
-            Compartilhe este link com seus amigos. Você ganha {referralInfo?.purchase_percentage}% dos créditos 
-            que eles comprarem na plataforma! <strong className="text-emerald-400">Você precisa ter feito pelo menos uma 
+            Compartilhe este link com seus amigos. Você ganha <strong className="text-emerald-400">10 créditos por cada indicação</strong> ou {referralInfo?.purchase_percentage}% dos créditos 
+            que os indicados ganharem na plataforma! <strong className="text-emerald-400">Você precisa ter feito pelo menos uma 
             compra para começar a ganhar bônus.</strong>
           </p>
           <div className="flex gap-3">
