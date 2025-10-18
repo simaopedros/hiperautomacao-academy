@@ -11,6 +11,7 @@ export default function StudentDashboard({ user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [userCredits, setUserCredits] = useState(null);
   const [gatewayConfig, setGatewayConfig] = useState(null);
+  const [supportConfig, setSupportConfig] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
