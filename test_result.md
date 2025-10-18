@@ -282,8 +282,6 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Validação de Acesso no Feed Social"
-    - "Botão Suporte Configurável"
     - "Remover Opção Comprar Créditos"
   stuck_tasks: []
   test_all: false
