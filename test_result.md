@@ -232,6 +232,30 @@ frontend:
           agent: "main"
           comment: "✅ CORRIGIDO: Implementado sistema de controle de likes com coleção dedicada no MongoDB. Cada usuário pode dar apenas 1 like por comentário. Recompensa dada apenas uma vez. Adicionados endpoints: POST /api/comments/{id}/like (dar like), DELETE /api/comments/{id}/like (remover like), GET /api/comments/{id}/liked (verificar se já curtiu). Criado índice único no MongoDB para garantir integridade. Likes em próprios comentários não dão recompensa."
 
+  - task: "Validação de Acesso no Feed Social"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py (lines 801-827), /app/frontend/src/pages/SocialFeed.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implementado: Adicionada validação no endpoint GET /api/student/lessons/{lesson_id} para verificar se usuário está matriculado no curso antes de permitir acesso à aula. No frontend, adicionada função handleViewLesson que valida acesso antes de navegar. Se usuário não estiver matriculado, exibe mensagem 'Você precisa estar matriculado neste curso para acessar esta aula'. Precisa testar."
+
+  - task: "Botão Suporte Configurável"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/StudentDashboard.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implementado: Removido botão 'Verificar Pagamento' e adicionado botão 'Suporte' que busca configuração do endpoint público GET /api/support/config. Botão abre link configurado em nova aba. Precisa testar."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
