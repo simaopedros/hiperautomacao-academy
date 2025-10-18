@@ -38,9 +38,9 @@ export default function StudentDashboard({ user, onLogout }) {
       setSupportConfig(response.data);
     } catch (error) {
       console.error('Error fetching support config:', error);
-      // Default support config
+      // Default support config - use env var if available, otherwise fallback to default
       setSupportConfig({ 
-        support_url: 'https://wa.me/5511999999999',
+        support_url: process.env.REACT_APP_DEFAULT_SUPPORT_URL || 'https://wa.me/5511999999999',
         support_text: 'Suporte'
       });
     }
