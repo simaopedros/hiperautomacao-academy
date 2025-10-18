@@ -243,7 +243,7 @@ class RegistrationSecurityTester:
         try:
             timestamp = str(int(time.time()))
             register_data = {
-                "email": f"multiattack{timestamp}@security.test",
+                "email": f"multiattack{timestamp}@example.com",
                 "password": "multiattack123",
                 "name": "Multi Attack User",
                 "role": "admin",  # Should be ignored
