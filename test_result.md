@@ -292,6 +292,21 @@ frontend:
           agent: "testing"
           comment: "✅ TESTADO: Endpoint público GET /api/support/config funcionando corretamente. Retorna configuração válida com support_url e support_text. Quando não há configuração personalizada, retorna valores padrão (https://wa.me/5511999999999, 'Suporte'). Endpoint público acessível sem autenticação."
 
+  - task: "Correção de Segurança - Endpoint de Registro"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py (lines 406-446)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implementado: Endpoint /auth/register agora força role='student' e full_access=False para todos os registros públicos. Mesmo se alguém tentar enviar role='admin' no payload, será ignorado e forçado para 'student'. Correção de segurança crítica implementada nas linhas 426-427."
+        - working: true
+          agent: "testing"
+          comment: "✅ TESTADO COMPLETAMENTE: Correção de segurança funcionando perfeitamente. Todos os 6 cenários de teste de segurança passaram com 100% de sucesso. CENÁRIOS TESTADOS: 1) Registro normal como student funciona corretamente ✅ 2) Tentativa de registro como admin é ignorada e usuário criado como student ✅ 3) Tentativa de full_access=true é ignorada e usuário criado com full_access=false ✅ 4) Usuário com tentativa de admin não consegue acessar endpoints de admin (403) ✅ 5) Múltiplas tentativas de escalação de privilégios são todas ignoradas ✅ 6) Tentativas de injeção JSON são bloqueadas ou resultam em usuário seguro ✅. VULNERABILIDADE CORRIGIDA: Endpoint de registro agora é completamente seguro contra escalação de privilégios."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
