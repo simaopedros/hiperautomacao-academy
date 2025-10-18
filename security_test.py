@@ -119,7 +119,7 @@ class RegistrationSecurityTester:
         try:
             timestamp = str(int(time.time()))
             register_data = {
-                "email": f"hacker{timestamp}@security.test",
+                "email": f"hacker{timestamp}@example.com",
                 "password": "hacker123",
                 "name": "Attempted Admin Hacker",
                 "role": "admin",  # This should be IGNORED and forced to "student"
