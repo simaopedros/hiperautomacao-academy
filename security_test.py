@@ -293,22 +293,22 @@ class RegistrationSecurityTester:
             # Test various JSON injection attempts
             injection_attempts = [
                 {
-                    "email": f"inject1{timestamp}@security.test",
+                    "email": f"inject1{timestamp}@example.com",
                     "password": "inject123",
                     "name": "JSON Inject User 1",
                     "role": {"$ne": "student"},  # MongoDB injection attempt
                 },
                 {
-                    "email": f"inject2{timestamp}@security.test", 
+                    "email": f"inject2{timestamp}@example.com", 
                     "password": "inject123",
                     "name": "JSON Inject User 2",
                     "role": ["admin", "student"],  # Array injection
                 },
                 {
-                    "email": f"inject3{timestamp}@security.test",
+                    "email": f"inject3{timestamp}@example.com",
                     "password": "inject123", 
                     "name": "JSON Inject User 3",
-                    "role": "student\"; UPDATE users SET role='admin' WHERE email='inject3@security.test'; --"  # SQL-style injection
+                    "role": "student\"; UPDATE users SET role='admin' WHERE email='inject3@example.com'; --"  # SQL-style injection
                 }
             ]
             
