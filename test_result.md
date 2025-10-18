@@ -202,6 +202,18 @@ frontend:
           agent: "main"
           comment: "✅ TESTADO MANUALMENTE: Página de gamificação funcionando perfeitamente. Link aparece na navegação do admin. Valores padrão sendo carregados (10, 5, 2, 30). Interface responsiva e intuitiva com resumo visual das recompensas."
 
+  - task: "Remover Opção Comprar Créditos"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/CreditHistory.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implementado: Removido botão 'Comprar Mais Créditos' da página de histórico de créditos. Usuários agora só podem ganhar créditos através de: compra de cursos com gateway ativo (Abacate Pay ou Hotmart), participação na comunidade (posts, comentários, likes), indicações, e conclusão de cursos. Precisa testar."
+
   - task: "Página de Referral - Bug Fix"
     implemented: true
     working: true
