@@ -214,6 +214,18 @@ frontend:
           agent: "main"
           comment: "Implementado: Removido botão 'Comprar Mais Créditos' da página de histórico de créditos. Usuários agora só podem ganhar créditos através de: compra de cursos com gateway ativo (Abacate Pay ou Hotmart), participação na comunidade (posts, comentários, likes), indicações, e conclusão de cursos. Precisa testar."
 
+  - task: "Corrigir Sistema de Indicações"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py (add_credit_transaction), /app/frontend/src/pages/ReferralPage.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implementado: Nova lógica de indicações - Referrer ganha 10 créditos fixos quando indicado faz primeira compra + 50% de TODOS os créditos que o indicado GANHAR (não apenas compras). Lógica centralizada na função add_credit_transaction para garantir que funcione em todas as formas de ganhar créditos (compras, gamificação, conclusão de cursos). Atualizado frontend para mostrar descrição correta: '10 créditos por indicação + 50% dos créditos que os indicados ganharem'. Precisa testar."
+
   - task: "Página de Referral - Bug Fix"
     implemented: true
     working: true
