@@ -201,8 +201,10 @@ class CreditsSystemTester:
                     self.test_lesson_id = lesson_response.json()['id']
                     
                     # Create enrolled student
+                    import time
+                    timestamp = str(int(time.time()))
                     enrolled_student_data = {
-                        "email": "enrolled@test.com",
+                        "email": f"enrolled{timestamp}@test.com",
                         "password": "enrolled123",
                         "name": "Enrolled Student"
                     }
