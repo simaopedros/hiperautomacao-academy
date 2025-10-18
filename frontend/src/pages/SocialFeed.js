@@ -40,22 +40,6 @@ export default function SocialFeed({ user, onLogout }) {
     }
   };
 
-  const fetchEnrolledCourses = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API}/student/courses`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      // Extract enrolled course IDs
-      const enrolled = response.data
-        .filter(course => course.is_enrolled)
-        .map(course => course.id);
-      setEnrolledCourses(enrolled);
-    } catch (error) {
-      console.error('Error fetching enrolled courses:', error);
-    }
-  };
-
   const handleViewLesson = async (lessonId) => {
     try {
       const token = localStorage.getItem('token');
