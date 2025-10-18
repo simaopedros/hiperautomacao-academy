@@ -276,8 +276,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Sistema de Gamificação - Backend"
-    - "Admin - Configurar Gamificação"
+    - "Validação de Acesso no Feed Social"
+    - "Botão Suporte Configurável"
+    - "Remover Opção Comprar Créditos"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
