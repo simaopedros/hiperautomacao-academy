@@ -158,7 +158,7 @@ class RegistrationSecurityTester:
         try:
             timestamp = str(int(time.time()))
             register_data = {
-                "email": f"fullaccess{timestamp}@security.test",
+                "email": f"fullaccess{timestamp}@example.com",
                 "password": "fullaccess123",
                 "name": "Attempted Full Access User",
                 "role": "student",  # Even with correct role
