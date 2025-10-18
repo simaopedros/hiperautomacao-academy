@@ -191,7 +191,7 @@ export default function ReferralPage({ user, onLogout }) {
               </div>
               <h3 className="font-semibold text-white mb-2">Ganhe continuamente</h3>
               <p className="text-sm text-gray-400">
-                Receba {referralInfo?.purchase_percentage}% dos créditos que seus indicados comprarem
+                Receba 10 créditos por indicação + {referralInfo?.purchase_percentage}% dos créditos que seus indicados ganharem
               </p>
             </div>
           </div>
