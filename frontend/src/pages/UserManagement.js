@@ -335,6 +335,15 @@ export default function UserManagement({ user, onLogout }) {
     setShowEnrollDialog(true);
   };
 
+  const toggleBulkCourseSelection = (courseId) => {
+    setBulkImportCourses(prev => {
+      const isSelected = prev.includes(courseId);
+      return isSelected
+        ? prev.filter(id => id !== courseId)
+        : [...prev, courseId];
+    });
+  };
+
   const handleBulkImport = async (e) => {
     e.preventDefault();
     if (!csvFile || !bulkImportCourse) return;
