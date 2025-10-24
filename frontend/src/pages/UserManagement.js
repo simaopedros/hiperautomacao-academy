@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Users, Plus, Edit, Trash2, BookOpen, CheckCircle, XCircle, ArrowLeft, Upload, Download, Settings, Mail, Key } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, BookOpen, CheckCircle, XCircle, ArrowLeft, Upload, Download, Settings, Mail, Key, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ const API = `${BACKEND_URL}/api`;
 
 export default function UserManagement({ user, onLogout }) {
   const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showUserDialog, setShowUserDialog] = useState(false);
@@ -24,6 +25,15 @@ export default function UserManagement({ user, onLogout }) {
   const [editingUser, setEditingUser] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userEnrollments, setUserEnrollments] = useState([]);
+  
+  // Filtros e Paginação
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCourse, setFilterCourse] = useState('all');
+  const [filterAccessType, setFilterAccessType] = useState('all'); // all, full_access, enrolled, invited
+  const [filterRole, setFilterRole] = useState('all'); // all, student, admin
+  const [currentPage, setCurrentPage] = useState(1);
+  const [usersPerPage] = useState(10);
+  
   const navigate = useNavigate();
 
   const [userForm, setUserForm] = useState({
