@@ -45,7 +45,8 @@ export default function UserManagement({ user, onLogout }) {
   });
 
   const [enrollForm, setEnrollForm] = useState({
-    course_id: ''
+    access_type: 'courses', // 'full' or 'courses'
+    selected_courses: []
   });
 
   useEffect(() => {
