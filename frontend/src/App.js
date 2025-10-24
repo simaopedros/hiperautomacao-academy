@@ -9,6 +9,7 @@ import CourseView from '@/pages/CourseView';
 import LessonPlayer from '@/pages/LessonPlayer';
 import SocialFeed from '@/pages/SocialFeed';
 import CreatePassword from '@/pages/CreatePassword';
+import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import CreditHistory from '@/pages/CreditHistory';
 import PaymentSuccess from '@/pages/PaymentSuccess';
 import PaymentCancelled from '@/pages/PaymentCancelled';
