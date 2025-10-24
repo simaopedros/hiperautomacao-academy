@@ -149,26 +149,75 @@ export default function UserManagement({ user, onLogout }) {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
+      
       if (editingUser) {
         const updateData = { ...userForm };
         if (!updateData.password) {
           delete updateData.password;
         }
+        // Remove campos de acesso do update (não usado na edição)
+        delete updateData.access_type;
+        delete updateData.selected_courses;
+        
         await axios.put(`${API}/admin/users/${editingUser.id}`, updateData, {
           headers: { Authorization: `Bearer ${token}` }
         });
       } else {
-        await axios.post(`${API}/admin/users`, userForm, {
+        // Criar novo usuário
+        const userData = {
+          name: userForm.name,
+          email: userForm.email,
+          password: userForm.password,
+          role: userForm.role,
+          has_full_access: userForm.access_type === 'full'
+        };
+        
+        // Criar usuário
+        const response = await axios.post(`${API}/admin/users`, userData, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        
+        const newUserId = response.data.id;
+        
+        // Se acesso for por cursos específicos, matricular
+        if (userForm.access_type === 'courses' && userForm.selected_courses.length > 0) {
+          for (const courseId of userForm.selected_courses) {
+            await axios.post(`${API}/admin/enrollments`, {
+              user_id: newUserId,
+              course_id: courseId
+            }, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+          }
+        }
       }
+      
       setShowUserDialog(false);
       setEditingUser(null);
-      setUserForm({ name: '', email: '', password: '', role: 'student', full_access: false });
+      setUserForm({ 
+        name: '', 
+        email: '', 
+        password: '', 
+        role: 'student', 
+        access_type: 'courses',
+        selected_courses: []
+      });
       fetchUsers();
     } catch (error) {
       alert(error.response?.data?.detail || 'Erro ao salvar usuário');
     }
+  };
+
+  const toggleUserCourseSelection = (courseId) => {
+    setUserForm(prev => {
+      const isSelected = prev.selected_courses.includes(courseId);
+      return {
+        ...prev,
+        selected_courses: isSelected
+          ? prev.selected_courses.filter(id => id !== courseId)
+          : [...prev.selected_courses, courseId]
+      };
+    });
   };
 
   const handleDeleteUser = async (userId) => {
