@@ -1018,6 +1018,22 @@ async def get_course_progress(course_id: str, current_user: User = Depends(get_c
     
     return progress
 
+# ==================== HELPER FUNCTIONS ====================
+
+async def user_has_access(user_id: str) -> bool:
+    """Check if user has access to at least one course or has full access"""
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        return False
+    
+    # Check if user has full access
+    if user.get("has_full_access", False):
+        return True
+    
+    # Check if user is enrolled in at least one course
+    enrollment = await db.enrollments.find_one({"user_id": user_id})
+    return enrollment is not None
+
 # ==================== COMMENT ROUTES ====================
 
 @api_router.post("/comments", response_model=Comment)
