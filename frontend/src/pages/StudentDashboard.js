@@ -285,24 +285,24 @@ export default function StudentDashboard({ user, onLogout }) {
       )}
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="mb-12">
-          <h2 className="text-4xl font-bold text-white mb-3">Cursos Disponíveis</h2>
-          <p className="text-gray-400 text-lg">Escolha um curso e comece a aprender agora</p>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
+        <div className="mb-8 sm:mb-12">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 sm:mb-3">Cursos Disponíveis</h2>
+          <p className="text-gray-400 text-sm sm:text-base lg:text-lg">Escolha um curso e comece a aprender agora</p>
         </div>
 
         {loading ? (
-          <div className="text-center py-20">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-emerald-500 border-t-transparent"></div>
-            <p className="text-gray-400 mt-4">Carregando cursos...</p>
+          <div className="text-center py-12 sm:py-20">
+            <div className="inline-block animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-4 border-emerald-500 border-t-transparent"></div>
+            <p className="text-gray-400 mt-4 text-sm sm:text-base">Carregando cursos...</p>
           </div>
         ) : courses.length === 0 ? (
-          <div className="text-center py-20">
-            <BookOpen size={64} className="mx-auto text-gray-600 mb-4" />
-            <p className="text-gray-400 text-lg">Nenhum curso disponível no momento</p>
+          <div className="text-center py-12 sm:py-20">
+            <BookOpen size={48} className="sm:w-16 sm:h-16 mx-auto text-gray-600 mb-4" />
+            <p className="text-gray-400 text-base sm:text-lg">Nenhum curso disponível no momento</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
             {courses.map((course, index) => (
               <div
                 key={course.id}
