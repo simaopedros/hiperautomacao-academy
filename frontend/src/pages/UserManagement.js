@@ -41,7 +41,8 @@ export default function UserManagement({ user, onLogout }) {
     email: '',
     password: '',
     role: 'student',
-    full_access: false
+    access_type: 'courses', // 'full' or 'courses'
+    selected_courses: []
   });
 
   const [enrollForm, setEnrollForm] = useState({
