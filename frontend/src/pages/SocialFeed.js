@@ -317,7 +317,7 @@ export default function SocialFeed({ user, onLogout }) {
           </div>
 
           {/* Feed */}
-          <div className="lg:col-span-3 space-y-4 order-1 lg:order-2">
+          <div className="lg:col-span-3 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-2">
               <div>
                 <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1">Feed da Comunidade</h2>
