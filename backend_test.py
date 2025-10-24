@@ -1392,10 +1392,39 @@ class CreditsSystemTester:
         
         print()
         print("=" * 80)
-        print("RUNNING PRIORITY TESTS - LESSON ACCESS & SUPPORT CONFIG")
+        print("RUNNING PRIORITY TESTS - FULL ACCESS FUNCTIONALITY")
         print("=" * 80)
         
-        # Priority tests first
+        # Full Access tests - HIGHEST PRIORITY
+        full_access_tests = [
+            self.test_admin_update_user_full_access_true,
+            self.test_verify_full_access_persistence,
+            self.test_full_access_user_sees_all_courses,
+            self.test_full_access_user_can_access_any_lesson,
+            self.test_admin_update_user_full_access_false,
+            self.test_verify_full_access_false_persistence
+        ]
+        
+        full_access_passed = 0
+        full_access_failed = 0
+        
+        for test in full_access_tests:
+            try:
+                if test():
+                    full_access_passed += 1
+                else:
+                    full_access_failed += 1
+            except Exception as e:
+                print(f"❌ FAIL {test.__name__}: Unexpected error - {str(e)}")
+                full_access_failed += 1
+            print()  # Add spacing between tests
+        
+        print()
+        print("=" * 80)
+        print("RUNNING SECONDARY TESTS - LESSON ACCESS & SUPPORT CONFIG")
+        print("=" * 80)
+        
+        # Priority tests second
         priority_tests = [
             self.test_enrolled_user_lesson_access,
             self.test_non_enrolled_user_lesson_access,
