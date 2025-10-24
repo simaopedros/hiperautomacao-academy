@@ -268,9 +268,7 @@ export default function LoginPage({ onLogin }) {
           </div>
         )}
 
-        <p className="text-center text-gray-500 text-sm mt-6">
-          Plataforma de ensino online estilo Netflix
-        </p>
+        {/* Footer removido */}
       </div>
     </div>
   );
