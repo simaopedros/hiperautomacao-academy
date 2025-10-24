@@ -1068,28 +1068,93 @@ export default function UserManagement({ user, onLogout }) {
 
         {/* Bulk Import Dialog */}
         <Dialog open={showBulkImportDialog} onOpenChange={setShowBulkImportDialog}>
-          <DialogContent className="bg-[#1a1a1a] border-[#252525] text-white max-w-2xl">
+          <DialogContent className="bg-[#1a1a1a] border-[#252525] text-white max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Importação em Massa de Usuários</DialogTitle>
             </DialogHeader>
             
             <form onSubmit={handleBulkImport} className="space-y-4">
-              <div>
-                <Label>Curso para Matrícula</Label>
-                <select
-                  value={bulkImportCourse}
-                  onChange={(e) => setBulkImportCourse(e.target.value)}
-                  required
-                  className="w-full bg-[#111111] border border-[#2a2a2a] text-white py-2 px-3 rounded-lg"
-                >
-                  <option value="">Selecione um curso</option>
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.title}
-                    </option>
-                  ))}
-                </select>
+              {/* Access Type Selection */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Tipo de Acesso para Usuários Importados</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div 
+                    onClick={() => {
+                      setBulkImportAccessType('full');
+                      setBulkImportCourses([]);
+                    }}
+                    className={`cursor-pointer border-2 rounded-lg p-4 transition-all ${
+                      bulkImportAccessType === 'full'
+                        ? 'border-emerald-500 bg-emerald-500/10'
+                        : 'border-[#2a2a2a] hover:border-[#3a3a3a] bg-[#111111]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                        bulkImportAccessType === 'full' ? 'border-emerald-500' : 'border-gray-500'
+                      }`}>
+                        {bulkImportAccessType === 'full' && (
+                          <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                        )}
+                      </div>
+                      <span className="font-medium">Acesso Completo</span>
+                    </div>
+                  </div>
+
+                  <div 
+                    onClick={() => setBulkImportAccessType('courses')}
+                    className={`cursor-pointer border-2 rounded-lg p-4 transition-all ${
+                      bulkImportAccessType === 'courses'
+                        ? 'border-blue-500 bg-blue-500/10'
+                        : 'border-[#2a2a2a] hover:border-[#3a3a3a] bg-[#111111]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                        bulkImportAccessType === 'courses' ? 'border-blue-500' : 'border-gray-500'
+                      }`}>
+                        {bulkImportAccessType === 'courses' && (
+                          <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                        )}
+                      </div>
+                      <span className="font-medium">Cursos Específicos</span>
+                    </div>
+                  </div>
+                </div>
               </div>
+
+              {/* Course Selection */}
+              {bulkImportAccessType === 'courses' && (
+                <div className="space-y-3">
+                  <Label className="text-sm">
+                    Selecionar Cursos ({bulkImportCourses.length} selecionado(s))
+                  </Label>
+                  <div className="bg-[#111111] border border-[#2a2a2a] rounded-lg p-3 max-h-[200px] overflow-y-auto space-y-2">
+                    {courses.length === 0 ? (
+                      <p className="text-center text-gray-400 py-4 text-sm">Nenhum curso disponível</p>
+                    ) : (
+                      courses.map((course) => (
+                        <div
+                          key={course.id}
+                          onClick={() => toggleBulkCourseSelection(course.id)}
+                          className="flex items-center gap-2 p-2 rounded hover:bg-[#1a1a1a] cursor-pointer"
+                        >
+                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                            bulkImportCourses.includes(course.id)
+                              ? 'bg-blue-500 border-blue-500'
+                              : 'border-gray-500'
+                          }`}>
+                            {bulkImportCourses.includes(course.id) && (
+                              <CheckCircle size={12} className="text-white" />
+                            )}
+                          </div>
+                          <span className="text-sm text-white">{course.title}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
               
               <div>
                 <Label>Arquivo CSV</Label>
@@ -1125,7 +1190,7 @@ export default function UserManagement({ user, onLogout }) {
               
               <Button 
                 type="submit" 
-                disabled={importing}
+                disabled={importing || (bulkImportAccessType === 'courses' && bulkImportCourses.length === 0)}
                 className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50"
               >
                 {importing ? 'Importando...' : 'Importar Usuários'}
