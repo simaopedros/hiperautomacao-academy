@@ -474,7 +474,7 @@ async def forgot_password(email: str):
         return {"message": "Se o email existir, você receberá instruções para redefinir sua senha"}
     
     # Get email settings
-    email_settings = await db.email_settings.find_one({})
+    email_settings = await db.email_config.find_one({})
     
     if not email_settings:
         logger.error(f"❌ CRITICAL: Email settings not configured! Cannot send password reset to {email}")
