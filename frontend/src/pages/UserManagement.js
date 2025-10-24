@@ -553,7 +553,7 @@ export default function UserManagement({ user, onLogout }) {
                     <div>
                       <h3 className="text-xl font-bold text-white mb-1">{u.name}</h3>
                       <p className="text-gray-400 mb-2">{u.email}</p>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <span className={`text-xs px-3 py-1 rounded-full ${
                           u.role === 'admin' 
                             ? 'bg-purple-500/20 text-purple-400' 
@@ -561,7 +561,7 @@ export default function UserManagement({ user, onLogout }) {
                         }`}>
                           {u.role === 'admin' ? 'Administrador' : 'Aluno'}
                         </span>
-                        {u.full_access ? (
+                        {u.has_full_access ? (
                           <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center gap-1">
                             <CheckCircle size={14} />
                             Acesso Total
@@ -569,7 +569,19 @@ export default function UserManagement({ user, onLogout }) {
                         ) : (
                           <span className="text-xs px-3 py-1 rounded-full bg-gray-500/20 text-gray-400 flex items-center gap-1">
                             <XCircle size={14} />
-                            Acesso Limitado
+                            {u.enrolled_courses?.length || 0} curso(s)
+                          </span>
+                        )}
+                        {u.invited && !u.password_created && (
+                          <span className="text-xs px-3 py-1 rounded-full bg-yellow-500/20 text-yellow-400 flex items-center gap-1">
+                            <Mail size={14} />
+                            Convite Pendente
+                          </span>
+                        )}
+                        {u.invited && u.password_created && (
+                          <span className="text-xs px-3 py-1 rounded-full bg-green-500/20 text-green-400 flex items-center gap-1">
+                            <CheckCircle size={14} />
+                            Convite Aceito
                           </span>
                         )}
                       </div>
