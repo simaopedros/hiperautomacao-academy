@@ -1418,23 +1418,33 @@ async def create_password_from_token(token: str, password: str):
     user = User(
         email=token_data['email'],
         name=token_data['name'],
-        role="student"
+        role="student",
+        has_full_access=token_data.get('has_full_access', False)
     )
     
     user_dict = user.model_dump()
     user_dict['password_hash'] = get_password_hash(password)
     user_dict['created_at'] = user_dict['created_at'].isoformat()
+    user_dict['invited'] = True
+    user_dict['password_created'] = True
     
     await db.users.insert_one(user_dict)
     
-    # Enroll in course
-    enrollment = {
-        "id": str(uuid.uuid4()),
-        "user_id": user.id,
-        "course_id": token_data['course_id'],
-        "enrolled_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.enrollments.insert_one(enrollment)
+    # Enroll in courses if not full access
+    if not token_data.get('has_full_access', False):
+        course_ids = token_data.get('course_ids', [])
+        # Support old format with single course_id
+        if not course_ids and token_data.get('course_id'):
+            course_ids = [token_data['course_id']]
+        
+        for course_id in course_ids:
+            enrollment = {
+                "id": str(uuid.uuid4()),
+                "user_id": user.id,
+                "course_id": course_id,
+                "enrolled_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.enrollments.insert_one(enrollment)
     
     # Delete used token
     await db.password_tokens.delete_one({"token": token})
