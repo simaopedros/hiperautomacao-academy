@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
-import { Eye, EyeOff, LogIn, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, LogIn, UserPlus, Mail, ArrowLeft } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -8,6 +8,9 @@ const API = `${BACKEND_URL}/api`;
 export default function LoginPage({ onLogin }) {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -34,6 +37,23 @@ export default function LoginPage({ onLogin }) {
 
       const response = await axios.post(`${API}${endpoint}`, payload);
       onLogin(response.data.access_token, response.data.user);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao processar requisição');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      await axios.post(`${API}/auth/forgot-password`, null, {
+        params: { email: forgotEmail }
+      });
+      setForgotSuccess(true);
     } catch (err) {
       setError(err.response?.data?.detail || 'Erro ao processar requisição');
     } finally {
