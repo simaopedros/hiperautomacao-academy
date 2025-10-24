@@ -639,6 +639,66 @@ export default function UserManagement({ user, onLogout }) {
               </div>
             ))}
           </div>
+
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <Button
+                onClick={() => paginate(currentPage - 1)}
+                disabled={currentPage === 1}
+                variant="outline"
+                size="sm"
+                className="border-[#2a2a2a] hover:bg-[#252525]"
+              >
+                <ChevronLeft size={16} />
+              </Button>
+              
+              <div className="flex gap-1">
+                {[...Array(totalPages)].map((_, index) => {
+                  const pageNumber = index + 1;
+                  // Mostrar apenas páginas próximas
+                  if (
+                    pageNumber === 1 ||
+                    pageNumber === totalPages ||
+                    (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                  ) {
+                    return (
+                      <Button
+                        key={pageNumber}
+                        onClick={() => paginate(pageNumber)}
+                        variant={currentPage === pageNumber ? "default" : "outline"}
+                        size="sm"
+                        className={
+                          currentPage === pageNumber
+                            ? "bg-emerald-500 hover:bg-emerald-600"
+                            : "border-[#2a2a2a] hover:bg-[#252525]"
+                        }
+                      >
+                        {pageNumber}
+                      </Button>
+                    );
+                  } else if (
+                    pageNumber === currentPage - 2 ||
+                    pageNumber === currentPage + 2
+                  ) {
+                    return <span key={pageNumber} className="px-2 text-gray-500">...</span>;
+                  }
+                  return null;
+                })}
+              </div>
+
+              <Button
+                onClick={() => paginate(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                variant="outline"
+                size="sm"
+                className="border-[#2a2a2a] hover:bg-[#252525]"
+              >
+                <ChevronRight size={16} />
+              </Button>
+            </div>
+          )}
+          </>
         )}
 
         {/* Enrollment Dialog */}
