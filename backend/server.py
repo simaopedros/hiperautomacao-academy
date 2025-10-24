@@ -1038,12 +1038,12 @@ async def user_has_access(user_id: str) -> bool:
 
 @api_router.post("/comments", response_model=Comment)
 async def create_comment(comment_data: CommentCreate, current_user: User = Depends(get_current_user)):
-    # Check if user has at least 1 credit to participate in community
-    user_credits = await get_user_credits(current_user.id)
-    if user_credits["balance"] < 1:
+    # Check if user has access to at least one course
+    has_access = await user_has_access(current_user.id)
+    if not has_access:
         raise HTTPException(
             status_code=403, 
-            detail="Você precisa ter pelo menos 1 crédito para participar da comunidade. Compre créditos para começar!"
+            detail="Você precisa estar matriculado em pelo menos um curso para participar da comunidade!"
         )
     
     comment = Comment(
