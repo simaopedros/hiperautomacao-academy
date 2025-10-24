@@ -538,8 +538,9 @@ export default function UserManagement({ user, onLogout }) {
             <p className="text-gray-400 text-lg">Nenhum usuário encontrado</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {users.map((u) => (
+          <>
+            <div className="grid grid-cols-1 gap-4">
+              {currentUsers.map((u) => (
               <div
                 key={u.id}
                 className="bg-[#1a1a1a] border border-[#252525] rounded-xl p-6 hover:border-emerald-500/30 transition-all"
