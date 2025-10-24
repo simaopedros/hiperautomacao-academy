@@ -212,21 +212,61 @@ export default function SocialFeed({ user, onLogout }) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6">
           {/* Sidebar */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-1 space-y-4 order-2 lg:order-1">
             {/* Create Post Button */}
             <Button
               onClick={() => setShowCreatePost(true)}
-              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-6"
+              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-4 sm:py-6 text-sm sm:text-base"
             >
-              <Plus size={20} className="mr-2" />
-              Nova Discussão
+              <Plus size={18} className="sm:w-5 sm:h-5 mr-2" />
+              <span className="hidden sm:inline">Nova Discussão</span>
+              <span className="sm:hidden">Nova</span>
             </Button>
 
-            {/* Filters */}
-            <div className="bg-[#1a1a1a] border border-[#252525] rounded-xl p-4">
+            {/* Mobile Filters - Horizontal scroll */}
+            <div className="lg:hidden">
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                <button
+                  onClick={() => setFilter('all')}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs whitespace-nowrap transition-colors ${
+                    filter === 'all'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'bg-[#1a1a1a] text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <Filter size={14} />
+                  Tudo
+                </button>
+                <button
+                  onClick={() => setFilter('discussions')}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs whitespace-nowrap transition-colors ${
+                    filter === 'discussions'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'bg-[#1a1a1a] text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <MessageCircle size={14} />
+                  Discussões
+                </button>
+                <button
+                  onClick={() => setFilter('lessons')}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs whitespace-nowrap transition-colors ${
+                    filter === 'lessons'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'bg-[#1a1a1a] text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <BookOpen size={14} />
+                  Aulas
+                </button>
+              </div>
+            </div>
+
+            {/* Desktop Filters */}
+            <div className="hidden lg:block bg-[#1a1a1a] border border-[#252525] rounded-xl p-4">
               <div className="flex items-center gap-2 mb-4">
                 <Filter size={18} className="text-emerald-400" />
                 <h3 className="font-semibold text-white">Filtros</h3>
@@ -266,7 +306,7 @@ export default function SocialFeed({ user, onLogout }) {
             </div>
 
             {/* Stats */}
-            <div className="bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/30 rounded-xl p-4">
+            <div className="hidden lg:block bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/30 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Users size={18} className="text-emerald-400" />
                 <h3 className="font-semibold text-white">Comunidade Ativa</h3>
@@ -277,11 +317,19 @@ export default function SocialFeed({ user, onLogout }) {
           </div>
 
           {/* Feed */}
-          <div className="lg:col-span-3 space-y-4">
-            <div className="flex items-center justify-between mb-6">
+          <div className="lg:col-span-3 space-y-4 order-1 lg:order-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6 gap-2">
               <div>
-                <h2 className="text-3xl font-bold text-white mb-1">Feed da Comunidade</h2>
-                <p className="text-gray-400">Participe das discussões e aprenda junto</p>
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1">Feed da Comunidade</h2>
+                <p className="text-gray-400 text-sm sm:text-base">Participe das discussões e aprenda junto</p>
+              </div>
+              {/* Mobile Stats */}
+              <div className="lg:hidden bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/30 rounded-lg p-3 flex items-center gap-3">
+                <Users size={16} className="text-emerald-400" />
+                <div>
+                  <p className="text-lg font-bold text-emerald-400">{feed.length}</p>
+                  <p className="text-xs text-gray-400">discussões</p>
+                </div>
               </div>
             </div>
 
