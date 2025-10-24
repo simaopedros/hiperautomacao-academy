@@ -1384,21 +1384,6 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                     imported_count += 1
                     continue
                 
-                # Enroll user in course
-                existing_enrollment = await db.enrollments.find_one({
-                    "user_id": user_id,
-                    "course_id": request.course_id
-                })
-                
-                if not existing_enrollment:
-                    enrollment = {
-                        "id": str(uuid.uuid4()),
-                        "user_id": user_id,
-                        "course_id": request.course_id,
-                        "enrolled_at": datetime.now(timezone.utc).isoformat()
-                    }
-                    await db.enrollments.insert_one(enrollment)
-                
                 imported_count += 1
                 
             except Exception as e:
