@@ -3062,9 +3062,10 @@ async def give_gamification_reward(user_id: str, action_type: str, description: 
         logger.warning(f"❌ User {user_id} not found for gamification reward")
         return False
     
-    # Only give rewards to users who have made a purchase
-    if not user.get("has_purchased", False):
-        logger.info(f"❌ User {user.get('email')} has not purchased yet, no gamification reward for {action_type}")
+    # Only give rewards to users who have access to at least one course
+    has_access = await user_has_access(user_id)
+    if not has_access:
+        logger.info(f"❌ User {user.get('email')} has no course access, no gamification reward for {action_type}")
         return False
     
     reward_amount = await get_reward_amount(action_type)
