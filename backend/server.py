@@ -461,6 +461,105 @@ async def login(credentials: UserLogin):
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
+# ==================== PASSWORD RECOVERY ====================
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(email: str):
+    """Request password reset - public endpoint"""
+    user = await db.users.find_one({"email": email})
+    
+    # Always return success to prevent email enumeration
+    if not user:
+        logger.info(f"Password reset requested for non-existent email: {email}")
+        return {"message": "Se o email existir, você receberá instruções para redefinir sua senha"}
+    
+    # Generate reset token
+    reset_token = secrets.token_urlsafe(32)
+    reset_token_expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    
+    # Save token to user
+    await db.users.update_one(
+        {"email": email},
+        {
+            "$set": {
+                "password_reset_token": reset_token,
+                "password_reset_expires": reset_token_expires
+            }
+        }
+    )
+    
+    # Send email
+    try:
+        frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+        reset_link = f"{frontend_url}/reset-password?token={reset_token}"
+        
+        # Get email settings
+        email_settings = await db.email_settings.find_one({})
+        
+        if not email_settings:
+            logger.error("Email settings not configured")
+            return {"message": "Se o email existir, você receberá instruções para redefinir sua senha"}
+        
+        # Send email using SMTP
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(
+            executor,
+            send_smtp_email,
+            email_settings.get('smtp_username'),
+            email_settings.get('smtp_password'),
+            email_settings.get('sender_email', 'noreply@hiperautomacao.com'),
+            email_settings.get('sender_name', 'Hiperautomação'),
+            email,
+            "Recuperação de Senha",
+            f"""
+            <h2>Olá {user.get('name', 'Usuário')}!</h2>
+            <p>Você solicitou a recuperação de senha da sua conta na plataforma Hiperautomação.</p>
+            <p>Clique no link abaixo para redefinir sua senha (válido por 1 hora):</p>
+            <p><a href="{reset_link}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Redefinir Senha</a></p>
+            <p>Ou copie e cole este link no navegador:</p>
+            <p>{reset_link}</p>
+            <p>Se você não solicitou esta recuperação, ignore este email.</p>
+            <p>Atenciosamente,<br>Equipe Hiperautomação</p>
+            """
+        )
+        
+        logger.info(f"Password reset email sent to {email}")
+    except Exception as e:
+        logger.error(f"Error sending password reset email: {str(e)}")
+    
+    return {"message": "Se o email existir, você receberá instruções para redefinir sua senha"}
+
+@api_router.post("/auth/reset-password")
+async def reset_password(token: str, new_password: str):
+    """Reset password using token - public endpoint"""
+    # Find user with valid token
+    user = await db.users.find_one({
+        "password_reset_token": token,
+        "password_reset_expires": {"$gt": datetime.now(timezone.utc).isoformat()}
+    })
+    
+    if not user:
+        raise HTTPException(status_code=400, detail="Token inválido ou expirado")
+    
+    # Update password
+    password_hash = get_password_hash(new_password)
+    await db.users.update_one(
+        {"id": user["id"]},
+        {
+            "$set": {
+                "password_hash": password_hash
+            },
+            "$unset": {
+                "password_reset_token": "",
+                "password_reset_expires": ""
+            }
+        }
+    )
+    
+    logger.info(f"Password reset successful for user {user['email']}")
+    
+    return {"message": "Senha redefinida com sucesso!"}
+
 # ==================== ADMIN ROUTES - COURSES ====================
 
 @api_router.post("/admin/courses", response_model=Course)
