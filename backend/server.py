@@ -1251,7 +1251,7 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
         csv_file = io.StringIO(csv_content)
         csv_reader = csv.DictReader(csv_file)
         
-        logger.info(f"CSV decoded successfully, course_id: {request.course_id}")
+        logger.info(f"CSV decoded successfully, has_full_access: {request.has_full_access}, course_ids: {request.course_ids}")
         
         imported_count = 0
         errors = []
@@ -1269,8 +1269,31 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                 existing_user = await db.users.find_one({"email": email})
                 
                 if existing_user:
-                    # Just enroll in course
+                    # Update access if needed
                     user_id = existing_user['id']
+                    
+                    # Set full access if requested
+                    if request.has_full_access and not existing_user.get('has_full_access'):
+                        await db.users.update_one(
+                            {"id": user_id},
+                            {"$set": {"has_full_access": True}}
+                        )
+                    
+                    # Enroll in courses if specified
+                    if not request.has_full_access and request.course_ids:
+                        for course_id in request.course_ids:
+                            existing_enrollment = await db.enrollments.find_one({
+                                "user_id": user_id,
+                                "course_id": course_id
+                            })
+                            if not existing_enrollment:
+                                enrollment = {
+                                    "id": str(uuid.uuid4()),
+                                    "user_id": user_id,
+                                    "course_id": course_id,
+                                    "enrolled_at": datetime.now(timezone.utc).isoformat()
+                                }
+                                await db.enrollments.insert_one(enrollment)
                 else:
                     # Create token for password creation
                     token = secrets.token_urlsafe(32)
@@ -1280,7 +1303,8 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                         "token": token,
                         "email": email,
                         "name": name,
-                        "course_id": request.course_id,
+                        "has_full_access": request.has_full_access,
+                        "course_ids": request.course_ids if not request.has_full_access else [],
                         "expires_at": expires_at.isoformat(),
                         "created_at": datetime.now(timezone.utc).isoformat()
                     }
@@ -1290,13 +1314,15 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                     # Send email with password creation link
                     password_link = f"{os.environ.get('FRONTEND_URL', 'http://localhost:3000')}/create-password?token={token}"
                     
+                    access_description = "acesso completo à plataforma" if request.has_full_access else f"{len(request.course_ids)} curso(s)"
+                    
                     html_content = f"""
                     <html>
                         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                             <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                                 <h2 style="color: #10b981;">Bem-vindo à Hiperautomação!</h2>
                                 <p>Olá <strong>{name}</strong>,</p>
-                                <p>Você foi matriculado em um curso na plataforma Hiperautomação.</p>
+                                <p>Você foi convidado para a plataforma Hiperautomação com {access_description}.</p>
                                 <p>Para acessar sua conta e começar a aprender, você precisa criar sua senha.</p>
                                 <div style="margin: 30px 0; text-align: center;">
                                     <a href="{password_link}" 
