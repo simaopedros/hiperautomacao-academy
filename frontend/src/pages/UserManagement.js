@@ -213,18 +213,56 @@ export default function UserManagement({ user, onLogout }) {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API}/admin/enrollments`, {
-        user_id: selectedUser.id,
-        course_id: enrollForm.course_id
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setEnrollForm({ course_id: '' });
-      fetchUserEnrollments(selectedUser.id);
-      alert('Usuário matriculado com sucesso!');
+      
+      if (enrollForm.access_type === 'full') {
+        // Set full access
+        await axios.put(`${API}/admin/users/${selectedUser.id}`, {
+          has_full_access: true
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        alert('Usuário agora tem acesso completo à plataforma!');
+      } else {
+        // Enroll in selected courses
+        if (enrollForm.selected_courses.length === 0) {
+          alert('Selecione pelo menos um curso');
+          return;
+        }
+        
+        // Enroll in multiple courses
+        for (const courseId of enrollForm.selected_courses) {
+          await axios.post(`${API}/admin/enrollments`, {
+            user_id: selectedUser.id,
+            course_id: courseId
+          }, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+        }
+        
+        alert(`Usuário matriculado em ${enrollForm.selected_courses.length} curso(s) com sucesso!`);
+      }
+      
+      setEnrollForm({ access_type: 'courses', selected_courses: [] });
+      setShowEnrollDialog(false);
+      fetchUsers();
+      if (selectedUser) {
+        fetchUserEnrollments(selectedUser.id);
+      }
     } catch (error) {
-      alert(error.response?.data?.detail || 'Erro ao matricular usuário');
+      alert(error.response?.data?.detail || 'Erro ao atualizar acesso do usuário');
     }
+  };
+
+  const toggleCourseSelection = (courseId) => {
+    setEnrollForm(prev => {
+      const isSelected = prev.selected_courses.includes(courseId);
+      return {
+        ...prev,
+        selected_courses: isSelected
+          ? prev.selected_courses.filter(id => id !== courseId)
+          : [...prev.selected_courses, courseId]
+      };
+    });
   };
 
   const handleRemoveEnrollment = async (userId, courseId) => {
