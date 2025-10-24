@@ -406,6 +406,31 @@ async def get_current_admin(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
+# Helper function to check if user has access to a course (backward compatible)
+async def user_has_course_access(user_id: str, course_id: str, has_full_access: bool = False) -> bool:
+    """
+    Check if user has access to a course.
+    Checks BOTH enrollments collection (new system) and enrolled_courses field (legacy system)
+    for backward compatibility with existing production data.
+    """
+    if has_full_access:
+        return True
+    
+    # Check enrollments collection (new system)
+    enrollment = await db.enrollments.find_one({
+        "user_id": user_id,
+        "course_id": course_id
+    })
+    if enrollment:
+        return True
+    
+    # Check user's enrolled_courses field (legacy system)
+    user_doc = await db.users.find_one({"id": user_id})
+    if user_doc and "enrolled_courses" in user_doc:
+        return course_id in user_doc.get("enrolled_courses", [])
+    
+    return False
+
 # ==================== AUTH ROUTES ====================
 
 @api_router.post("/auth/register", response_model=Token)
