@@ -473,6 +473,15 @@ async def forgot_password(email: str):
         logger.info(f"Password reset requested for non-existent email: {email}")
         return {"message": "Se o email existir, você receberá instruções para redefinir sua senha"}
     
+    # Get email settings
+    email_settings = await db.email_settings.find_one({})
+    
+    if not email_settings:
+        logger.error(f"❌ CRITICAL: Email settings not configured! Cannot send password reset to {email}")
+        logger.error("⚠️  Admin needs to configure email settings at /admin/email-settings")
+        # Still return success to prevent email enumeration
+        return {"message": "Se o email existir, você receberá instruções para redefinir sua senha"}
+    
     # Generate reset token
     reset_token = secrets.token_urlsafe(32)
     reset_token_expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
@@ -492,13 +501,6 @@ async def forgot_password(email: str):
     try:
         frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
         reset_link = f"{frontend_url}/reset-password?token={reset_token}"
-        
-        # Get email settings
-        email_settings = await db.email_settings.find_one({})
-        
-        if not email_settings:
-            logger.error("Email settings not configured")
-            return {"message": "Se o email existir, você receberá instruções para redefinir sua senha"}
         
         # Send email using SMTP
         loop = asyncio.get_event_loop()
@@ -523,9 +525,9 @@ async def forgot_password(email: str):
             """
         )
         
-        logger.info(f"Password reset email sent to {email}")
+        logger.info(f"✅ Password reset email sent to {email}")
     except Exception as e:
-        logger.error(f"Error sending password reset email: {str(e)}")
+        logger.error(f"❌ Error sending password reset email to {email}: {str(e)}")
     
     return {"message": "Se o email existir, você receberá instruções para redefinir sua senha"}
 
