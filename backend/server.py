@@ -926,7 +926,7 @@ async def get_lesson_detail(lesson_id: str, current_user: User = Depends(get_cur
     course_id = module['course_id']
     
     # Check if user has access to this course
-    if not current_user.full_access:
+    if not current_user.has_full_access:
         enrollment = await db.enrollments.find_one({
             "user_id": current_user.id,
             "course_id": course_id
