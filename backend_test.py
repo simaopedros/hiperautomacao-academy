@@ -1114,68 +1114,13 @@ class CreditsSystemTester:
                                 response.text[:200])
                     return False
             else:
-                # Try to create the user if login fails
-                register_data = {
-                    "email": TEST_USER_EMAIL,
-                    "password": "password123",
-                    "name": "Test User Aluno"
-                }
-                
-                register_response = self.session.post(f"{BACKEND_URL}/auth/register", json=register_data)
-                
-                if register_response.status_code == 200:
-                    # Now update this user to have full access
-                    register_data = register_response.json()
-                    new_user_id = register_data['user']['id']
-                    
-                    headers = {'Authorization': f'Bearer {self.admin_token}'}
-                    update_data = {"has_full_access": True}
-                    update_response = self.session.put(f"{BACKEND_URL}/admin/users/{new_user_id}", 
-                                                     json=update_data, headers=headers)
-                    
-                    if update_response.status_code == 200:
-                        # Now test with the new user
-                        test_user_token = register_data['access_token']
-                        headers = {'Authorization': f'Bearer {test_user_token}'}
-                        response = self.session.get(f"{BACKEND_URL}/student/courses", headers=headers)
-                        
-                        if response.status_code == 200:
-                            courses = response.json()
-                            
-                            if len(courses) > 0:
-                                all_have_access = all(course.get('has_access') == True for course in courses)
-                                
-                                if all_have_access:
-                                    self.log_test("Full Access User Sees All Courses", True, 
-                                                f"Newly created user with full access sees {len(courses)} courses, ALL with has_access=true", 
-                                                f"Courses: {len(courses)}")
-                                    return True
-                                else:
-                                    courses_without_access = [c for c in courses if not c.get('has_access')]
-                                    self.log_test("Full Access User Sees All Courses", False, 
-                                                f"Newly created user with full access has {len(courses_without_access)} courses without access", 
-                                                f"Courses without access: {[c.get('title') for c in courses_without_access]}")
-                                    return False
-                            else:
-                                self.log_test("Full Access User Sees All Courses", False, 
-                                            "No courses found for newly created full access user")
-                                return False
-                        else:
-                            self.log_test("Full Access User Sees All Courses", False, 
-                                        f"Failed to get courses for newly created full access user: {response.status_code}")
-                            return False
-                    else:
-                        self.log_test("Full Access User Sees All Courses", False, 
-                                    f"Failed to update newly created user to full access: {update_response.status_code}")
-                        return False
-                else:
-                    self.log_test("Full Access User Sees All Courses", False, 
-                                f"Failed to update user password and full access: {update_response.status_code}")
-                    return False
-            else:
                 self.log_test("Full Access User Sees All Courses", False, 
                             f"Failed to login as test user after password update: {login_response.status_code}")
                 return False
+        else:
+            self.log_test("Full Access User Sees All Courses", False, 
+                        f"Failed to update user password and full access: {update_response.status_code}")
+            return False
         except Exception as e:
             self.log_test("Full Access User Sees All Courses", False, f"Full access courses test error: {str(e)}")
             return False
