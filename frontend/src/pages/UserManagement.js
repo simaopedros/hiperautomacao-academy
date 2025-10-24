@@ -1003,36 +1003,58 @@ export default function UserManagement({ user, onLogout }) {
                     {courses.length === 0 ? (
                       <p className="text-center text-gray-400 py-4">Nenhum curso disponível</p>
                     ) : (
-                      courses.map((course) => (
-                        <div
-                          key={course.id}
-                          onClick={() => toggleCourseSelection(course.id)}
-                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1a1a1a] cursor-pointer transition-colors"
-                        >
-                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                            enrollForm.selected_courses.includes(course.id)
-                              ? 'bg-blue-500 border-blue-500'
-                              : 'border-gray-500'
-                          }`}>
-                            {enrollForm.selected_courses.includes(course.id) && (
-                              <CheckCircle size={16} className="text-white" />
-                            )}
+                      courses.map((course) => {
+                        const isAlreadyEnrolled = userEnrollments.some(e => e.course_id === course.id);
+                        const isSelected = enrollForm.selected_courses.includes(course.id);
+                        
+                        return (
+                          <div
+                            key={course.id}
+                            onClick={() => !isAlreadyEnrolled && toggleCourseSelection(course.id)}
+                            className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                              isAlreadyEnrolled 
+                                ? 'bg-emerald-500/10 border border-emerald-500/30 cursor-not-allowed' 
+                                : 'hover:bg-[#1a1a1a] cursor-pointer'
+                            }`}
+                          >
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                              isAlreadyEnrolled
+                                ? 'bg-emerald-500 border-emerald-500'
+                                : isSelected
+                                  ? 'bg-blue-500 border-blue-500'
+                                  : 'border-gray-500'
+                            }`}>
+                              {(isAlreadyEnrolled || isSelected) && (
+                                <CheckCircle size={16} className="text-white" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h5 className={`font-medium truncate ${
+                                  isAlreadyEnrolled ? 'text-emerald-400' : 'text-white'
+                                }`}>
+                                  {course.title}
+                                </h5>
+                                {isAlreadyEnrolled && (
+                                  <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                    Já Matriculado
+                                  </span>
+                                )}
+                              </div>
+                              {course.description && (
+                                <p className="text-xs text-gray-400 truncate">{course.description}</p>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <h5 className="font-medium text-white truncate">{course.title}</h5>
-                            {course.description && (
-                              <p className="text-xs text-gray-400 truncate">{course.description}</p>
-                            )}
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
 
                   {enrollForm.selected_courses.length > 0 && (
                     <div className="flex items-center gap-2 text-sm text-blue-400">
                       <CheckCircle size={16} />
-                      <span>{enrollForm.selected_courses.length} curso(s) será(ão) atribuído(s)</span>
+                      <span>{enrollForm.selected_courses.length} novo(s) curso(s) será(ão) atribuído(s)</span>
                     </div>
                   )}
                 </div>
