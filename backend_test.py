@@ -1273,7 +1273,7 @@ class CreditsSystemTester:
                         # Now login as the user and check they only see enrolled courses
                         login_data = {
                             "email": TEST_USER_EMAIL,
-                            "password": "password123"
+                            "password": "testpassword123"
                         }
                         
                         login_response = self.session.post(f"{BACKEND_URL}/auth/login", json=login_data)
