@@ -14,7 +14,7 @@ from datetime import datetime
 import uuid
 
 # Configuration
-BACKEND_URL = "https://edupulse-12.preview.emergentagent.com/api"
+BACKEND_URL = "https://hyperlearn.preview.emergentagent.com/api"
 ADMIN_EMAIL = "admin@test.com"
 ADMIN_PASSWORD = "admin123"
 STUDENT_EMAIL = "student@test.com"
