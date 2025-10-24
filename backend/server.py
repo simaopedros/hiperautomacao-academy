@@ -506,12 +506,9 @@ async def forgot_password(email: str):
         loop = asyncio.get_event_loop()
         loop.run_in_executor(
             executor,
-            send_smtp_email,
-            email_settings.get('smtp_username'),
-            email_settings.get('smtp_password'),
-            email_settings.get('sender_email', 'noreply@hiperautomacao.com'),
-            email_settings.get('sender_name', 'Hiperautomação'),
+            send_brevo_email,
             email,
+            user.get('name', 'Usuário'),
             "Recuperação de Senha",
             f"""
             <h2>Olá {user.get('name', 'Usuário')}!</h2>
@@ -522,7 +519,13 @@ async def forgot_password(email: str):
             <p>{reset_link}</p>
             <p>Se você não solicitou esta recuperação, ignore este email.</p>
             <p>Atenciosamente,<br>Equipe Hiperautomação</p>
-            """
+            """,
+            email_settings.get('smtp_username'),
+            email_settings.get('smtp_password'),
+            email_settings.get('sender_email', 'noreply@hiperautomacao.com'),
+            email_settings.get('sender_name', 'Hiperautomação'),
+            email_settings.get('smtp_server', 'smtp-relay.brevo.com'),
+            email_settings.get('smtp_port', 587)
         )
         
         logger.info(f"✅ Password reset email sent to {email}")
