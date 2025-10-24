@@ -126,18 +126,18 @@ function CreditHistory() {
           ) : (
             <div className="divide-y divide-gray-700">
               {transactions.map((transaction) => (
-                <div key={transaction.id} className="p-6 hover:bg-gray-750 transition">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4 flex-1">
-                      <div className="text-3xl">{getTransactionIcon(transaction.transaction_type)}</div>
-                      <div className="flex-1">
-                        <h3 className="text-white font-semibold mb-1">
+                <div key={transaction.id} className="p-4 sm:p-6 hover:bg-gray-750 transition">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2 sm:gap-4 flex-1 min-w-0">
+                      <div className="text-xl sm:text-3xl flex-shrink-0">{getTransactionIcon(transaction.transaction_type)}</div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-white font-semibold mb-1 text-sm sm:text-base line-clamp-2">
                           {transaction.description}
                         </h3>
-                        <p className="text-gray-400 text-sm">
+                        <p className="text-gray-400 text-xs sm:text-sm mb-2">
                           {formatDate(transaction.created_at)}
                         </p>
-                        <span className="inline-block mt-2 px-3 py-1 bg-gray-700 rounded-full text-xs text-gray-300">
+                        <span className="inline-block px-2 sm:px-3 py-0.5 sm:py-1 bg-gray-700 rounded-full text-xs text-gray-300">
                           {transaction.transaction_type === 'earned' && 'Ganho'}
                           {transaction.transaction_type === 'purchased' && 'Comprado'}
                           {transaction.transaction_type === 'spent' && 'Gasto'}
@@ -145,11 +145,11 @@ function CreditHistory() {
                         </span>
                       </div>
                     </div>
-                    <div className="text-right ml-4">
-                      <p className={`text-2xl font-bold ${getTransactionColor(transaction.amount)}`}>
+                    <div className="text-right flex-shrink-0">
+                      <p className={`text-lg sm:text-2xl font-bold ${getTransactionColor(transaction.amount)}`}>
                         {transaction.amount > 0 ? '+' : ''}{transaction.amount}
                       </p>
-                      <p className="text-gray-500 text-sm">créditos</p>
+                      <p className="text-gray-500 text-xs sm:text-sm">créditos</p>
                     </div>
                   </div>
                 </div>
