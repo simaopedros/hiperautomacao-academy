@@ -329,7 +329,8 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Correção de Inconsistência de Dados - Matrículas"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
