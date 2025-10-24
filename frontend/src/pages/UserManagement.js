@@ -922,30 +922,6 @@ export default function UserManagement({ user, onLogout }) {
             </form>
           </DialogContent>
         </Dialog>
-                    <div className="space-y-2">
-                      {userEnrollments.map((enrollment) => (
-                        <div
-                          key={enrollment.enrollment_id}
-                          className="flex justify-between items-center bg-[#111111] rounded-lg p-3 border border-[#252525]"
-                        >
-                          <span className="text-white">{enrollment.course_title}</span>
-                          <Button
-                            onClick={() => handleRemoveEnrollment(selectedUser.id, enrollment.course_id)}
-                            variant="ghost"
-                            size="sm"
-                            className="text-red-400 hover:text-red-300"
-                          >
-                            <Trash2 size={16} />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
 
         {/* Bulk Import Dialog */}
         <Dialog open={showBulkImportDialog} onOpenChange={setShowBulkImportDialog}>
