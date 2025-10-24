@@ -207,7 +207,8 @@ class EmailConfig(BaseModel):
 
 # Bulk Import Models
 class BulkImportRequest(BaseModel):
-    course_id: str
+    has_full_access: bool = False
+    course_ids: list[str] = []
     csv_content: str  # Base64 encoded CSV
 
 class PasswordCreationToken(BaseModel):
