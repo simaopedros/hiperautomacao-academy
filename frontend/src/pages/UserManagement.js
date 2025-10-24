@@ -18,7 +18,8 @@ export default function UserManagement({ user, onLogout }) {
   const [showUserDialog, setShowUserDialog] = useState(false);
   const [showEnrollDialog, setShowEnrollDialog] = useState(false);
   const [showBulkImportDialog, setShowBulkImportDialog] = useState(false);
-  const [bulkImportCourse, setBulkImportCourse] = useState('');
+  const [bulkImportAccessType, setBulkImportAccessType] = useState('courses');
+  const [bulkImportCourses, setBulkImportCourses] = useState([]);
   const [csvFile, setCsvFile] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState(null);
