@@ -280,17 +280,39 @@ export default function UserManagement({ user, onLogout }) {
           return;
         }
         
-        // Enroll in multiple courses
-        for (const courseId of enrollForm.selected_courses) {
-          await axios.post(`${API}/admin/enrollments`, {
-            user_id: selectedUser.id,
-            course_id: courseId
-          }, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+        // Filter out courses already enrolled
+        const enrolledCourseIds = userEnrollments.map(e => e.course_id);
+        const newCourses = enrollForm.selected_courses.filter(id => !enrolledCourseIds.includes(id));
+        
+        if (newCourses.length === 0) {
+          alert('Usuário já está matriculado em todos os cursos selecionados!');
+          return;
         }
         
-        alert(`Usuário matriculado em ${enrollForm.selected_courses.length} curso(s) com sucesso!`);
+        // Enroll in new courses only
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const courseId of newCourses) {
+          try {
+            await axios.post(`${API}/admin/enrollments`, {
+              user_id: selectedUser.id,
+              course_id: courseId
+            }, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            successCount++;
+          } catch (err) {
+            console.error(`Error enrolling in course ${courseId}:`, err);
+            errorCount++;
+          }
+        }
+        
+        if (successCount > 0) {
+          alert(`Usuário matriculado em ${successCount} novo(s) curso(s) com sucesso!${errorCount > 0 ? ` (${errorCount} erro(s))` : ''}`);
+        } else {
+          alert('Erro ao matricular usuário nos cursos');
+        }
       }
       
       setEnrollForm({ access_type: 'courses', selected_courses: [] });
