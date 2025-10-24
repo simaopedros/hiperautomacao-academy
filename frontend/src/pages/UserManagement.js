@@ -53,6 +53,58 @@ export default function UserManagement({ user, onLogout }) {
     fetchCourses();
   }, []);
 
+  // Aplicar filtros sempre que mudar
+  useEffect(() => {
+    applyFilters();
+  }, [users, searchTerm, filterCourse, filterAccessType, filterRole]);
+
+  const applyFilters = () => {
+    let filtered = [...users];
+
+    // Filtro de busca
+    if (searchTerm) {
+      filtered = filtered.filter(u => 
+        u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filtro por curso
+    if (filterCourse !== 'all') {
+      filtered = filtered.filter(u => {
+        if (u.has_full_access) return true;
+        return u.enrolled_courses && u.enrolled_courses.includes(filterCourse);
+      });
+    }
+
+    // Filtro por tipo de acesso
+    if (filterAccessType === 'full_access') {
+      filtered = filtered.filter(u => u.has_full_access);
+    } else if (filterAccessType === 'enrolled') {
+      filtered = filtered.filter(u => !u.has_full_access && u.enrolled_courses && u.enrolled_courses.length > 0);
+    } else if (filterAccessType === 'invited') {
+      filtered = filtered.filter(u => u.invited && !u.password_created);
+    } else if (filterAccessType === 'accepted') {
+      filtered = filtered.filter(u => u.invited && u.password_created);
+    }
+
+    // Filtro por role
+    if (filterRole !== 'all') {
+      filtered = filtered.filter(u => u.role === filterRole);
+    }
+
+    setFilteredUsers(filtered);
+    setCurrentPage(1); // Reset para primeira página ao filtrar
+  };
+
+  // Paginação
+  const indexOfLastUser = currentPage * usersPerPage;
+  const indexOfFirstUser = indexOfLastUser - usersPerPage;
+  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
