@@ -149,33 +149,35 @@ export default function SocialFeed({ user, onLogout }) {
     <div className="min-h-screen bg-[#0a0a0a]">
       {/* Header */}
       <header className="bg-[#111111] border-b border-[#252525] sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
-              <h1 className="text-2xl font-bold gradient-text">Hiperautomação</h1>
-              <nav className="flex gap-6">
+            <div className="flex items-center gap-3 sm:gap-8 flex-1">
+              <h1 className="text-lg sm:text-2xl font-bold gradient-text">Hiperautomação</h1>
+              <nav className="hidden md:flex gap-4 lg:gap-6">
                 <button
                   onClick={() => navigate('/dashboard')}
-                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm lg:text-base"
                 >
-                  <BookOpen size={20} />
-                  Meus Cursos
+                  <BookOpen size={18} className="lg:w-5 lg:h-5" />
+                  <span className="hidden lg:inline">Meus Cursos</span>
+                  <span className="lg:hidden">Cursos</span>
                 </button>
                 <button
                   data-testid="social-feed-nav"
-                  className="flex items-center gap-2 text-emerald-400 font-medium"
+                  className="flex items-center gap-2 text-emerald-400 font-medium text-sm lg:text-base"
                 >
-                  <MessageCircle size={20} />
-                  Comunidade
+                  <MessageCircle size={18} className="lg:w-5 lg:h-5" />
+                  <span className="hidden lg:inline">Comunidade</span>
+                  <span className="lg:hidden">Social</span>
                 </button>
               </nav>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base">
                   {user.name[0].toUpperCase()}
                 </div>
-                <div className="text-right">
+                <div className="text-right hidden sm:block">
                   <p className="font-semibold text-white text-sm">{user.name}</p>
                   <p className="text-xs text-gray-400">Membro</p>
                 </div>
@@ -184,10 +186,28 @@ export default function SocialFeed({ user, onLogout }) {
                 onClick={onLogout}
                 className="p-2 hover:bg-[#1a1a1a] rounded-lg transition-colors"
               >
-                <LogOut size={20} className="text-gray-400 hover:text-red-400" />
+                <LogOut size={18} className="sm:w-5 sm:h-5 text-gray-400 hover:text-red-400" />
               </button>
             </div>
           </div>
+          
+          {/* Mobile Navigation */}
+          <nav className="flex md:hidden gap-2 mt-3 overflow-x-auto pb-2">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-xs bg-[#1a1a1a] px-3 py-1.5 rounded-full whitespace-nowrap"
+            >
+              <BookOpen size={14} />
+              Cursos
+            </button>
+            <button
+              data-testid="social-feed-nav-mobile"
+              className="flex items-center gap-1.5 text-emerald-400 font-medium text-xs bg-emerald-500/10 px-3 py-1.5 rounded-full whitespace-nowrap"
+            >
+              <MessageCircle size={14} />
+              Social
+            </button>
+          </nav>
         </div>
       </header>
 
