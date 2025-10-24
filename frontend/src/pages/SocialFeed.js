@@ -476,39 +476,39 @@ export default function SocialFeed({ user, onLogout }) {
 
       {/* Post Detail Dialog */}
       <Dialog open={showPostDetail} onOpenChange={setShowPostDetail}>
-        <DialogContent className="bg-[#1a1a1a] border-[#252525] text-white max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="bg-[#1a1a1a] border-[#252525] text-white max-w-3xl mx-4 sm:mx-auto max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
           {selectedPost && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-2xl">Discussão</DialogTitle>
+                <DialogTitle className="text-lg sm:text-2xl">Discussão</DialogTitle>
               </DialogHeader>
 
               {/* Original Post */}
-              <div className="bg-[#111111] rounded-xl p-6 border border-[#252525]">
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
+              <div className="bg-[#111111] rounded-xl p-4 sm:p-6 border border-[#252525]">
+                <div className="flex items-start gap-3 sm:gap-4 mb-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-lg">
                     {selectedPost.user_name[0].toUpperCase()}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="font-bold text-white">{selectedPost.user_name}</span>
-                      <span className="text-gray-500 text-sm">{formatDate(selectedPost.created_at)}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mb-2">
+                      <span className="font-bold text-white text-sm sm:text-base">{selectedPost.user_name}</span>
+                      <span className="text-gray-500 text-xs sm:text-sm">{formatDate(selectedPost.created_at)}</span>
                     </div>
-                    <p className="text-gray-200 leading-relaxed">{selectedPost.content}</p>
+                    <p className="text-gray-200 leading-relaxed text-sm sm:text-base">{selectedPost.content}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6 pt-4 border-t border-[#252525]">
+                <div className="flex items-center gap-4 sm:gap-6 pt-4 border-t border-[#252525]">
                   <button
                     onClick={() => handleLike(selectedPost.id)}
-                    className="flex items-center gap-2 text-gray-400 hover:text-emerald-400 transition-colors"
+                    className="flex items-center gap-1.5 sm:gap-2 text-gray-400 hover:text-emerald-400 transition-colors"
                   >
-                    <ThumbsUp size={18} />
-                    <span className="text-sm">{selectedPost.likes}</span>
+                    <ThumbsUp size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <span className="text-xs sm:text-sm">{selectedPost.likes}</span>
                   </button>
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <MessageCircle size={18} />
-                    <span className="text-sm">{postReplies.length} respostas</span>
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-gray-400">
+                    <MessageCircle size={16} className="sm:w-[18px] sm:h-[18px]" />
+                    <span className="text-xs sm:text-sm">{postReplies.length} respostas</span>
                   </div>
                 </div>
               </div>
@@ -516,7 +516,7 @@ export default function SocialFeed({ user, onLogout }) {
               {/* Reply Form */}
               <form onSubmit={handleReply} className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-cyan-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 text-sm sm:text-base">
                     {user.name[0].toUpperCase()}
                   </div>
                   <Textarea
@@ -524,36 +524,36 @@ export default function SocialFeed({ user, onLogout }) {
                     onChange={(e) => setReplyContent(e.target.value)}
                     placeholder="Escreva sua resposta..."
                     rows={3}
-                    className="bg-[#111111] border-[#2a2a2a] text-white flex-1"
+                    className="bg-[#111111] border-[#2a2a2a] text-white flex-1 text-sm sm:text-base"
                   />
                 </div>
                 <div className="flex justify-end">
                   <Button
                     type="submit"
-                    className="bg-emerald-500 hover:bg-emerald-600"
+                    className="bg-emerald-500 hover:bg-emerald-600 text-sm sm:text-base"
                     disabled={!replyContent.trim()}
                   >
-                    <Send size={16} className="mr-2" />
+                    <Send size={14} className="sm:w-4 sm:h-4 mr-2" />
                     Responder
                   </Button>
                 </div>
               </form>
 
               {/* Replies */}
-              <div className="space-y-4 mt-6">
-                <h3 className="font-semibold text-white text-lg">Respostas ({postReplies.length})</h3>
+              <div className="space-y-3 sm:space-y-4 mt-4 sm:mt-6">
+                <h3 className="font-semibold text-white text-base sm:text-lg">Respostas ({postReplies.length})</h3>
                 {postReplies.length === 0 ? (
-                  <p className="text-gray-400 text-center py-8">Nenhuma resposta ainda. Seja o primeiro!</p>
+                  <p className="text-gray-400 text-center py-6 sm:py-8 text-sm sm:text-base">Nenhuma resposta ainda. Seja o primeiro!</p>
                 ) : (
                   postReplies.map((reply) => (
-                    <div key={reply.id} className="bg-[#111111] rounded-lg p-4 border border-[#252525]">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                    <div key={reply.id} className="bg-[#111111] rounded-lg p-3 sm:p-4 border border-[#252525]">
+                      <div className="flex items-start gap-2.5 sm:gap-3">
+                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-cyan-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base">
                           {reply.user_name[0].toUpperCase()}
                         </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="font-semibold text-white">{reply.user_name}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mb-2">
+                            <span className="font-semibold text-white text-sm sm:text-base">{reply.user_name}</span>
                             <span className="text-gray-500 text-xs">{formatDate(reply.created_at)}</span>
                           </div>
                           <p className="text-gray-300 text-sm">{reply.content}</p>
@@ -561,7 +561,7 @@ export default function SocialFeed({ user, onLogout }) {
                             onClick={() => handleLike(reply.id)}
                             className="flex items-center gap-1 text-gray-400 hover:text-emerald-400 transition-colors mt-2"
                           >
-                            <ThumbsUp size={14} />
+                            <ThumbsUp size={12} className="sm:w-[14px] sm:h-[14px]" />
                             <span className="text-xs">{reply.likes}</span>
                           </button>
                         </div>
