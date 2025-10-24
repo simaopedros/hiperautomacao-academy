@@ -1170,8 +1170,12 @@ class CreditsSystemTester:
                         return False
                 else:
                     self.log_test("Full Access User Sees All Courses", False, 
-                                f"Failed to login or register test user: login={login_response.status_code}, register={register_response.status_code}")
+                                f"Failed to update user password and full access: {update_response.status_code}")
                     return False
+            else:
+                self.log_test("Full Access User Sees All Courses", False, 
+                            f"Failed to login as test user after password update: {login_response.status_code}")
+                return False
         except Exception as e:
             self.log_test("Full Access User Sees All Courses", False, f"Full access courses test error: {str(e)}")
             return False
