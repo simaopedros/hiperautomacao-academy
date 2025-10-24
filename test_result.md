@@ -306,6 +306,21 @@ frontend:
         - working: true
           agent: "testing"
           comment: "✅ TESTADO COMPLETAMENTE: Correção de segurança funcionando perfeitamente. Todos os 6 cenários de teste de segurança passaram com 100% de sucesso. CENÁRIOS TESTADOS: 1) Registro normal como student funciona corretamente ✅ 2) Tentativa de registro como admin é ignorada e usuário criado como student ✅ 3) Tentativa de full_access=true é ignorada e usuário criado com full_access=false ✅ 4) Usuário com tentativa de admin não consegue acessar endpoints de admin (403) ✅ 5) Múltiplas tentativas de escalação de privilégios são todas ignoradas ✅ 6) Tentativas de injeção JSON são bloqueadas ou resultam em usuário seguro ✅. VULNERABILIDADE CORRIGIDA: Endpoint de registro agora é completamente seguro contra escalação de privilégios."
+  
+  - task: "Correção de Inconsistência de Dados - Matrículas"
+    implemented: true
+    working: true
+    file: "Database migration script"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "user"
+          comment: "Usuário reportou que simaopedros@gmail.com, mesmo estando matriculado em um curso, ao fazer login aparece para que ele se matricule novamente."
+        - working: true
+          agent: "main"
+          comment: "✅ CORREÇÃO APLICADA: Identificado problema de inconsistência de dados. O sistema usa exclusivamente a collection 'enrollments' para verificar acesso aos cursos, mas alguns usuários (como simaopedros@gmail.com) tinham cursos listados no campo 'enrolled_courses' do documento do usuário sem registro correspondente na collection 'enrollments'. Executado script de migração que criou registros na collection 'enrollments' para todos os cursos listados em 'enrolled_courses' que não tinham registro correspondente. Usuário simaopedros@gmail.com agora tem enrollment criado para o curso 'Gemini no Google Workspace'. Precisa testar login e acesso ao curso."
 
 metadata:
   created_by: "main_agent"
