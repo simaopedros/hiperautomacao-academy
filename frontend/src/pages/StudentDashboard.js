@@ -326,41 +326,41 @@ export default function StudentDashboard({ user, onLogout }) {
                 </div>
 
                 {/* Course Info */}
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-3">
+                <div className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between mb-2 sm:mb-3 flex-wrap gap-2">
                     {course.category && (
-                      <span className="inline-block bg-emerald-500/10 text-emerald-400 text-xs font-semibold px-3 py-1 rounded-full">
+                      <span className="inline-block bg-emerald-500/10 text-emerald-400 text-xs font-semibold px-2.5 sm:px-3 py-1 rounded-full">
                         {course.category}
                       </span>
                     )}
                     {course.price_credits > 0 && !course.is_enrolled && (
-                      <div className="flex items-center gap-1 text-emerald-400 font-bold">
-                        <Coins size={16} />
+                      <div className="flex items-center gap-1 text-emerald-400 font-bold text-sm sm:text-base">
+                        <Coins size={14} className="sm:w-4 sm:h-4" />
                         <span>{course.price_credits}</span>
                       </div>
                     )}
                     {course.is_enrolled && (
-                      <span className="inline-block bg-blue-500/10 text-blue-400 text-xs font-semibold px-3 py-1 rounded-full">
+                      <span className="inline-block bg-blue-500/10 text-blue-400 text-xs font-semibold px-2.5 sm:px-3 py-1 rounded-full">
                         ✓ Matriculado
                       </span>
                     )}
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2 line-clamp-2">
+                  <h3 className="text-lg sm:text-xl font-bold text-white mb-2 line-clamp-2">
                     {course.title}
                   </h3>
-                  <p className="text-gray-400 text-sm line-clamp-3 mb-4">
+                  <p className="text-gray-400 text-xs sm:text-sm line-clamp-2 sm:line-clamp-3 mb-3 sm:mb-4">
                     {course.description}
                   </p>
                   
                   {/* Action Buttons */}
                   {course.is_enrolled ? (
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2 text-gray-500">
-                        <Clock size={16} />
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-gray-500">
+                        <Clock size={14} className="sm:w-4 sm:h-4" />
                         <span>Continuar</span>
                       </div>
                       <button
-                        className="text-emerald-400 font-semibold hover:text-emerald-300 transition-colors"
+                        className="text-emerald-400 font-semibold hover:text-emerald-300 transition-colors text-sm sm:text-base"
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/course/${course.id}`);
@@ -377,10 +377,10 @@ export default function StudentDashboard({ user, onLogout }) {
                             e.stopPropagation();
                             handleEnrollWithCredits(course.id, course.price_credits);
                           }}
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-3 sm:px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm"
                         >
-                          <Coins size={16} />
-                          Matricular ({course.price_credits} créditos)
+                          <Coins size={14} className="sm:w-4 sm:h-4" />
+                          <span className="truncate">Matricular ({course.price_credits} créditos)</span>
                         </button>
                       )}
                       {course.price_brl > 0 && (
@@ -389,7 +389,7 @@ export default function StudentDashboard({ user, onLogout }) {
                             e.stopPropagation();
                             handleBuyCourse(course.id, course.title);
                           }}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors"
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 sm:px-4 rounded-lg font-semibold transition-colors text-xs sm:text-sm"
                         >
                           Comprar por R$ {course.price_brl.toFixed(2)}
                         </button>
@@ -400,7 +400,7 @@ export default function StudentDashboard({ user, onLogout }) {
                             e.stopPropagation();
                             navigate(`/course/${course.id}`);
                           }}
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors"
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-3 sm:px-4 rounded-lg font-semibold transition-colors text-xs sm:text-sm"
                         >
                           Ver Curso Gratuito
                         </button>
