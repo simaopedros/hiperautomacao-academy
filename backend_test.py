@@ -1079,12 +1079,12 @@ class CreditsSystemTester:
                 login_response = self.session.post(f"{BACKEND_URL}/auth/login", json=login_data)
                 
                 if login_response.status_code == 200:
-                login_data = login_response.json()
-                test_user_token = login_data['access_token']
-                
-                # Get courses as the test user
-                headers = {'Authorization': f'Bearer {test_user_token}'}
-                response = self.session.get(f"{BACKEND_URL}/student/courses", headers=headers)
+                    login_data = login_response.json()
+                    test_user_token = login_data['access_token']
+                    
+                    # Get courses as the test user
+                    headers = {'Authorization': f'Bearer {test_user_token}'}
+                    response = self.session.get(f"{BACKEND_URL}/student/courses", headers=headers)
                 
                 if response.status_code == 200:
                     courses = response.json()
