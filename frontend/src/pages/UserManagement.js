@@ -346,7 +346,16 @@ export default function UserManagement({ user, onLogout }) {
 
   const handleBulkImport = async (e) => {
     e.preventDefault();
-    if (!csvFile || !bulkImportCourse) return;
+    
+    if (!csvFile) {
+      alert('Selecione um arquivo CSV');
+      return;
+    }
+    
+    if (bulkImportAccessType === 'courses' && bulkImportCourses.length === 0) {
+      alert('Selecione pelo menos um curso');
+      return;
+    }
 
     setImporting(true);
     setImportResult(null);
@@ -369,7 +378,8 @@ export default function UserManagement({ user, onLogout }) {
         const base64Content = btoa(binary);
         
         const response = await axios.post(`${API}/admin/bulk-import`, {
-          course_id: bulkImportCourse,
+          has_full_access: bulkImportAccessType === 'full',
+          course_ids: bulkImportAccessType === 'courses' ? bulkImportCourses : [],
           csv_content: base64Content
         }, {
           headers: { Authorization: `Bearer ${token}` }
@@ -377,7 +387,8 @@ export default function UserManagement({ user, onLogout }) {
 
         setImportResult(response.data);
         setCsvFile(null);
-        setBulkImportCourse('');
+        setBulkImportAccessType('courses');
+        setBulkImportCourses([]);
         fetchUsers();
       };
 
