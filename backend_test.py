@@ -1183,10 +1183,10 @@ class CreditsSystemTester:
     def test_full_access_user_can_access_any_lesson(self):
         """Test 4: User with has_full_access=true should access any lesson without enrollment"""
         try:
-            # Login as test user (assuming they have full access from previous test)
+            # Login as test user (using the password we set in previous test)
             login_data = {
                 "email": TEST_USER_EMAIL,
-                "password": "password123"
+                "password": "testpassword123"
             }
             
             login_response = self.session.post(f"{BACKEND_URL}/auth/login", json=login_data)
