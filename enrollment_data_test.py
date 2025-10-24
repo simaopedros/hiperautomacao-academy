@@ -81,6 +81,25 @@ class EnrollmentDataTester:
                 self.student_token = data['access_token']
                 self.log_test("Student Setup", True, "Student login successful")
                 return True
+            elif response.status_code == 401:
+                # Try to register the student
+                register_data = {
+                    "email": STUDENT_EMAIL,
+                    "password": STUDENT_PASSWORD,
+                    "name": "Test Student",
+                    "role": "student"
+                }
+                
+                register_response = self.session.post(f"{BACKEND_URL}/auth/register", json=register_data)
+                
+                if register_response.status_code == 200:
+                    data = register_response.json()
+                    self.student_token = data['access_token']
+                    self.log_test("Student Setup", True, "Student registered and logged in")
+                    return True
+                else:
+                    self.log_test("Student Setup", False, f"Student registration failed: {register_response.status_code}")
+                    return False
             else:
                 self.log_test("Student Setup", False, f"Student login failed: {response.status_code}")
                 return False
