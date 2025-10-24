@@ -215,7 +215,8 @@ class PasswordCreationToken(BaseModel):
     token: str
     email: str
     name: str
-    course_id: str
+    has_full_access: bool = False
+    course_ids: list[str] = []
     expires_at: datetime
 
 # Lesson Models
