@@ -215,7 +215,7 @@ export default function SocialFeed({ user, onLogout }) {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6">
           {/* Sidebar */}
-          <div className="lg:col-span-1 space-y-4 order-2 lg:order-1">
+          <div className="lg:col-span-1 space-y-4">
             {/* Create Post Button */}
             <Button
               onClick={() => setShowCreatePost(true)}
