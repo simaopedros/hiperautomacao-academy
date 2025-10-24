@@ -1492,11 +1492,12 @@ class CreditsSystemTester:
         print("=" * 80)
         print("TEST SUMMARY")
         print("=" * 80)
-        total_tests = priority_passed + priority_failed + passed + failed
-        total_passed = priority_passed + passed
-        total_failed = priority_failed + failed
+        total_tests = full_access_passed + full_access_failed + priority_passed + priority_failed + passed + failed
+        total_passed = full_access_passed + priority_passed + passed
+        total_failed = full_access_failed + priority_failed + failed
         
-        print(f"PRIORITY TESTS: {priority_passed + priority_failed} (Passed: {priority_passed}, Failed: {priority_failed})")
+        print(f"FULL ACCESS TESTS: {full_access_passed + full_access_failed} (Passed: {full_access_passed}, Failed: {full_access_failed})")
+        print(f"LESSON ACCESS TESTS: {priority_passed + priority_failed} (Passed: {priority_passed}, Failed: {priority_failed})")
         print(f"CREDITS TESTS: {passed + failed} (Passed: {passed}, Failed: {failed})")
         print(f"TOTAL TESTS: {total_tests}")
         print(f"TOTAL PASSED: {total_passed}")
