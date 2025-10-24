@@ -754,50 +754,174 @@ export default function UserManagement({ user, onLogout }) {
 
         {/* Enrollment Dialog */}
         <Dialog open={showEnrollDialog} onOpenChange={setShowEnrollDialog}>
-          <DialogContent className="bg-[#1a1a1a] border-[#252525] text-white max-w-2xl">
+          <DialogContent className="bg-[#1a1a1a] border-[#252525] text-white max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Gerenciar Cursos - {selectedUser?.name}</DialogTitle>
+              <DialogTitle>Gerenciar Acesso - {selectedUser?.name}</DialogTitle>
             </DialogHeader>
             
-            {selectedUser?.full_access ? (
-              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 text-center">
-                <CheckCircle size={48} className="mx-auto text-emerald-400 mb-2" />
-                <p className="text-emerald-400 font-semibold">Este usuário tem acesso total</p>
-                <p className="text-gray-400 text-sm mt-1">Acesso a todos os cursos da plataforma</p>
-              </div>
-            ) : (
-              <>
-                <form onSubmit={handleEnrollUser} className="space-y-4">
-                  <div>
-                    <Label>Adicionar Curso</Label>
-                    <div className="flex gap-2">
-                      <select
-                        value={enrollForm.course_id}
-                        onChange={(e) => setEnrollForm({ course_id: e.target.value })}
-                        required
-                        className="flex-1 bg-[#111111] border border-[#2a2a2a] text-white py-2 px-3 rounded-lg"
-                      >
-                        <option value="">Selecione um curso</option>
-                        {courses.map((course) => (
-                          <option key={course.id} value={course.id}>
-                            {course.title}
-                          </option>
-                        ))}
-                      </select>
-                      <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600">
-                        Adicionar
-                      </Button>
+            <form onSubmit={handleEnrollUser} className="space-y-6">
+              {/* Access Type Selection */}
+              <div className="space-y-4">
+                <Label className="text-base font-semibold">Tipo de Acesso</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Full Access Option */}
+                  <div 
+                    onClick={() => setEnrollForm({ ...enrollForm, access_type: 'full', selected_courses: [] })}
+                    className={`cursor-pointer border-2 rounded-xl p-6 transition-all ${
+                      enrollForm.access_type === 'full'
+                        ? 'border-emerald-500 bg-emerald-500/10'
+                        : 'border-[#2a2a2a] hover:border-[#3a3a3a] bg-[#111111]'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        enrollForm.access_type === 'full' ? 'border-emerald-500' : 'border-gray-500'
+                      }`}>
+                        {enrollForm.access_type === 'full' && (
+                          <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle size={20} className="text-emerald-400" />
+                          <h4 className="font-semibold">Acesso Completo</h4>
+                        </div>
+                        <p className="text-sm text-gray-400">
+                          Acesso ilimitado a todos os cursos da plataforma
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </form>
 
-                <div className="mt-6">
-                  <h4 className="font-semibold text-white mb-3">Cursos Matriculados</h4>
-                  {userEnrollments.length === 0 ? (
-                    <div className="text-center py-8 bg-[#111111] rounded-lg border border-[#252525]">
-                      <p className="text-gray-400">Nenhum curso atribuído</p>
+                  {/* Specific Courses Option */}
+                  <div 
+                    onClick={() => setEnrollForm({ ...enrollForm, access_type: 'courses' })}
+                    className={`cursor-pointer border-2 rounded-xl p-6 transition-all ${
+                      enrollForm.access_type === 'courses'
+                        ? 'border-blue-500 bg-blue-500/10'
+                        : 'border-[#2a2a2a] hover:border-[#3a3a3a] bg-[#111111]'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        enrollForm.access_type === 'courses' ? 'border-blue-500' : 'border-gray-500'
+                      }`}>
+                        {enrollForm.access_type === 'courses' && (
+                          <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <BookOpen size={20} className="text-blue-400" />
+                          <h4 className="font-semibold">Cursos Específicos</h4>
+                        </div>
+                        <p className="text-sm text-gray-400">
+                          Selecionar cursos individuais para este usuário
+                        </p>
+                      </div>
                     </div>
-                  ) : (
+                  </div>
+                </div>
+              </div>
+
+              {/* Course Selection (only when access_type is 'courses') */}
+              {enrollForm.access_type === 'courses' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-base font-semibold">Selecionar Cursos</Label>
+                    <span className="text-sm text-gray-400">
+                      {enrollForm.selected_courses.length} curso(s) selecionado(s)
+                    </span>
+                  </div>
+                  
+                  <div className="bg-[#111111] border border-[#2a2a2a] rounded-lg p-4 max-h-[300px] overflow-y-auto space-y-2">
+                    {courses.length === 0 ? (
+                      <p className="text-center text-gray-400 py-4">Nenhum curso disponível</p>
+                    ) : (
+                      courses.map((course) => (
+                        <div
+                          key={course.id}
+                          onClick={() => toggleCourseSelection(course.id)}
+                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-[#1a1a1a] cursor-pointer transition-colors"
+                        >
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                            enrollForm.selected_courses.includes(course.id)
+                              ? 'bg-blue-500 border-blue-500'
+                              : 'border-gray-500'
+                          }`}>
+                            {enrollForm.selected_courses.includes(course.id) && (
+                              <CheckCircle size={16} className="text-white" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h5 className="font-medium text-white truncate">{course.title}</h5>
+                            {course.description && (
+                              <p className="text-xs text-gray-400 truncate">{course.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {enrollForm.selected_courses.length > 0 && (
+                    <div className="flex items-center gap-2 text-sm text-blue-400">
+                      <CheckCircle size={16} />
+                      <span>{enrollForm.selected_courses.length} curso(s) será(ão) atribuído(s)</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Current Enrollments */}
+              {selectedUser && !selectedUser.has_full_access && userEnrollments.length > 0 && (
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold">Cursos Já Matriculados</Label>
+                  <div className="bg-[#111111] border border-[#2a2a2a] rounded-lg p-4 space-y-2">
+                    {userEnrollments.map((enrollment) => (
+                      <div
+                        key={enrollment.id}
+                        className="flex items-center justify-between p-2 rounded bg-[#1a1a1a]"
+                      >
+                        <span className="text-white text-sm">{enrollment.course_title}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEnrollment(selectedUser.id, enrollment.course_id)}
+                          className="text-red-400 hover:text-red-300 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  onClick={() => setShowEnrollDialog(false)}
+                  variant="outline"
+                  className="flex-1 border-[#2a2a2a] hover:bg-[#252525]"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className={`flex-1 ${
+                    enrollForm.access_type === 'full'
+                      ? 'bg-emerald-500 hover:bg-emerald-600'
+                      : 'bg-blue-500 hover:bg-blue-600'
+                  }`}
+                  disabled={enrollForm.access_type === 'courses' && enrollForm.selected_courses.length === 0}
+                >
+                  {enrollForm.access_type === 'full' ? 'Conceder Acesso Completo' : `Matricular em ${enrollForm.selected_courses.length} Curso(s)`}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
                     <div className="space-y-2">
                       {userEnrollments.map((enrollment) => (
                         <div
