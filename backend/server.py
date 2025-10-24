@@ -711,9 +711,16 @@ async def delete_lesson(lesson_id: str, current_user: User = Depends(get_current
 @api_router.get("/admin/users", response_model=List[User])
 async def get_all_users(current_user: User = Depends(get_current_admin)):
     users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    
+    # For each user, get their enrolled courses
     for user in users:
         if isinstance(user['created_at'], str):
             user['created_at'] = datetime.fromisoformat(user['created_at'])
+        
+        # Get enrolled courses from enrollments collection
+        enrollments = await db.enrollments.find({"user_id": user['id']}).to_list(1000)
+        user['enrolled_courses'] = [enrollment['course_id'] for enrollment in enrollments]
+    
     return users
 
 @api_router.post("/admin/users", response_model=User)
