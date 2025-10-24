@@ -19,6 +19,8 @@ ADMIN_EMAIL = "admin@test.com"
 ADMIN_PASSWORD = "admin123"
 STUDENT_EMAIL = "student@test.com"
 STUDENT_PASSWORD = "student123"
+TEST_USER_EMAIL = "aluno@test.com"
+TEST_USER_ID = "972fc0d3-3d51-44ac-907b-ea848190e8ce"
 
 class CreditsSystemTester:
     def __init__(self):
