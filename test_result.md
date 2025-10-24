@@ -333,7 +333,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Correção de Inconsistência de Dados - Matrículas"
+    - "Sistema Retrocompatível de Matrículas"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
