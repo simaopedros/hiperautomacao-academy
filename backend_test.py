@@ -991,6 +991,327 @@ class CreditsSystemTester:
             self.log_test("Direct Course Payment Webhook", False, f"Direct course payment webhook error: {str(e)}")
             return False
     
+    # ==================== FULL ACCESS TESTS - PRIORITY ====================
+    
+    def test_admin_update_user_full_access_true(self):
+        """Test 1: Admin updates user to has_full_access=true via API"""
+        try:
+            headers = {'Authorization': f'Bearer {self.admin_token}'}
+            
+            # Update user to have full access
+            update_data = {"has_full_access": True}
+            response = self.session.put(f"{BACKEND_URL}/admin/users/{TEST_USER_ID}", 
+                                      json=update_data, headers=headers)
+            
+            if response.status_code == 200:
+                user_data = response.json()
+                
+                # Verify response shows has_full_access: true
+                if user_data.get('has_full_access') == True:
+                    self.log_test("Admin Update User Full Access True", True, 
+                                f"API response shows has_full_access=true for user {user_data.get('email')}", 
+                                f"has_full_access: {user_data.get('has_full_access')}")
+                    return True
+                else:
+                    self.log_test("Admin Update User Full Access True", False, 
+                                f"API response shows has_full_access={user_data.get('has_full_access')}, expected True", 
+                                user_data)
+                    return False
+            else:
+                self.log_test("Admin Update User Full Access True", False, 
+                            f"Failed to update user: {response.status_code}", response.text[:200])
+                return False
+        except Exception as e:
+            self.log_test("Admin Update User Full Access True", False, f"Update user error: {str(e)}")
+            return False
+    
+    def test_verify_full_access_persistence(self):
+        """Test 2: Verify has_full_access=true is persisted by fetching user again"""
+        try:
+            headers = {'Authorization': f'Bearer {self.admin_token}'}
+            
+            # Get all users and find our test user
+            response = self.session.get(f"{BACKEND_URL}/admin/users", headers=headers)
+            
+            if response.status_code == 200:
+                users = response.json()
+                test_user = next((u for u in users if u.get('id') == TEST_USER_ID), None)
+                
+                if test_user:
+                    if test_user.get('has_full_access') == True:
+                        self.log_test("Verify Full Access Persistence", True, 
+                                    f"User {test_user.get('email')} has has_full_access=true persisted in database", 
+                                    f"has_full_access: {test_user.get('has_full_access')}")
+                        return True
+                    else:
+                        self.log_test("Verify Full Access Persistence", False, 
+                                    f"User has_full_access={test_user.get('has_full_access')}, expected True. PERSISTENCE FAILED!", 
+                                    test_user)
+                        return False
+                else:
+                    self.log_test("Verify Full Access Persistence", False, 
+                                f"Test user with ID {TEST_USER_ID} not found in users list")
+                    return False
+            else:
+                self.log_test("Verify Full Access Persistence", False, 
+                            f"Failed to get users: {response.status_code}", response.text[:200])
+                return False
+        except Exception as e:
+            self.log_test("Verify Full Access Persistence", False, f"Persistence check error: {str(e)}")
+            return False
+    
+    def test_full_access_user_sees_all_courses(self):
+        """Test 3: User with has_full_access=true should see ALL courses with has_access=true"""
+        try:
+            # First, login as the test user to get their token
+            login_data = {
+                "email": TEST_USER_EMAIL,
+                "password": "password123"  # Assuming this is the password
+            }
+            
+            login_response = self.session.post(f"{BACKEND_URL}/auth/login", json=login_data)
+            
+            if login_response.status_code == 200:
+                login_data = login_response.json()
+                test_user_token = login_data['access_token']
+                
+                # Get courses as the test user
+                headers = {'Authorization': f'Bearer {test_user_token}'}
+                response = self.session.get(f"{BACKEND_URL}/student/courses", headers=headers)
+                
+                if response.status_code == 200:
+                    courses = response.json()
+                    
+                    if len(courses) > 0:
+                        # Check if ALL courses have has_access=true
+                        all_have_access = all(course.get('has_access') == True for course in courses)
+                        
+                        if all_have_access:
+                            self.log_test("Full Access User Sees All Courses", True, 
+                                        f"User with full access sees {len(courses)} courses, ALL with has_access=true", 
+                                        f"Courses: {len(courses)}")
+                            return True
+                        else:
+                            courses_without_access = [c for c in courses if not c.get('has_access')]
+                            self.log_test("Full Access User Sees All Courses", False, 
+                                        f"User with full access has {len(courses_without_access)} courses without access", 
+                                        f"Courses without access: {[c.get('title') for c in courses_without_access]}")
+                            return False
+                    else:
+                        self.log_test("Full Access User Sees All Courses", False, 
+                                    "No courses found for full access user")
+                        return False
+                else:
+                    self.log_test("Full Access User Sees All Courses", False, 
+                                f"Failed to get courses for full access user: {response.status_code}", 
+                                response.text[:200])
+                    return False
+            else:
+                # Try to create the user if login fails
+                register_data = {
+                    "email": TEST_USER_EMAIL,
+                    "password": "password123",
+                    "name": "Test User Aluno"
+                }
+                
+                register_response = self.session.post(f"{BACKEND_URL}/auth/register", json=register_data)
+                
+                if register_response.status_code == 200:
+                    # Now update this user to have full access
+                    register_data = register_response.json()
+                    new_user_id = register_data['user']['id']
+                    
+                    headers = {'Authorization': f'Bearer {self.admin_token}'}
+                    update_data = {"has_full_access": True}
+                    update_response = self.session.put(f"{BACKEND_URL}/admin/users/{new_user_id}", 
+                                                     json=update_data, headers=headers)
+                    
+                    if update_response.status_code == 200:
+                        # Now test with the new user
+                        test_user_token = register_data['access_token']
+                        headers = {'Authorization': f'Bearer {test_user_token}'}
+                        response = self.session.get(f"{BACKEND_URL}/student/courses", headers=headers)
+                        
+                        if response.status_code == 200:
+                            courses = response.json()
+                            
+                            if len(courses) > 0:
+                                all_have_access = all(course.get('has_access') == True for course in courses)
+                                
+                                if all_have_access:
+                                    self.log_test("Full Access User Sees All Courses", True, 
+                                                f"Newly created user with full access sees {len(courses)} courses, ALL with has_access=true", 
+                                                f"Courses: {len(courses)}")
+                                    return True
+                                else:
+                                    courses_without_access = [c for c in courses if not c.get('has_access')]
+                                    self.log_test("Full Access User Sees All Courses", False, 
+                                                f"Newly created user with full access has {len(courses_without_access)} courses without access", 
+                                                f"Courses without access: {[c.get('title') for c in courses_without_access]}")
+                                    return False
+                            else:
+                                self.log_test("Full Access User Sees All Courses", False, 
+                                            "No courses found for newly created full access user")
+                                return False
+                        else:
+                            self.log_test("Full Access User Sees All Courses", False, 
+                                        f"Failed to get courses for newly created full access user: {response.status_code}")
+                            return False
+                    else:
+                        self.log_test("Full Access User Sees All Courses", False, 
+                                    f"Failed to update newly created user to full access: {update_response.status_code}")
+                        return False
+                else:
+                    self.log_test("Full Access User Sees All Courses", False, 
+                                f"Failed to login or register test user: login={login_response.status_code}, register={register_response.status_code}")
+                    return False
+        except Exception as e:
+            self.log_test("Full Access User Sees All Courses", False, f"Full access courses test error: {str(e)}")
+            return False
+    
+    def test_full_access_user_can_access_any_lesson(self):
+        """Test 4: User with has_full_access=true should access any lesson without enrollment"""
+        try:
+            # Login as test user (assuming they have full access from previous test)
+            login_data = {
+                "email": TEST_USER_EMAIL,
+                "password": "password123"
+            }
+            
+            login_response = self.session.post(f"{BACKEND_URL}/auth/login", json=login_data)
+            
+            if login_response.status_code == 200:
+                login_data = login_response.json()
+                test_user_token = login_data['access_token']
+                
+                # Try to access a lesson without being enrolled
+                headers = {'Authorization': f'Bearer {test_user_token}'}
+                response = self.session.get(f"{BACKEND_URL}/student/lessons/{self.test_lesson_id}", 
+                                          headers=headers)
+                
+                if response.status_code == 200:
+                    lesson_data = response.json()
+                    if lesson_data.get('id') == self.test_lesson_id:
+                        self.log_test("Full Access User Can Access Any Lesson", True, 
+                                    "User with full access successfully accessed lesson without enrollment", 
+                                    lesson_data.get('title'))
+                        return True
+                    else:
+                        self.log_test("Full Access User Can Access Any Lesson", False, 
+                                    "Wrong lesson data returned", lesson_data)
+                        return False
+                else:
+                    self.log_test("Full Access User Can Access Any Lesson", False, 
+                                f"Full access user failed to access lesson: {response.status_code}", 
+                                response.text[:200])
+                    return False
+            else:
+                self.log_test("Full Access User Can Access Any Lesson", False, 
+                            f"Failed to login as test user: {login_response.status_code}")
+                return False
+        except Exception as e:
+            self.log_test("Full Access User Can Access Any Lesson", False, f"Full access lesson test error: {str(e)}")
+            return False
+    
+    def test_admin_update_user_full_access_false(self):
+        """Test 5: Admin updates user to has_full_access=false (remove full access)"""
+        try:
+            headers = {'Authorization': f'Bearer {self.admin_token}'}
+            
+            # Update user to remove full access
+            update_data = {"has_full_access": False}
+            response = self.session.put(f"{BACKEND_URL}/admin/users/{TEST_USER_ID}", 
+                                      json=update_data, headers=headers)
+            
+            if response.status_code == 200:
+                user_data = response.json()
+                
+                # Verify response shows has_full_access: false
+                if user_data.get('has_full_access') == False:
+                    self.log_test("Admin Update User Full Access False", True, 
+                                f"API response shows has_full_access=false for user {user_data.get('email')}", 
+                                f"has_full_access: {user_data.get('has_full_access')}")
+                    return True
+                else:
+                    self.log_test("Admin Update User Full Access False", False, 
+                                f"API response shows has_full_access={user_data.get('has_full_access')}, expected False", 
+                                user_data)
+                    return False
+            else:
+                self.log_test("Admin Update User Full Access False", False, 
+                            f"Failed to update user: {response.status_code}", response.text[:200])
+                return False
+        except Exception as e:
+            self.log_test("Admin Update User Full Access False", False, f"Remove full access error: {str(e)}")
+            return False
+    
+    def test_verify_full_access_false_persistence(self):
+        """Test 6: Verify has_full_access=false is persisted and user only sees enrolled courses"""
+        try:
+            headers = {'Authorization': f'Bearer {self.admin_token}'}
+            
+            # Get all users and find our test user
+            response = self.session.get(f"{BACKEND_URL}/admin/users", headers=headers)
+            
+            if response.status_code == 200:
+                users = response.json()
+                test_user = next((u for u in users if u.get('id') == TEST_USER_ID), None)
+                
+                if test_user:
+                    if test_user.get('has_full_access') == False:
+                        # Now login as the user and check they only see enrolled courses
+                        login_data = {
+                            "email": TEST_USER_EMAIL,
+                            "password": "password123"
+                        }
+                        
+                        login_response = self.session.post(f"{BACKEND_URL}/auth/login", json=login_data)
+                        
+                        if login_response.status_code == 200:
+                            login_data = login_response.json()
+                            test_user_token = login_data['access_token']
+                            
+                            # Get courses as the test user
+                            user_headers = {'Authorization': f'Bearer {test_user_token}'}
+                            courses_response = self.session.get(f"{BACKEND_URL}/student/courses", headers=user_headers)
+                            
+                            if courses_response.status_code == 200:
+                                courses = courses_response.json()
+                                
+                                # Count courses with and without access
+                                courses_with_access = [c for c in courses if c.get('has_access') == True]
+                                courses_without_access = [c for c in courses if c.get('has_access') == False]
+                                
+                                self.log_test("Verify Full Access False Persistence", True, 
+                                            f"User has has_full_access=false persisted. Access: {len(courses_with_access)} courses, No access: {len(courses_without_access)} courses", 
+                                            f"has_full_access: {test_user.get('has_full_access')}, enrolled courses: {len(courses_with_access)}")
+                                return True
+                            else:
+                                self.log_test("Verify Full Access False Persistence", False, 
+                                            f"Failed to get courses for user: {courses_response.status_code}")
+                                return False
+                        else:
+                            self.log_test("Verify Full Access False Persistence", True, 
+                                        f"User has has_full_access=false persisted (couldn't test course access due to login failure)", 
+                                        f"has_full_access: {test_user.get('has_full_access')}")
+                            return True
+                    else:
+                        self.log_test("Verify Full Access False Persistence", False, 
+                                    f"User has_full_access={test_user.get('has_full_access')}, expected False. PERSISTENCE FAILED!", 
+                                    test_user)
+                        return False
+                else:
+                    self.log_test("Verify Full Access False Persistence", False, 
+                                f"Test user with ID {TEST_USER_ID} not found in users list")
+                    return False
+            else:
+                self.log_test("Verify Full Access False Persistence", False, 
+                            f"Failed to get users: {response.status_code}", response.text[:200])
+                return False
+        except Exception as e:
+            self.log_test("Verify Full Access False Persistence", False, f"Persistence check error: {str(e)}")
+            return False
+
     # ==================== FASE 4 - ADMIN ====================
     
     def test_admin_update_course_pricing(self):
