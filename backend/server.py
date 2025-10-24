@@ -871,8 +871,8 @@ async def get_published_courses(current_user: User = Depends(get_current_user)):
         
         # Add enrollment info
         course_data = dict(course)
-        course_data['is_enrolled'] = course['id'] in enrolled_course_ids or current_user.full_access
-        course_data['has_access'] = course['id'] in enrolled_course_ids or current_user.full_access
+        course_data['is_enrolled'] = course['id'] in enrolled_course_ids or current_user.has_full_access
+        course_data['has_access'] = course['id'] in enrolled_course_ids or current_user.has_full_access
         
         result.append(course_data)
     
@@ -885,7 +885,7 @@ async def get_course_detail(course_id: str, current_user: User = Depends(get_cur
         raise HTTPException(status_code=404, detail="Course not found")
     
     # Check if user has access to this course
-    if not current_user.full_access:
+    if not current_user.has_full_access:
         enrollment = await db.enrollments.find_one({
             "user_id": current_user.id,
             "course_id": course_id
