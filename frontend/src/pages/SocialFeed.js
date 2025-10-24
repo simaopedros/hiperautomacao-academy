@@ -334,70 +334,75 @@ export default function SocialFeed({ user, onLogout }) {
             </div>
 
             {loading ? (
-              <div className="text-center py-20">
-                <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-emerald-500 border-t-transparent"></div>
+              <div className="text-center py-12 sm:py-20">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-4 border-emerald-500 border-t-transparent"></div>
               </div>
             ) : feed.length === 0 ? (
-              <div className="text-center py-20 bg-[#1a1a1a] rounded-xl border border-[#252525]">
-                <MessageCircle size={64} className="mx-auto text-gray-600 mb-4" />
-                <p className="text-gray-400 text-lg mb-2">Nenhuma discussão ainda</p>
+              <div className="text-center py-12 sm:py-20 bg-[#1a1a1a] rounded-xl border border-[#252525] mx-2 sm:mx-0">
+                <MessageCircle size={48} className="sm:w-16 sm:h-16 mx-auto text-gray-600 mb-4" />
+                <p className="text-gray-400 text-base sm:text-lg mb-2">Nenhuma discussão ainda</p>
                 <p className="text-gray-500 text-sm">Seja o primeiro a iniciar uma conversa!</p>
                 <Button
                   onClick={() => setShowCreatePost(true)}
-                  className="mt-4 bg-emerald-500 hover:bg-emerald-600"
+                  className="mt-4 bg-emerald-500 hover:bg-emerald-600 text-sm sm:text-base"
                 >
                   Criar Discussão
                 </Button>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {feed.map((post) => (
                   <div
                     key={post.id}
                     data-testid={`feed-item-${post.id}`}
-                    className="bg-[#1a1a1a] border border-[#252525] rounded-xl p-6 hover:border-emerald-500/30 transition-all cursor-pointer animate-fade-in"
+                    className="bg-[#1a1a1a] border border-[#252525] rounded-xl p-4 sm:p-6 hover:border-emerald-500/30 transition-all cursor-pointer animate-fade-in mx-2 sm:mx-0"
                     onClick={() => fetchPostDetail(post.id)}
                   >
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-3 sm:gap-4">
                       {/* Avatar */}
-                      <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-lg flex-shrink-0">
                         {post.user_name[0].toUpperCase()}
                       </div>
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="font-bold text-white">{post.user_name}</span>
-                          <span className="text-gray-500 text-sm">{formatDate(post.created_at)}</span>
-                          {!post.lesson_id && (
-                            <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-1 rounded-full">
-                              Discussão
-                            </span>
-                          )}
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mb-2">
+                          <span className="font-bold text-white text-sm sm:text-base">{post.user_name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500 text-xs sm:text-sm">{formatDate(post.created_at)}</span>
+                            {!post.lesson_id && (
+                              <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-1 rounded-full">
+                                Discussão
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-gray-200 mb-4 leading-relaxed">{post.content}</p>
+                        <p className="text-gray-200 mb-3 sm:mb-4 leading-relaxed text-sm sm:text-base">{post.content}</p>
 
                         {/* Actions */}
-                        <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-3 sm:gap-6 flex-wrap">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleLike(post.id);
                             }}
-                            className="flex items-center gap-2 text-gray-400 hover:text-emerald-400 transition-colors group"
+                            className="flex items-center gap-1.5 sm:gap-2 text-gray-400 hover:text-emerald-400 transition-colors group"
                           >
-                            <div className="p-2 rounded-full group-hover:bg-emerald-500/10 transition-colors">
-                              <ThumbsUp size={18} />
+                            <div className="p-1.5 sm:p-2 rounded-full group-hover:bg-emerald-500/10 transition-colors">
+                              <ThumbsUp size={16} className="sm:w-[18px] sm:h-[18px]" />
                             </div>
-                            <span className="text-sm font-medium">{post.likes}</span>
+                            <span className="text-xs sm:text-sm font-medium">{post.likes}</span>
                           </button>
                           <button
-                            className="flex items-center gap-2 text-gray-400 hover:text-cyan-400 transition-colors group"
+                            className="flex items-center gap-1.5 sm:gap-2 text-gray-400 hover:text-cyan-400 transition-colors group"
                           >
-                            <div className="p-2 rounded-full group-hover:bg-cyan-500/10 transition-colors">
-                              <MessageCircle size={18} />
+                            <div className="p-1.5 sm:p-2 rounded-full group-hover:bg-cyan-500/10 transition-colors">
+                              <MessageCircle size={16} className="sm:w-[18px] sm:h-[18px]" />
                             </div>
-                            <span className="text-sm font-medium">{post.replies_count || 0} respostas</span>
+                            <span className="text-xs sm:text-sm font-medium">
+                              <span className="hidden sm:inline">{post.replies_count || 0} respostas</span>
+                              <span className="sm:hidden">{post.replies_count || 0}</span>
+                            </span>
                           </button>
                           {post.lesson_id && (
                             <button
@@ -405,12 +410,15 @@ export default function SocialFeed({ user, onLogout }) {
                                 e.stopPropagation();
                                 handleViewLesson(post.lesson_id);
                               }}
-                              className="flex items-center gap-2 text-gray-400 hover:text-purple-400 transition-colors group"
+                              className="flex items-center gap-1.5 sm:gap-2 text-gray-400 hover:text-purple-400 transition-colors group"
                             >
-                              <div className="p-2 rounded-full group-hover:bg-purple-500/10 transition-colors">
-                                <BookOpen size={18} />
+                              <div className="p-1.5 sm:p-2 rounded-full group-hover:bg-purple-500/10 transition-colors">
+                                <BookOpen size={16} className="sm:w-[18px] sm:h-[18px]" />
                               </div>
-                              <span className="text-sm font-medium">Ver aula</span>
+                              <span className="text-xs sm:text-sm font-medium">
+                                <span className="hidden sm:inline">Ver aula</span>
+                                <span className="sm:hidden">Aula</span>
+                              </span>
                             </button>
                           )}
                         </div>
