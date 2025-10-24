@@ -433,12 +433,106 @@ export default function UserManagement({ user, onLogout }) {
           </Dialog>
         </div>
 
+        {/* Filtros e Busca */}
+        <div className="bg-[#1a1a1a] border border-[#252525] rounded-xl p-4 sm:p-6 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Filter size={20} className="text-emerald-400" />
+            <h3 className="text-lg font-semibold text-white">Filtros e Busca</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            {/* Campo de Busca */}
+            <div className="sm:col-span-2 lg:col-span-1">
+              <Label className="text-gray-400 text-sm mb-2">Buscar</Label>
+              <div className="relative">
+                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Nome ou email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="bg-[#111111] border-[#2a2a2a] pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Filtro por Curso */}
+            <div>
+              <Label className="text-gray-400 text-sm mb-2">Curso</Label>
+              <select
+                value={filterCourse}
+                onChange={(e) => setFilterCourse(e.target.value)}
+                className="w-full bg-[#111111] border border-[#2a2a2a] text-white py-2 px-3 rounded-lg"
+              >
+                <option value="all">Todos os cursos</option>
+                {courses.map(course => (
+                  <option key={course.id} value={course.id}>{course.title}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro por Tipo de Acesso */}
+            <div>
+              <Label className="text-gray-400 text-sm mb-2">Tipo de Acesso</Label>
+              <select
+                value={filterAccessType}
+                onChange={(e) => setFilterAccessType(e.target.value)}
+                className="w-full bg-[#111111] border border-[#2a2a2a] text-white py-2 px-3 rounded-lg"
+              >
+                <option value="all">Todos</option>
+                <option value="full_access">Acesso Completo</option>
+                <option value="enrolled">Com Matrícula</option>
+                <option value="invited">Convidados (Pendente)</option>
+                <option value="accepted">Convites Aceitos</option>
+              </select>
+            </div>
+
+            {/* Filtro por Role */}
+            <div>
+              <Label className="text-gray-400 text-sm mb-2">Tipo de Usuário</Label>
+              <select
+                value={filterRole}
+                onChange={(e) => setFilterRole(e.target.value)}
+                className="w-full bg-[#111111] border border-[#2a2a2a] text-white py-2 px-3 rounded-lg"
+              >
+                <option value="all">Todos</option>
+                <option value="student">Alunos</option>
+                <option value="admin">Administradores</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Resumo dos Resultados */}
+          <div className="flex items-center justify-between text-sm">
+            <p className="text-gray-400">
+              Mostrando <span className="text-emerald-400 font-semibold">{currentUsers.length}</span> de{' '}
+              <span className="text-emerald-400 font-semibold">{filteredUsers.length}</span> usuários
+              {filteredUsers.length !== users.length && (
+                <span className="text-gray-500"> (filtrados de {users.length} total)</span>
+              )}
+            </p>
+            {(searchTerm || filterCourse !== 'all' || filterAccessType !== 'all' || filterRole !== 'all') && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilterCourse('all');
+                  setFilterAccessType('all');
+                  setFilterRole('all');
+                }}
+                className="text-emerald-400 hover:text-emerald-300 transition-colors"
+              >
+                Limpar Filtros
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Users List */}
         {loading ? (
           <div className="text-center py-20">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-emerald-500 border-t-transparent"></div>
           </div>
-        ) : users.length === 0 ? (
+        ) : filteredUsers.length === 0 ? (
           <div className="text-center py-20 bg-[#1a1a1a] rounded-xl border border-[#252525]">
             <Users size={64} className="mx-auto text-gray-600 mb-4" />
             <p className="text-gray-400 text-lg">Nenhum usuário encontrado</p>
