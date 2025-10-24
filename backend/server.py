@@ -715,14 +715,23 @@ async def delete_lesson(lesson_id: str, current_user: User = Depends(get_current
 async def get_all_users(current_user: User = Depends(get_current_admin)):
     users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
     
-    # For each user, get their enrolled courses
+    # Get all existing course IDs to filter out deleted courses
+    existing_courses = await db.courses.find({}, {"_id": 0, "id": 1}).to_list(1000)
+    valid_course_ids = set([course['id'] for course in existing_courses])
+    
+    # For each user, get their enrolled courses (only valid ones)
     for user in users:
         if isinstance(user['created_at'], str):
             user['created_at'] = datetime.fromisoformat(user['created_at'])
         
         # Get enrolled courses from enrollments collection
         enrollments = await db.enrollments.find({"user_id": user['id']}).to_list(1000)
-        user['enrolled_courses'] = [enrollment['course_id'] for enrollment in enrollments]
+        # Filter to only include courses that still exist
+        user['enrolled_courses'] = [
+            enrollment['course_id'] 
+            for enrollment in enrollments 
+            if enrollment['course_id'] in valid_course_ids
+        ]
     
     return users
 
