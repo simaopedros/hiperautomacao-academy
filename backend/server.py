@@ -966,28 +966,13 @@ async def get_lesson_detail(lesson_id: str, current_user: User = Depends(get_cur
     
     course_id = module['course_id']
     
-    # Check if user has access to this course (check BOTH sources for backward compatibility)
-    if not current_user.has_full_access:
-        # Check enrollments collection (new system)
-        enrollment = await db.enrollments.find_one({
-            "user_id": current_user.id,
-            "course_id": course_id
-        })
-        
-        # If not found in enrollments, check user's enrolled_courses field (legacy system)
-        if not enrollment:
-            user_doc = await db.users.find_one({"id": current_user.id})
-            has_legacy_enrollment = (
-                user_doc and 
-                "enrolled_courses" in user_doc and 
-                course_id in user_doc.get("enrolled_courses", [])
-            )
-            
-            if not has_legacy_enrollment:
-                raise HTTPException(
-                    status_code=403, 
-                    detail="You need to be enrolled in this course to access this lesson"
-                )
+    # Check if user has access to this course (backward compatible check)
+    has_access = await user_has_course_access(current_user.id, course_id, current_user.has_full_access)
+    if not has_access:
+        raise HTTPException(
+            status_code=403, 
+            detail="You need to be enrolled in this course to access this lesson"
+        )
     
     if isinstance(lesson['created_at'], str):
         lesson['created_at'] = datetime.fromisoformat(lesson['created_at'])
