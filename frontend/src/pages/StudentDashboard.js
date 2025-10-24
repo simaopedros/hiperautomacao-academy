@@ -233,49 +233,50 @@ export default function StudentDashboard({ user, onLogout }) {
       {/* Credits Bar - Minimalist */}
       {userCredits && (
         <div className="bg-[#111111] border-b border-[#252525]">
-          <div className="max-w-7xl mx-auto px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-3">
-                  <Coins size={20} className="text-emerald-400" />
-                  <div>
-                    <p className="text-emerald-400 font-bold text-lg">{userCredits.balance} créditos</p>
-                    <p className="text-xs text-gray-500">Ganhe créditos indicando amigos e interagindo na comunidade</p>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex items-center gap-3 sm:gap-6 w-full sm:w-auto">
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 sm:flex-none">
+                  <Coins size={18} className="sm:w-5 sm:h-5 text-emerald-400 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-emerald-400 font-bold text-base sm:text-lg">{userCredits.balance} créditos</p>
+                    <p className="text-xs text-gray-500 hidden sm:block">Ganhe créditos indicando amigos e interagindo na comunidade</p>
                   </div>
                 </div>
                 <button
                   onClick={handleRefreshCredits}
-                  className="p-1.5 hover:bg-[#1a1a1a] rounded transition-colors"
+                  className="p-1.5 hover:bg-[#1a1a1a] rounded transition-colors flex-shrink-0"
                   title="Atualizar saldo"
                 >
-                  <svg className="w-4 h-4 text-gray-400 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                 </button>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
                 {supportConfig && (
                   <button
                     onClick={() => window.open(supportConfig.support_url, '_blank')}
-                    className="text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 px-3 py-1.5 rounded font-medium transition-colors"
+                    className="text-xs bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 px-2.5 sm:px-3 py-1.5 rounded font-medium transition-colors whitespace-nowrap flex-shrink-0"
                   >
                     {supportConfig.support_text}
                   </button>
                 )}
                 <button
                   onClick={() => navigate('/credit-history')}
-                  className="text-xs bg-[#1a1a1a] hover:bg-[#252525] text-gray-300 px-3 py-1.5 rounded font-medium transition-colors flex items-center gap-1"
+                  className="text-xs bg-[#1a1a1a] hover:bg-[#252525] text-gray-300 px-2.5 sm:px-3 py-1.5 rounded font-medium transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0"
                 >
-                  <History size={14} />
+                  <History size={12} className="sm:w-3.5 sm:h-3.5" />
                   Histórico
                 </button>
                 <button
                   onClick={() => navigate('/referral')}
-                  className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded font-semibold transition-colors flex items-center gap-1"
+                  className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 sm:px-4 py-1.5 rounded font-semibold transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0"
                   title="Ganhe créditos indicando amigos"
                 >
-                  <Gift size={14} />
-                  Indicar Amigos
+                  <Gift size={12} className="sm:w-3.5 sm:h-3.5" />
+                  <span className="hidden sm:inline">Indicar Amigos</span>
+                  <span className="sm:hidden">Indicar</span>
                 </button>
               </div>
             </div>
