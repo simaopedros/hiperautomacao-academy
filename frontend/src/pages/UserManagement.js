@@ -457,7 +457,7 @@ export default function UserManagement({ user, onLogout }) {
                 Novo Usuário
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-[#1a1a1a] border-[#252525] text-white">
+            <DialogContent className="bg-[#1a1a1a] border-[#252525] text-white max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingUser ? 'Editar' : 'Criar Novo'} Usuário</DialogTitle>
               </DialogHeader>
@@ -502,18 +502,90 @@ export default function UserManagement({ user, onLogout }) {
                     <option value="admin">Administrador</option>
                   </select>
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="full_access"
-                    checked={userForm.full_access}
-                    onChange={(e) => setUserForm({ ...userForm, full_access: e.target.checked })}
-                    className="w-4 h-4"
-                  />
-                  <Label htmlFor="full_access" className="cursor-pointer">
-                    Acesso completo (todos os cursos)
-                  </Label>
-                </div>
+
+                {/* Access Type Selection - Only for new users */}
+                {!editingUser && (
+                  <>
+                    <div className="border-t border-[#2a2a2a] pt-4">
+                      <Label className="text-base font-semibold mb-3 block">Tipo de Acesso</Label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div 
+                          onClick={() => setUserForm({ ...userForm, access_type: 'full', selected_courses: [] })}
+                          className={`cursor-pointer border-2 rounded-lg p-4 transition-all ${
+                            userForm.access_type === 'full'
+                              ? 'border-emerald-500 bg-emerald-500/10'
+                              : 'border-[#2a2a2a] hover:border-[#3a3a3a] bg-[#111111]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                              userForm.access_type === 'full' ? 'border-emerald-500' : 'border-gray-500'
+                            }`}>
+                              {userForm.access_type === 'full' && (
+                                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                              )}
+                            </div>
+                            <span className="font-medium">Acesso Completo</span>
+                          </div>
+                        </div>
+
+                        <div 
+                          onClick={() => setUserForm({ ...userForm, access_type: 'courses' })}
+                          className={`cursor-pointer border-2 rounded-lg p-4 transition-all ${
+                            userForm.access_type === 'courses'
+                              ? 'border-blue-500 bg-blue-500/10'
+                              : 'border-[#2a2a2a] hover:border-[#3a3a3a] bg-[#111111]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                              userForm.access_type === 'courses' ? 'border-blue-500' : 'border-gray-500'
+                            }`}>
+                              {userForm.access_type === 'courses' && (
+                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                              )}
+                            </div>
+                            <span className="font-medium">Cursos Específicos</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Course Selection */}
+                    {userForm.access_type === 'courses' && (
+                      <div className="space-y-3">
+                        <Label className="text-sm">
+                          Selecionar Cursos ({userForm.selected_courses.length} selecionado(s))
+                        </Label>
+                        <div className="bg-[#111111] border border-[#2a2a2a] rounded-lg p-3 max-h-[200px] overflow-y-auto space-y-2">
+                          {courses.length === 0 ? (
+                            <p className="text-center text-gray-400 py-4 text-sm">Nenhum curso disponível</p>
+                          ) : (
+                            courses.map((course) => (
+                              <div
+                                key={course.id}
+                                onClick={() => toggleUserCourseSelection(course.id)}
+                                className="flex items-center gap-2 p-2 rounded hover:bg-[#1a1a1a] cursor-pointer"
+                              >
+                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                                  userForm.selected_courses.includes(course.id)
+                                    ? 'bg-blue-500 border-blue-500'
+                                    : 'border-gray-500'
+                                }`}>
+                                  {userForm.selected_courses.includes(course.id) && (
+                                    <CheckCircle size={12} className="text-white" />
+                                  )}
+                                </div>
+                                <span className="text-sm text-white">{course.title}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
                 <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600">
                   {editingUser ? 'Atualizar' : 'Criar'} Usuário
                 </Button>
