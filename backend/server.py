@@ -871,9 +871,17 @@ async def get_published_courses(current_user: User = Depends(get_current_user)):
     # Get all published courses
     courses = await db.courses.find({"published": True}, {"_id": 0}).to_list(1000)
     
-    # Get user's enrollments
+    # Get user's enrollments from BOTH sources for backward compatibility
+    # 1. From enrollments collection (new system)
     enrollments = await db.enrollments.find({"user_id": current_user.id}).to_list(1000)
     enrolled_course_ids = [e["course_id"] for e in enrollments]
+    
+    # 2. From user's enrolled_courses field (legacy system)
+    user_doc = await db.users.find_one({"id": current_user.id})
+    if user_doc and "enrolled_courses" in user_doc and user_doc["enrolled_courses"]:
+        # Merge with enrollments collection data
+        legacy_courses = set(user_doc["enrolled_courses"])
+        enrolled_course_ids = list(set(enrolled_course_ids) | legacy_courses)
     
     # Add enrollment status to each course
     result = []
