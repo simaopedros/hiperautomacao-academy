@@ -434,39 +434,39 @@ export default function SocialFeed({ user, onLogout }) {
 
       {/* Create Post Dialog */}
       <Dialog open={showCreatePost} onOpenChange={setShowCreatePost}>
-        <DialogContent className="bg-[#1a1a1a] border-[#252525] text-white max-w-2xl">
+        <DialogContent className="bg-[#1a1a1a] border-[#252525] text-white max-w-2xl mx-4 sm:mx-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl">Nova Discussão</DialogTitle>
+            <DialogTitle className="text-xl sm:text-2xl">Nova Discussão</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleCreatePost} className="space-y-4">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 text-sm sm:text-base">
                 {user.name[0].toUpperCase()}
               </div>
               <Textarea
                 value={newPostContent}
                 onChange={(e) => setNewPostContent(e.target.value)}
                 placeholder="Compartilhe suas ideias, dúvidas ou conhecimento com a comunidade..."
-                rows={6}
-                className="bg-[#111111] border-[#2a2a2a] text-white flex-1"
+                rows={4}
+                className="bg-[#111111] border-[#2a2a2a] text-white flex-1 text-sm sm:text-base min-h-[100px] sm:min-h-[120px]"
                 required
               />
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setShowCreatePost(false)}
-                className="border-[#2a2a2a] hover:bg-[#252525]"
+                className="border-[#2a2a2a] hover:bg-[#252525] text-sm sm:text-base"
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
-                className="bg-emerald-500 hover:bg-emerald-600"
+                className="bg-emerald-500 hover:bg-emerald-600 text-sm sm:text-base"
                 disabled={!newPostContent.trim()}
               >
-                <Send size={16} className="mr-2" />
+                <Send size={14} className="sm:w-4 sm:h-4 mr-2" />
                 Publicar
               </Button>
             </div>
