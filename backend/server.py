@@ -124,6 +124,9 @@ class User(UserBase):
     referral_code: str = ""  # This user's unique referral code
     referred_by: Optional[str] = None  # User ID of who referred this user
     has_purchased: bool = False  # Whether user has made any purchase
+    enrolled_courses: list[str] = []  # List of course IDs user is enrolled in
+    invited: bool = False  # Whether user was invited
+    password_created: bool = False  # Whether user created password from invitation
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class Token(BaseModel):
