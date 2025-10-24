@@ -103,6 +103,16 @@ function App() {
             }
           />
           <Route
+            path="/reset-password"
+            element={
+              user ? (
+                <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} replace />
+              ) : (
+                <ResetPasswordPage />
+              )
+            }
+          />
+          <Route
             path="/admin/*"
             element={
               user && user.role === 'admin' ? (
