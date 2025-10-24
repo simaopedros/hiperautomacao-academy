@@ -100,7 +100,7 @@ class UserBase(BaseModel):
     email: EmailStr
     name: str
     role: str = "student"  # admin or student
-    full_access: bool = False  # Access to all courses
+    has_full_access: bool = False  # Access to all courses
 
 class UserCreate(UserBase):
     password: str
@@ -110,7 +110,7 @@ class UserUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     role: Optional[str] = None
-    full_access: Optional[bool] = None
+    has_full_access: Optional[bool] = None
     password: Optional[str] = None
 
 class UserLogin(BaseModel):
