@@ -96,7 +96,7 @@ export default function GamificationSettings({ user, onLogout }) {
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
               <p className="text-blue-300 text-sm">
                 <strong>Importante:</strong> Apenas usuários que já fizeram pelo menos uma compra na plataforma 
-                receberão esses bônus. Além disso, é necessário ter pelo menos 1 crédito para participar da comunidade.
+                receberão esses bônus. Além disso, é necessário estar matriculado em pelo menos um curso para participar da comunidade.
               </p>
             </div>
 
