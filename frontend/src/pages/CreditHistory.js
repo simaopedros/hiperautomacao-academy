@@ -75,38 +75,38 @@ function CreditHistory() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 py-12 px-4">
+    <div className="min-h-screen bg-gray-900 py-6 sm:py-12 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <button
             onClick={() => navigate('/dashboard')}
-            className="mb-4 text-emerald-400 hover:text-emerald-300 flex items-center gap-2"
+            className="mb-3 sm:mb-4 text-emerald-400 hover:text-emerald-300 flex items-center gap-2 text-sm sm:text-base"
           >
             ← Voltar ao Dashboard
           </button>
-          <h1 className="text-4xl font-bold text-white mb-2">Histórico de Créditos</h1>
-          <p className="text-gray-400">Acompanhe todas as suas transações de créditos</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">Histórico de Créditos</h1>
+          <p className="text-gray-400 text-sm sm:text-base">Acompanhe todas as suas transações de créditos</p>
         </div>
 
         {/* Balance Card */}
         {userCredits && (
-          <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-xl p-8 mb-8 text-white">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-xl p-5 sm:p-8 mb-6 sm:mb-8 text-white">
+            <div className="grid grid-cols-3 md:grid-cols-3 gap-3 sm:gap-6">
               <div className="text-center md:text-left">
-                <p className="text-emerald-100 mb-2 text-sm">Saldo Atual</p>
-                <p className="text-5xl font-bold">{userCredits.balance}</p>
-                <p className="text-emerald-100 mt-1 text-sm">créditos</p>
+                <p className="text-emerald-100 mb-1 sm:mb-2 text-xs sm:text-sm">Saldo Atual</p>
+                <p className="text-2xl sm:text-4xl lg:text-5xl font-bold">{userCredits.balance}</p>
+                <p className="text-emerald-100 mt-1 text-xs sm:text-sm">créditos</p>
               </div>
               <div className="text-center">
-                <p className="text-emerald-100 mb-2 text-sm">Total Ganho</p>
-                <p className="text-3xl font-bold">{userCredits.total_earned}</p>
-                <p className="text-emerald-100 mt-1 text-sm">créditos</p>
+                <p className="text-emerald-100 mb-1 sm:mb-2 text-xs sm:text-sm">Total Ganho</p>
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold">{userCredits.total_earned}</p>
+                <p className="text-emerald-100 mt-1 text-xs sm:text-sm">créditos</p>
               </div>
               <div className="text-center md:text-right">
-                <p className="text-emerald-100 mb-2 text-sm">Total Gasto</p>
-                <p className="text-3xl font-bold">{userCredits.total_spent}</p>
-                <p className="text-emerald-100 mt-1 text-sm">créditos</p>
+                <p className="text-emerald-100 mb-1 sm:mb-2 text-xs sm:text-sm">Total Gasto</p>
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold">{userCredits.total_spent}</p>
+                <p className="text-emerald-100 mt-1 text-xs sm:text-sm">créditos</p>
               </div>
             </div>
           </div>
@@ -114,12 +114,12 @@ function CreditHistory() {
 
         {/* Transactions List */}
         <div className="bg-gray-800 rounded-xl overflow-hidden">
-          <div className="p-6 border-b border-gray-700">
-            <h2 className="text-2xl font-bold text-white">Transações</h2>
+          <div className="p-4 sm:p-6 border-b border-gray-700">
+            <h2 className="text-xl sm:text-2xl font-bold text-white">Transações</h2>
           </div>
           
           {transactions.length === 0 ? (
-            <div className="p-12 text-center">
+            <div className="p-8 sm:p-12 text-center">
               <p className="text-gray-400 text-lg">Nenhuma transação encontrada</p>
               <p className="text-gray-500 mt-2">Suas transações de créditos aparecerão aqui</p>
             </div>
