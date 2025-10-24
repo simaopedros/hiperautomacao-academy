@@ -1063,15 +1063,22 @@ class CreditsSystemTester:
     def test_full_access_user_sees_all_courses(self):
         """Test 3: User with has_full_access=true should see ALL courses with has_access=true"""
         try:
-            # First, login as the test user to get their token
-            login_data = {
-                "email": TEST_USER_EMAIL,
-                "password": "password123"  # Assuming this is the password
-            }
+            # First, update the test user's password as admin so we can login
+            headers = {'Authorization': f'Bearer {self.admin_token}'}
+            update_data = {"password": "testpassword123", "has_full_access": True}
+            update_response = self.session.put(f"{BACKEND_URL}/admin/users/{TEST_USER_ID}", 
+                                             json=update_data, headers=headers)
             
-            login_response = self.session.post(f"{BACKEND_URL}/auth/login", json=login_data)
-            
-            if login_response.status_code == 200:
+            if update_response.status_code == 200:
+                # Now login as the test user
+                login_data = {
+                    "email": TEST_USER_EMAIL,
+                    "password": "testpassword123"
+                }
+                
+                login_response = self.session.post(f"{BACKEND_URL}/auth/login", json=login_data)
+                
+                if login_response.status_code == 200:
                 login_data = login_response.json()
                 test_user_token = login_data['access_token']
                 
