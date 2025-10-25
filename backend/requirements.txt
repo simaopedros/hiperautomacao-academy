@@ -67,5 +67,6 @@ typing_extensions==4.15.0
 tzdata==2025.2
 urllib3==2.5.0
 uvicorn==0.25.0
+gunicorn==21.2.0
 watchfiles==1.1.0
 httpx==0.28.1
