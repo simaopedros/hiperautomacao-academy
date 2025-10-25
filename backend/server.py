@@ -23,7 +23,16 @@ import random
 import string
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+
+# Load default env first (backwards compatibility), then env-specific overrides
+default_env_file = ROOT_DIR / '.env'
+if default_env_file.exists():
+    load_dotenv(default_env_file, override=False)
+
+app_env = os.getenv('APP_ENV', 'development')
+env_specific_file = ROOT_DIR / f'.env.{app_env}'
+if env_specific_file.exists():
+    load_dotenv(env_specific_file, override=True)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
