@@ -199,14 +199,14 @@ class LinkItem(BaseModel):
 # Email Configuration Model
 class EmailConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    brevo_api_key: str  # API key for bulk operations
+    brevo_api_key: Optional[str] = None  # API key for bulk operations
     brevo_smtp_key: Optional[str] = None  # SMTP key for transactional emails (deprecated - use smtp_password)
     smtp_username: Optional[str] = None  # SMTP username (e.g., 8cda09001@smtp-brevo.com)
     smtp_password: Optional[str] = None  # SMTP master password
     smtp_server: str = "smtp-relay.brevo.com"  # SMTP server
     smtp_port: int = 587  # SMTP port
-    sender_email: str
-    sender_name: str
+    sender_email: Optional[str] = None
+    sender_name: Optional[str] = None
 
 # Bulk Import Models
 class BulkImportRequest(BaseModel):
@@ -1239,7 +1239,7 @@ async def get_email_config(current_user: User = Depends(get_current_admin)):
     if not config:
         return {"brevo_api_key": "", "sender_email": "", "sender_name": ""}
     # Don't expose the full API key
-    config['brevo_api_key'] = config.get('brevo_api_key', '')[:10] + '...' if config.get('brevo_api_key') else ''
+    # config['brevo_api_key'] = config.get('brevo_api_key', '')[:10] + '...' if config.get('brevo_api_key') else ''
     return config
 
 @api_router.post("/admin/email-config")
