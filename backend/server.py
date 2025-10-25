@@ -398,8 +398,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         return User(**user)
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as exc:
+        logger.exception("Failed to authenticate token: %s", exc)
+        raise HTTPException(status_code=401, detail="Invalid token") from exc
 
 async def get_current_admin(current_user: User = Depends(get_current_user)):
     if current_user.role != "admin":
@@ -1244,9 +1245,36 @@ async def get_email_config(current_user: User = Depends(get_current_admin)):
 
 @api_router.post("/admin/email-config")
 async def save_email_config(config: EmailConfig, current_user: User = Depends(get_current_admin)):
-    await db.email_config.delete_many({})  # Only one config
-    await db.email_config.insert_one(config.model_dump())
-    return {"message": "Email configuration saved successfully"}
+    try:
+        config_dict = config.model_dump()
+
+        sanitized_log_payload = {
+            key: "***" if any(secret_key in key for secret_key in ["password", "api_key", "token"]) else value
+            for key, value in config_dict.items()
+        }
+
+        logger.debug(
+            "Admin %s saving email configuration with payload: %s",
+            current_user.id,
+            sanitized_log_payload,
+        )
+
+        result = await db.email_config.replace_one({}, config_dict, upsert=True)
+        logger.info(
+            "Email configuration saved by admin %s (matched=%s, modified=%s, upserted_id=%s)",
+            current_user.id,
+            result.matched_count,
+            getattr(result, "modified_count", None),
+            getattr(result, "upserted_id", None),
+        )
+
+        return {"message": "Email configuration saved successfully"}
+    except Exception as exc:
+        logger.exception("Error saving email configuration: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save email configuration",
+        ) from exc
 
 # ==================== BULK IMPORT ====================
 
