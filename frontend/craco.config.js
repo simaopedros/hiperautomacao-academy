@@ -35,6 +35,21 @@ const webpackConfig = {
       '@': path.resolve(__dirname, 'src'),
     },
     configure: (webpackConfig) => {
+      webpackConfig.resolve = {
+        ...(webpackConfig.resolve || {}),
+        alias: {
+          ...(webpackConfig.resolve?.alias || {}),
+          '@': path.resolve(__dirname, 'src'),
+          ajv: require.resolve("ajv"),
+          "ajv-keywords": require.resolve("ajv-keywords"),
+        },
+        fallback: {
+          ...(webpackConfig.resolve?.fallback || {}),
+          fs: false,
+          path: require.resolve("path-browserify"),
+          crypto: false,
+        },
+      };
 
       // Disable hot reload completely if environment variable is set
       if (config.disableHotReload) {
