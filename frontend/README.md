@@ -1,6 +1,56 @@
-# Getting Started with Create React App
+# Hiperautomação Academy Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This project contains the frontend application for the Hiperautomação Academy platform, built with React and modern web technologies.
+
+## Table of Contents
+- [Overview](#overview)
+- [Technology Stack](#technology-stack)
+- [Key Features](#key-features)
+- [Available Scripts](#available-scripts)
+- [Project Structure](#project-structure)
+- [Environment Variables](#environment-variables)
+- [Component Library](#component-library)
+- [Routing](#routing)
+- [Learn More](#learn-more)
+
+## Overview
+
+The frontend application provides a responsive, user-friendly interface for students and administrators to interact with the Hiperautomação Academy platform. It includes features for course browsing, enrollment, learning, social interaction, and administrative management.
+
+## Technology Stack
+
+- **Framework**: [React](https://reactjs.org/) with [React Router](https://reactrouter.com/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) with custom components
+- **UI Components**: [Radix UI](https://www.radix-ui.com/) primitives
+- **State Management**: React hooks
+- **HTTP Client**: [Axios](https://axios-http.com/)
+- **Build Tool**: [Craco](https://github.com/gsoft-inc/craco) (Create React App Configuration Override)
+- **Icons**: [Lucide React](https://lucide.dev/)
+
+## Key Features
+
+### Student Features
+- Course browsing and enrollment
+- Lesson viewing with progress tracking
+- Social feed and community discussions
+- Credit management and purchase
+- Referral program participation
+- Support access
+
+### Admin Features
+- Dashboard with analytics
+- Course, module, and lesson management
+- User management and enrollment control
+- Payment and credit transaction monitoring
+- Email and payment gateway configuration
+- Support settings management
+
+### UI/UX Features
+- Responsive design for all device sizes
+- Dark theme interface
+- Animated transitions and loading states
+- Accessible components
+- Toast notifications
 
 ## Available Scripts
 
@@ -38,6 +88,49 @@ If you aren't satisfied with the build tool and configuration choices, you can `
 Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
 
 You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+
+## Project Structure
+
+```
+src/
+├── components/          # Reusable UI components
+│   └── ui/             # Radix UI based components
+├── hooks/              # Custom React hooks
+├── lib/                # Utility functions
+├── pages/              # Page components
+│   ├── AdminDashboard.js
+│   ├── StudentDashboard.js
+│   ├── CourseView.js
+│   ├── LessonPlayer.js
+│   └── ...             # Other page components
+├── App.js              # Main application component
+├── App.css             # Global styles
+├── index.js            # Entry point
+└── index.css           # Base styles
+```
+
+## Environment Variables
+
+Create a `.env` file in the frontend root directory with the following variables:
+
+```env
+REACT_APP_BACKEND_URL=http://localhost:8000
+REACT_APP_DEFAULT_SUPPORT_URL=https://wa.me/5511999999999
+```
+
+## Component Library
+
+The project uses a custom component library based on Radix UI primitives with Tailwind CSS styling. Components include:
+- Buttons
+- Cards
+- Dialogs
+- Forms
+- Navigation
+- Data display
+
+## Routing
+
+The application uses React Router for client-side routing with protected routes for authenticated users. Routes are defined in `App.js` with role-based access control.
 
 ## Learn More
 
