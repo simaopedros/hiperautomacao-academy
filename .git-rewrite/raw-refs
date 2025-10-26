@@ -1,9 +1,0 @@
-refs/heads/dev
-refs/heads/main
-refs/remotes/origin/main
-refs/remotes/origin/codex/fix-email-configuration-saving-error
-refs/remotes/origin/codex/fix-webpack-module_not_found-errors
-refs/remotes/origin/codex/generate-readme.md-for-project
-refs/remotes/origin/codex/update-emailconfig-model-and-api-key-handling
-refs/remotes/origin/dev
-refs/remotes/origin/main

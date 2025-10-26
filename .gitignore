@@ -103,6 +103,7 @@ chainlit.md
 .ipynb_checkpoints/
 .ac
 .emergent/
+.git-rewrite/
 
 # Deployment
 .vercel
