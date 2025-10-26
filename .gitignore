@@ -3,6 +3,8 @@
 # IDE and editors
 .idea/
 .vscode/
+*.swp
+*.swo
 
 # Dependencies
 node_modules/
@@ -18,6 +20,9 @@ node_modules/
 
 # Testing
 /coverage
+*.cover
+*.log
+.nyc_output
 
 # Next.js
 /.next/
@@ -27,43 +32,89 @@ next-env.d.ts
 
 # Production builds
 /build
+/dist
 dist/
-dist
+*.min.js
+*.min.css
 
 # Environment files (comprehensive coverage)
-
+.env
+.env.*
 *token.json*
 *credentials.json*
+!.env.example
+!.env.sample
+!.env.template
+!.env.*.example
+!.env.*.sample
+!.env.*.template
 
 # Logs and debug files
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-dump.rdb
+*.log
+backend_uvicorn.log
 
 # System files
 .DS_Store
+Thumbs.db
 *.pem
+*.key
+*.crt
+*.csr
 
 # Python
 __pycache__/
-*pyc*
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+.pytest_cache
+eggs/
+.eggs/
+*.egg-info/
+.eggs
+*.egg
+build/
+develop-eggs/
+dist/
+downloads/
+.sdist/
+wheels/
+
+# Virtual environments
 venv/
 .venv/
+env/
+ENV/
+env.bak/
+venv.bak/
 
 # Development tools
 chainlit.md
 .chainlit
 .ipynb_checkpoints/
 .ac
+.emergent/
 
 # Deployment
 .vercel
+*.deploy
+*.deployment
 
 # Data and databases
 agenthub/agents/youtube/db
 mongodb/
+*.db
+*.sqlite
+*.sqlite3
 
 # MongoDB binaries/cache
 mongodb/**/*.wt
@@ -86,19 +137,29 @@ mongodb/**/*.zip
 
 # Build caches
 .cache/
+tmp/
+temp/
 
 # Mobile development
 android-sdk/
 
-# Environment files
-*.env
-*.env.*
-!*.env.example
-!*.env.sample
-!*.env.template
-!*/.env.example
-!*/.env.sample
-!*/.env.template
-!*/.env.*.example
-!*/.env.*.sample
-!*/.env.*.template
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+*.bak
+*.backup
+temp_log.txt
+
+# OS generated files
+ehthumbs_vista.db
+*.stackdump
+.DS_Store
+*.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Git configuration files
+.gitconfig

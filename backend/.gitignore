@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+.pytest_cache
+eggs/
+.eggs/
+*.egg-info/
+.eggs
+*.egg
+build/
+develop-eggs/
+dist/
+downloads/
+.sdist/
+wheels/
+*.egg-info/
+*.egg-info/
+MANIFEST
+MANIFEST.in
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files (excluding samples)
+.env
+!.env*.sample
+!.env*.template
+!.env*.example
+
+# Logs
+*.log
+logs/
+log/
+
+# Runtime data
+*.pid
+*.seed
+*.pid.lock
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Local development files
+.DS_Store
+Thumbs.db
