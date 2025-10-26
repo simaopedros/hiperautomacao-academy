@@ -1,5 +1,23 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
+:root {
+  --bg-primary: #01030a;
+  --bg-secondary: #050b16;
+  --surface-dark: rgba(4, 16, 27, 0.85);
+  --surface-muted: rgba(8, 22, 35, 0.6);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text-primary: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent: #10b981;
+  --accent-strong: #34d399;
+  --accent-secondary: #0ea5e9;
+  --shadow-strong: 0 30px 120px rgba(2, 6, 23, 0.75);
+  --shadow-soft: 0 14px 45px rgba(15, 118, 110, 0.25);
+  --radius-lg: 24px;
+  --radius-md: 16px;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -8,108 +26,144 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-  background: #0a0a0a;
-  color: #e5e5e5;
+  background: radial-gradient(circle at top, rgba(15, 118, 110, 0.2), transparent 55%), var(--bg-primary);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 .App {
   min-height: 100vh;
-  background: #0a0a0a;
+  background: transparent;
 }
 
-/* Scrollbar Styles */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #111111;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #2a2a2a;
-  border-radius: 5px;
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.7), rgba(8, 145, 178, 0.7));
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3a3a;
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.9), rgba(8, 145, 178, 0.9));
 }
 
-/* Custom Button Styles */
+/* Buttons */
 .btn-primary {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  padding: 12px 32px;
-  border-radius: 8px;
+  background: linear-gradient(130deg, var(--accent) 0%, var(--accent-secondary) 100%);
+  color: var(--text-primary);
+  padding: 14px 36px;
+  border-radius: var(--radius-md);
   border: none;
   font-weight: 600;
   font-size: 16px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: var(--shadow-soft);
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 18px 35px rgba(16, 185, 129, 0.35);
 }
 
 .btn-secondary {
-  background: #1a1a1a;
-  color: #e5e5e5;
+  background: rgba(15, 23, 42, 0.65);
+  color: var(--text-primary);
   padding: 12px 32px;
-  border-radius: 8px;
-  border: 1px solid #2a2a2a;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
   font-weight: 600;
   font-size: 16px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
 }
 
 .btn-secondary:hover {
-  background: #252525;
-  border-color: #3a3a3a;
+  background: rgba(15, 23, 42, 0.85);
+  border-color: var(--border-strong);
   transform: translateY(-1px);
 }
 
-/* Card Styles */
-.card {
-  background: #1a1a1a;
-  border: 1px solid #252525;
-  border-radius: 12px;
-  overflow: hidden;
-  transition: all 0.3s ease;
+button:disabled,
+.btn-primary:disabled,
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-.card:hover {
-  border-color: #10b981;
+/* Surfaces */
+.card,
+.surface-card {
+  background: var(--surface-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  box-shadow: var(--shadow-strong);
+  transition: transform 0.3s ease, border 0.3s ease;
+}
+
+.card:hover,
+.surface-card:hover {
+  border-color: var(--border-strong);
   transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
 }
 
-/* Input Styles */
-input, textarea {
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  color: #e5e5e5;
-  padding: 12px 16px;
-  border-radius: 8px;
+.glass-panel {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-strong);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Inputs */
+input,
+textarea,
+select {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 14px 16px;
+  border-radius: 16px;
   font-size: 16px;
-  transition: all 0.3s ease;
+  transition: border 0.2s ease, box-shadow 0.2s ease;
   width: 100%;
 }
 
-input:focus, textarea:focus {
+input:focus,
+textarea:focus,
+select:focus {
   outline: none;
-  border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
 }
 
-input::placeholder, textarea::placeholder {
-  color: #666;
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-muted);
 }
 
 /* Animations */
@@ -143,15 +197,15 @@ input::placeholder, textarea::placeholder {
   animation: slideIn 0.4s ease-out;
 }
 
-/* Video Container - Direct HTML Embed Support */
-/* This ensures Bunny.net embeds work correctly when pasted as HTML */
+/* Video Container */
 .video-embed-container {
   width: 100%;
   max-width: 100%;
   min-height: 400px;
-  border-radius: 12px;
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3);
+  box-shadow: 0 25px 40px rgba(2, 6, 23, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .video-embed-container > div {
@@ -162,17 +216,13 @@ input::placeholder, textarea::placeholder {
   border-radius: 0 !important;
 }
 
-/* Gradient Text */
 .gradient-text {
-  background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+  background: linear-gradient(135deg, #10b981 0%, #0ea5e9 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Glass Effect */
-.glass-effect {
-  background: rgba(26, 26, 26, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.text-muted {
+  color: var(--text-muted);
 }
