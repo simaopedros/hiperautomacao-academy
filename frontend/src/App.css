@@ -201,7 +201,6 @@ textarea::placeholder {
 .video-embed-container {
   width: 100%;
   max-width: 100%;
-  min-height: 400px;
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 25px 40px rgba(2, 6, 23, 0.65);
