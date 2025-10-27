@@ -112,7 +112,7 @@ class UserBase(BaseModel):
     has_full_access: bool = False  # Access to all courses
 
 class UserCreate(UserBase):
-    password: str
+    password: Optional[str] = None  # Optional when inviting, but required for direct creation
     referral_code: Optional[str] = None  # Code of person who referred this user
 
 class UserUpdate(BaseModel):
@@ -142,6 +142,11 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     user: User
+
+class AdminUserCreateResponse(BaseModel):
+    user: User
+    email_status: Optional[str] = None
+    invitation_token: Optional[str] = None
 
 # Enrollment Models
 class EnrollmentBase(BaseModel):
@@ -569,6 +574,8 @@ async def forgot_password(email: str):
         )
         
         logger.info(f"✅ Password reset email sent to {email}")
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         logger.error(f"❌ Error sending password reset email to {email}: {str(e)}")
     
@@ -752,7 +759,7 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
     
     # Get all existing course IDs to filter out deleted courses
     existing_courses = await db.courses.find({}, {"_id": 0, "id": 1}).to_list(1000)
-    valid_course_ids = set([course['id'] for course in existing_courses])
+    valid_course_ids = {course['id'] for course in existing_courses}
     
     # For each user, get their enrolled courses (only valid ones)
     for user in users:
@@ -768,23 +775,144 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
             if enrollment['course_id'] in valid_course_ids
         ]
     
+    # Include pending invitations (users who received an invite link but have
+    # not created their password / first login yet)
+    pending_invites = await db.password_tokens.find({}, {"_id": 0}).to_list(1000)
+    for invite in pending_invites:
+        created_at_raw = invite.get('created_at')
+        created_at = datetime.fromisoformat(created_at_raw) if created_at_raw else datetime.now(timezone.utc)
+        
+        course_ids = invite.get('course_ids') or []
+        if not course_ids and invite.get('course_id'):
+            # Backwards compatibility with earlier payloads
+            course_ids = [invite['course_id']]
+        filtered_courses = [course_id for course_id in course_ids if course_id in valid_course_ids]
+        
+        pending_user = {
+            "id": f"invite-{invite['token']}",
+            "email": invite['email'],
+            "name": invite.get('name') or invite['email'],
+            "role": "student",
+            "has_full_access": invite.get('has_full_access', False),
+            "avatar": None,
+            "referral_code": invite.get('referral_code', ""),
+            "referred_by": None,
+            "has_purchased": False,
+            "enrolled_courses": filtered_courses,
+            "invited": True,
+            "password_created": False,
+            "created_at": created_at
+        }
+        users.append(pending_user)
+    
     return users
 
-@api_router.post("/admin/users", response_model=User)
+@api_router.post("/admin/users", response_model=AdminUserCreateResponse)
 async def create_user_by_admin(user_data: UserCreate, current_user: User = Depends(get_current_admin)):
     # Check if user exists
     existing_user = await db.users.find_one({"email": user_data.email})
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Create user
-    user = User(**user_data.model_dump(exclude={"password"}))
-    user_dict = user.model_dump()
-    user_dict['password_hash'] = get_password_hash(user_data.password)
-    user_dict['created_at'] = user_dict['created_at'].isoformat()
+    # Decide whether to create full account or invitation
+    is_direct_creation = bool(user_data.password)
     
-    await db.users.insert_one(user_dict)
-    return user
+    if is_direct_creation:
+        user_payload = user_data.model_dump(exclude={"password"})
+        if user_payload.get("referral_code") is None:
+            user_payload.pop("referral_code", None)
+        user = User(**user_payload)
+        user_dict = user.model_dump()
+        user_dict['password_hash'] = get_password_hash(user_data.password)
+        user_dict['created_at'] = user_dict['created_at'].isoformat()
+        await db.users.insert_one(user_dict)
+        return AdminUserCreateResponse(user=user, email_status="not_applicable")
+    
+    # Invitation flow (no password provided)
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    
+    token_data = {
+        "token": token,
+        "email": user_data.email,
+        "name": user_data.name,
+        "has_full_access": user_data.has_full_access,
+        "course_ids": [],
+        "expires_at": expires_at.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.password_tokens.insert_one(token_data)
+    
+    # Prepare response-like structure
+    invited_user = User(
+        email=user_data.email,
+        name=user_data.name,
+        role=user_data.role,
+        has_full_access=user_data.has_full_access,
+        invited=True,
+        password_created=False
+    )
+    
+    # Attempt to send invitation email if configuration exists
+    email_config = await db.email_config.find_one({})
+    email_info = None
+    if email_config and email_config.get('sender_email'):
+        password_link = f"{os.environ.get('FRONTEND_URL', 'http://localhost:3000')}/create-password?token={token}"
+        access_description = "acesso completo à plataforma" if user_data.has_full_access else "acesso a cursos específicos"
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #10b981;">Bem-vindo à Hiperautomação!</h2>
+                    <p>Olá <strong>{user_data.name}</strong>,</p>
+                    <p>Você foi convidado para a plataforma Hiperautomação com {access_description}.</p>
+                    <p>Para acessar sua conta, crie sua senha:</p>
+                    <div style="margin: 30px 0; text-align: center;">
+                        <a href="{password_link}" style="background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                            Criar Minha Senha
+                        </a>
+                    </div>
+                    <p>Link direto: {password_link}</p>
+                    <p><strong>Este link expira em 7 dias.</strong></p>
+                </div>
+            </body>
+        </html>
+        """
+        loop = asyncio.get_event_loop()
+        try:
+            smtp_username = email_config.get('smtp_username') or email_config.get('sender_email')
+            smtp_password = email_config.get('smtp_password') or email_config.get('brevo_smtp_key') or email_config.get('brevo_api_key')
+            smtp_server = email_config.get('smtp_server', 'smtp-relay.brevo.com')
+            smtp_port = email_config.get('smtp_port', 587)
+            if smtp_username and smtp_password:
+                email_sent = await loop.run_in_executor(
+                    executor,
+                    send_brevo_email,
+                    user_data.email,
+                    user_data.name,
+                    "Bem-vindo à Hiperautomação - Crie sua senha",
+                    html_content,
+                    smtp_username,
+                    smtp_password,
+                    email_config['sender_email'],
+                    email_config.get('sender_name'),
+                    smtp_server,
+                    smtp_port
+                )
+                email_info = "sent" if email_sent else "failed"
+            else:
+                email_info = "missing_credentials"
+        except Exception as email_error:
+            logger.error(f"Error sending invitation email to {user_data.email}: {email_error}")
+            email_info = "error"
+    else:
+        email_info = "config_missing"
+    
+    return AdminUserCreateResponse(
+        user=invited_user,
+        email_status=email_info,
+        invitation_token=token
+    )
 
 @api_router.put("/admin/users/{user_id}", response_model=User)
 async def update_user_by_admin(user_id: str, user_data: UserUpdate, current_user: User = Depends(get_current_admin)):
@@ -1323,13 +1451,22 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
     """
     try:
         logger.info("Starting bulk import...")
-        # Get email configuration
+        # Get email configuration (optional)
         email_config = await db.email_config.find_one({})
         if not email_config:
-            logger.error("Email configuration not found")
-            raise HTTPException(status_code=400, detail="Email configuration not set. Please configure email settings first.")
+            logger.warning("Email configuration not found. Invitations will be created but emails will not be sent.")
+        else:
+            logger.info(f"Email config found for: {email_config.get('sender_email')}")
         
-        logger.info(f"Email config found for: {email_config.get('sender_email')}")
+        email_sending_enabled = bool(
+            email_config
+            and email_config.get('sender_email')
+            and (
+                email_config.get('smtp_password')
+                or email_config.get('brevo_smtp_key')
+                or email_config.get('brevo_api_key')
+            )
+        )
         
         # Decode CSV with error handling for different encodings
         try:
@@ -1441,42 +1578,48 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                     </html>
                     """
                     
-                    # Send email in a thread pool to avoid blocking
-                    loop = asyncio.get_event_loop()
-                    try:
-                        # Get SMTP credentials (priority: smtp_username/password, fallback to old method)
-                        smtp_username = email_config.get('smtp_username')
-                        smtp_password = email_config.get('smtp_password')
-                        smtp_server = email_config.get('smtp_server', 'smtp-relay.brevo.com')
-                        smtp_port = email_config.get('smtp_port', 587)
-                        
-                        # Fallback to old method if new fields not set
-                        if not smtp_username or not smtp_password:
-                            smtp_username = email_config.get('sender_email')
-                            smtp_password = email_config.get('brevo_smtp_key') or email_config.get('brevo_api_key')
-                        
-                        email_sent = await loop.run_in_executor(
-                            executor,
-                            send_brevo_email,
-                            email,
-                            name,
-                            "Bem-vindo à Hiperautomação - Crie sua senha",
-                            html_content,
-                            smtp_username,
-                            smtp_password,
-                            email_config['sender_email'],
-                            email_config['sender_name'],
-                            smtp_server,
-                            smtp_port
-                        )
-                        if email_sent:
-                            logger.info(f"Successfully sent invitation email to {email}")
-                        else:
-                            logger.warning(f"Failed to send email to {email}, but continuing import")
-                            errors.append(f"Failed to send email to {email}")
-                    except Exception as email_error:
-                        logger.error(f"Error sending email to {email}: {email_error}")
-                        errors.append(f"Email error for {email}: {str(email_error)}")
+
+                    if email_sending_enabled:
+                        # Send email in a thread pool to avoid blocking
+                        loop = asyncio.get_event_loop()
+                        try:
+                            # Get SMTP credentials (priority: smtp_username/password, fallback to old method)
+                            smtp_username = email_config.get('smtp_username')
+                            smtp_password = email_config.get('smtp_password')
+                            smtp_server = email_config.get('smtp_server', 'smtp-relay.brevo.com')
+                            smtp_port = email_config.get('smtp_port', 587)
+                            
+                            # Fallback to old method if new fields not set
+                            if not smtp_username or not smtp_password:
+                                smtp_username = email_config.get('sender_email')
+                                smtp_password = email_config.get('brevo_smtp_key') or email_config.get('brevo_api_key')
+                            
+                            email_sent = await loop.run_in_executor(
+                                executor,
+                                send_brevo_email,
+                                email,
+                                name,
+                                "Bem-vindo �� Hiperautoma��ǜo - Crie sua senha",
+                                html_content,
+                                smtp_username,
+                                smtp_password,
+                                email_config['sender_email'],
+                                email_config.get('sender_name'),
+                                smtp_server,
+                                smtp_port
+                            )
+                            if email_sent:
+                                logger.info(f"Successfully sent invitation email to {email}")
+                            else:
+                                logger.warning(f"Failed to send email to {email}, but continuing import")
+                                errors.append(f"Failed to send email to {email}")
+                        except Exception as email_error:
+                            logger.error(f"Error sending email to {email}: {email_error}")
+                            errors.append(f"Email error for {email}: {str(email_error)}")
+                    else:
+                        logger.warning(f"Skipping email sending for {email} because email configuration is missing.")
+                        errors.append(f"Email not sent to {email}: email configuration not set.")
+
                     
                     imported_count += 1
                     continue

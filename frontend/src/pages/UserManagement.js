@@ -168,17 +168,31 @@ export default function UserManagement({ user, onLogout }) {
         const userData = {
           name: userForm.name,
           email: userForm.email,
-          password: userForm.password,
           role: userForm.role,
           has_full_access: userForm.access_type === 'full'
         };
+        if (userForm.password && userForm.password.trim().length > 0) {
+          userData.password = userForm.password;
+        }
         
         // Criar usuário
         const response = await axios.post(`${API}/admin/users`, userData, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        const createdUser = response.data.user || response.data;
+        const emailStatus = response.data.email_status;
         
-        const newUserId = response.data.id;
+        if (emailStatus === 'sent') {
+          alert('Convite enviado por email com sucesso!');
+        } else if (emailStatus === 'config_missing') {
+          alert('Usuário criado, mas o email não foi enviado porque a configuração de email não está definida.');
+        } else if (emailStatus === 'missing_credentials') {
+          alert('Usuário criado, mas o email não foi enviado: faltam credenciais SMTP.');
+        } else if (emailStatus === 'failed' || emailStatus === 'error') {
+          alert('Usuário criado, mas houve erro ao enviar o email de convite.');
+        }
+        
+        const newUserId = createdUser.id;
         
         // Se acesso for por cursos específicos, matricular
         if (userForm.access_type === 'courses' && userForm.selected_courses.length > 0) {
@@ -525,12 +539,11 @@ export default function UserManagement({ user, onLogout }) {
                   />
                 </div>
                 <div>
-                  <Label>Senha {editingUser && '(deixe em branco para manter)'}</Label>
+                  <Label>Senha {editingUser ? '(deixe em branco para manter)' : '(deixe em branco para enviar convite por email)'}</Label>
                   <Input
                     type="password"
                     value={userForm.password}
                     onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                    required={!editingUser}
                     className="bg-[#111111] border-[#2a2a2a]"
                   />
                 </div>
