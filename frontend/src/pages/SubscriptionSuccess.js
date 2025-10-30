@@ -18,7 +18,10 @@ export default function SubscriptionSuccess() {
     if (sessionId) {
       try {
         localStorage.setItem('last_billing_id', sessionId);
-      } catch (e) {}
+      } catch (e) {
+        // Ignora erros de localStorage em modo privado/incógnito
+        /* eslint-disable-line no-empty */
+      }
     }
 
     checkSubscriptionStatus();
@@ -53,7 +56,12 @@ export default function SubscriptionSuccess() {
       if (response.data.status === 'paid') {
         setMessage('✅ Assinatura confirmada! Benefícios aplicados.');
         // Limpa o billing id para evitar rechecagens desnecessárias
-        try { localStorage.removeItem('last_billing_id'); } catch (e) {}
+        try { 
+          localStorage.removeItem('last_billing_id'); 
+        } catch (e) {
+          // Ignora erros de localStorage em modo privado/incógnito
+          /* eslint-disable-line no-empty */
+        }
       } else {
         setMessage('⏳ Pagamento pendente. Voltando ao dashboard em instantes...');
       }
