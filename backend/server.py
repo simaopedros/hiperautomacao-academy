@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -21,6 +21,8 @@ import secrets
 import httpx
 import random
 import string
+import stripe
+from urllib.parse import urlparse
 
 ROOT_DIR = Path(__file__).parent
 
@@ -54,49 +56,68 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
 security = HTTPBearer()
 
-# Referral System Configuration
-REFERRAL_SIGNUP_BONUS = 10  # Credits given to referrer when someone signs up
-REFERRAL_PURCHASE_PERCENTAGE = 50  # Percentage of credits given to referrer
-
-# Helper function to generate unique referral code
-async def generate_referral_code():
-    """Generate a unique 8-character referral code"""
-    while True:
-        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-        existing = await db.users.find_one({"referral_code": code})
-        if not existing:
-            return code
-
-# Migration: Add referral codes to existing users
-async def migrate_referral_codes():
-    """Add referral codes to users that don't have one"""
-    users_without_code = await db.users.find({"$or": [{"referral_code": {"$exists": False}}, {"referral_code": ""}]}).to_list(None)
-    
-    if users_without_code:
-        logger.info(f"Migrating {len(users_without_code)} users to have referral codes...")
-        for user in users_without_code:
-            referral_code = await generate_referral_code()
-            await db.users.update_one(
-                {"id": user["id"]},
-                {"$set": {"referral_code": referral_code}}
-            )
-        logger.info("Referral code migration complete")
-
-        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-        existing = await db.users.find_one({"referral_code": code})
-        if not existing:
-            return code
-
 # Abacate Pay Configuration
 ABACATEPAY_API_KEY = os.environ.get('ABACATEPAY_API_KEY')
 ABACATEPAY_BASE_URL = "https://api.abacatepay.com/v1"
 
-# Credit Packages Configuration
-CREDIT_PACKAGES = [
-    {"id": "pkg_small", "name": "Pacote Inicial", "price_brl": 10.0, "credits": 50, "bonus_percentage": 0, "hotmart_product_id": None, "hotmart_checkout_url": None},
-    {"id": "pkg_medium", "name": "Pacote Médio", "price_brl": 25.0, "credits": 150, "bonus_percentage": 20, "hotmart_product_id": None, "hotmart_checkout_url": None},
-    {"id": "pkg_large", "name": "Pacote Grande", "price_brl": 50.0, "credits": 350, "bonus_percentage": 40, "hotmart_product_id": None, "hotmart_checkout_url": None}
-]
+# Stripe Configuration
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
+if STRIPE_SECRET_KEY:
+    stripe.api_key = STRIPE_SECRET_KEY
+
+# Helper to ensure Stripe is configured with the latest available key
+# Tries env -> existing api_key -> payment_settings in DB
+async def ensure_stripe_config():
+    # 1) Try environment variable
+    key = os.environ.get('STRIPE_SECRET_KEY')
+    if key:
+        try:
+            stripe.api_key = key
+        except Exception:
+            pass
+        return key
+
+    # 2) Try already configured api_key
+    if getattr(stripe, 'api_key', None):
+        return stripe.api_key
+
+    # 3) Fallback: read from payment_settings in DB
+    try:
+        settings = await db.payment_settings.find_one({}, {"_id": 0})
+        if settings and settings.get("stripe_secret_key"):
+            key = settings["stripe_secret_key"]
+            try:
+                stripe.api_key = key
+            except Exception:
+                pass
+            # also set env to keep process aligned
+            os.environ['STRIPE_SECRET_KEY'] = key
+            return key
+    except Exception:
+        # Swallow DB errors here; the caller will handle missing config
+        pass
+
+    return None
+
+# Helper to get frontend base URL with sensible default
+def get_frontend_url():
+    raw = (os.environ.get('FRONTEND_URL') or "http://localhost:3000").strip()
+    # Allow comma-separated list; pick the first valid http/https base
+    candidates = [p.strip() for p in raw.split(',') if p.strip()]
+    for cand in candidates:
+        url = cand[:-1] if cand.endswith('/') else cand
+        if _is_valid_base_url(url):
+            return url
+    # Fallback to localhost if none valid
+    return "http://localhost:3000"
+
+def _is_valid_base_url(url: str) -> bool:
+    try:
+        p = urlparse(url)
+        return p.scheme in ("http", "https") and bool(p.netloc)
+    except Exception:
+        return False
 
 # Create the main app
 app = FastAPI()
@@ -113,7 +134,6 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: Optional[str] = None  # Optional when inviting, but required for direct creation
-    referral_code: Optional[str] = None  # Code of person who referred this user
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
@@ -121,6 +141,8 @@ class UserUpdate(BaseModel):
     role: Optional[str] = None
     has_full_access: Optional[bool] = None
     password: Optional[str] = None
+    subscription_plan_id: Optional[str] = None
+    subscription_valid_until: Optional[datetime] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -130,13 +152,13 @@ class User(UserBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     avatar: Optional[str] = None
-    referral_code: str = ""  # This user's unique referral code
-    referred_by: Optional[str] = None  # User ID of who referred this user
     has_purchased: bool = False  # Whether user has made any purchase
     enrolled_courses: list[str] = []  # List of course IDs user is enrolled in
     invited: bool = False  # Whether user was invited
     password_created: bool = False  # Whether user created password from invitation
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    subscription_plan_id: Optional[str] = None
+    subscription_valid_until: Optional[datetime] = None
 
 class Token(BaseModel):
     access_token: str
@@ -164,9 +186,9 @@ class CourseBase(BaseModel):
     description: str
     thumbnail_url: Optional[str] = None
     category: Optional[str] = None
+    categories: List[str] = []
     published: bool = False
     price_brl: Optional[float] = 0.0  # Price in BRL (R$)
-    price_credits: Optional[int] = 50  # Price in credits (default 50)
     hotmart_product_id: Optional[str] = None  # Hotmart product ID
     hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL
 
@@ -178,9 +200,9 @@ class CourseUpdate(BaseModel):
     description: Optional[str] = None
     thumbnail_url: Optional[str] = None
     category: Optional[str] = None
+    categories: Optional[List[str]] = None
     published: Optional[bool] = None
     price_brl: Optional[float] = None
-    price_credits: Optional[int] = None
     hotmart_product_id: Optional[str] = None  # Hotmart product ID
     hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL
 
@@ -188,6 +210,27 @@ class Course(CourseBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     instructor_id: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Category Models
+class CategoryBase(BaseModel):
+    name: str
+    description: str
+    icon: Optional[str] = None  # lucide-react icon name
+    color: Optional[str] = None  # optional tailwind color class
+
+class CategoryCreate(CategoryBase):
+    pass
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+
+class Category(CategoryBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Module Models
@@ -285,43 +328,13 @@ class Progress(ProgressBase):
     user_id: str
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-# ==================== CREDITS MODELS ====================
-
-# User Credits Balance
-class UserCredits(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    user_id: str
-    balance: int = 0
-    total_earned: int = 0
-    total_spent: int = 0
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-# Credit Transaction
-class CreditTransaction(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    user_id: str
-    amount: int  # Positive for earning, negative for spending
-    transaction_type: str  # earned, spent, purchased, refund
-    description: str
-    reference_id: Optional[str] = None  # course_id, billing_id, etc
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-# Credit Package
-class CreditPackage(BaseModel):
-    id: str
-    name: str
-    price_brl: float  # Price in BRL
-    credits: int  # Number of credits
-    bonus_percentage: int = 0  # Bonus percentage
-    hotmart_product_id: Optional[str] = None  # Hotmart product ID
-    hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL
-
 # Payment Gateway Configuration
 class PaymentGatewayConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    active_gateway: str = "abacatepay"  # "abacatepay" or "hotmart"
+    active_gateway: str = "abacatepay"  # "abacatepay", "hotmart" ou "stripe"
     hotmart_token: Optional[str] = None  # Hotmart security token (hottok)
+    stripe_secret_key: Optional[str] = None
+    stripe_webhook_secret: Optional[str] = None
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: Optional[str] = None
 
@@ -349,17 +362,40 @@ class AbacatePayBilling(BaseModel):
     billing_id: str
     user_id: str
     amount_brl: float
-    credits: Optional[int] = None  # For credit packages
     course_id: Optional[str] = None  # For direct course purchase
-    package_id: Optional[str] = None  # For credit packages
     status: str = "pending"  # pending, paid, failed, cancelled
     payment_url: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     paid_at: Optional[datetime] = None
 
+# ==================== SUBSCRIPTION MODELS ====================
+
+class SubscriptionPlanBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price_brl: float
+    duration_days: int # Access duration in days
+    is_active: bool = True # To easily enable/disable plans
+    hotmart_product_id: Optional[str] = None  # Hotmart product ID for this subscription plan
+    hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL for this plan
+    # Stripe
+    stripe_price_id: Optional[str] = None  # Price ID (recorrente) para checkout
+    stripe_product_id: Optional[str] = None
+    # Access scope
+    access_scope: str = "full"  # "full" para toda plataforma, "specific" para cursos específicos
+    course_ids: List[str] = []  # cursos liberados quando access_scope == "specific"
+
+class SubscriptionPlanCreate(SubscriptionPlanBase):
+    pass
+
+class SubscriptionPlan(SubscriptionPlanBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 class CreateBillingRequest(BaseModel):
-    package_id: Optional[str] = None  # For buying credits
     course_id: Optional[str] = None  # For buying course directly
+    subscription_plan_id: Optional[str] = None  # For buying platform subscription
     customer_name: str
     customer_email: EmailStr
 
@@ -379,6 +415,16 @@ class SupportConfig(BaseModel):
     support_url: str = "https://wa.me/5511999999999"  # Default WhatsApp
     support_text: str = "Suporte"
     enabled: bool = True
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_by: Optional[str] = None
+
+# Feature Flag Configuration
+class FeatureFlag(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    key: str
+    description: Optional[str] = None
+    enabled_for_all: bool = False
+    enabled_users: List[str] = []  # emails ou IDs de usuários
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: Optional[str] = None
 
@@ -421,6 +467,8 @@ async def get_current_admin(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
+# (Feature flags removidos)
+
 # Helper function to check if user has access to a course (backward compatible)
 async def user_has_course_access(user_id: str, course_id: str, has_full_access: bool = False) -> bool:
     """
@@ -455,35 +503,18 @@ async def register(user_data: UserCreate):
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Check if referral code is valid
-    referrer_id = None
-    if user_data.referral_code:
-        referrer = await db.users.find_one({"referral_code": user_data.referral_code})
-        if referrer:
-            referrer_id = referrer["id"]
-            logger.info(f"New user referred by {referrer['email']} (code: {user_data.referral_code})")
-        else:
-            logger.warning(f"Invalid referral code: {user_data.referral_code}")
-    
     # SECURITY: Force role to "student" for public registrations
     # Only admins can create other admin users via the admin panel
-    user_data_dict = user_data.model_dump(exclude={"password", "referral_code"})
+    user_data_dict = user_data.model_dump(exclude={"password"})
     user_data_dict["role"] = "student"  # Force student role for public registrations
     user_data_dict["full_access"] = False  # Force full_access to False
     
-    # Generate unique referral code for this new user
-    new_referral_code = await generate_referral_code()
-    
-    user = User(**user_data_dict, referral_code=new_referral_code, referred_by=referrer_id)
+    user = User(**user_data_dict)
     user_dict = user.model_dump()
     user_dict['password_hash'] = get_password_hash(user_data.password)
     user_dict['created_at'] = user_dict['created_at'].isoformat()
     
     await db.users.insert_one(user_dict)
-    
-    # Log the referral for tracking (no bonus given at signup)
-    if referrer_id:
-        logger.info(f"New user {user.email} registered with referral code from {referrer_id}")
     
     # Create token
     access_token = create_access_token(data={"sub": user.id})
@@ -616,11 +647,36 @@ async def reset_password(token: str, new_password: str):
 
 @api_router.post("/admin/courses", response_model=Course)
 async def create_course(course_data: CourseCreate, current_user: User = Depends(get_current_admin)):
-    course = Course(**course_data.model_dump(), instructor_id=current_user.id)
+    # Validation: ensure at least one category (new list or legacy field)
+    payload = course_data.model_dump()
+    has_categories = bool(payload.get("categories"))
+    has_legacy_category = bool(payload.get("category"))
+    if not has_categories and not has_legacy_category:
+        raise HTTPException(status_code=400, detail="Course must have at least one category")
+
+    # Validate that all provided categories exist in the database
+    if has_categories:
+        category_ids = payload.get("categories", [])
+        if category_ids:
+            # Check if all category IDs exist
+            existing_categories = await db.categories.find({"id": {"$in": category_ids}}).to_list(None)
+            existing_category_ids = {cat["id"] for cat in existing_categories}
+            invalid_categories = [cat_id for cat_id in category_ids if cat_id not in existing_category_ids]
+            
+            if invalid_categories:
+                print(f"⚠️  UNAUTHORIZED CATEGORY CREATION ATTEMPT: User {current_user.email} tried to create course with invalid categories: {invalid_categories}")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Invalid category IDs: {invalid_categories}. Only existing categories are allowed."
+                )
+
+    # Backward compatibility: accept legacy 'category' field without populating 'categories'
+    course = Course(**payload, instructor_id=current_user.id)
     course_dict = course.model_dump()
     course_dict['created_at'] = course_dict['created_at'].isoformat()
     
     await db.courses.insert_one(course_dict)
+    print(f"✅ Course created successfully: {course.title} by {current_user.email}")
     return course
 
 @api_router.get("/admin/courses", response_model=List[Course])
@@ -647,11 +703,37 @@ async def update_course(course_id: str, course_data: CourseUpdate, current_user:
         raise HTTPException(status_code=404, detail="Course not found")
     
     update_data = course_data.model_dump(exclude_unset=True)
+
+    # Validation: ensure categories after update (consider legacy field)
+    prospective_categories = update_data.get("categories")
+    prospective_legacy = update_data.get("category")
+    if prospective_categories is not None or prospective_legacy is not None:
+        # If either field is being modified, ensure result has at least one category
+        final_categories = prospective_categories if prospective_categories is not None else existing.get("categories", [])
+        final_legacy = prospective_legacy if prospective_legacy is not None else existing.get("category")
+        if not final_categories and not final_legacy:
+            raise HTTPException(status_code=400, detail="Course must have at least one category")
+    
+    # Validate that all provided categories exist in the database
+    if prospective_categories is not None and prospective_categories:
+        # Check if all category IDs exist
+        existing_categories = await db.categories.find({"id": {"$in": prospective_categories}}).to_list(None)
+        existing_category_ids = {cat["id"] for cat in existing_categories}
+        invalid_categories = [cat_id for cat_id in prospective_categories if cat_id not in existing_category_ids]
+        
+        if invalid_categories:
+            print(f"⚠️  UNAUTHORIZED CATEGORY UPDATE ATTEMPT: User {current_user.email} tried to update course {course_id} with invalid categories: {invalid_categories}")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid category IDs: {invalid_categories}. Only existing categories are allowed."
+            )
+    
     await db.courses.update_one({"id": course_id}, {"$set": update_data})
     
     updated = await db.courses.find_one({"id": course_id}, {"_id": 0})
     if isinstance(updated['created_at'], str):
         updated['created_at'] = datetime.fromisoformat(updated['created_at'])
+    print(f"✅ Course updated successfully: {updated.get('title', course_id)} by {current_user.email}")
     return Course(**updated)
 
 @api_router.delete("/admin/courses/{course_id}")
@@ -667,6 +749,66 @@ async def delete_course(course_id: str, current_user: User = Depends(get_current
         await db.lessons.delete_many({"module_id": module['id']})
     
     return {"message": "Course deleted successfully"}
+
+# ==================== ADMIN ROUTES - CATEGORIES ====================
+
+@api_router.post("/admin/categories", response_model=Category)
+async def create_category(category_data: CategoryCreate, current_user: User = Depends(get_current_admin)):
+    # Ensure unique name
+    existing = await db.categories.find_one({"name": category_data.name})
+    if existing:
+        raise HTTPException(status_code=400, detail="Category with this name already exists")
+
+    category = Category(**category_data.model_dump())
+    cat_dict = category.model_dump()
+    cat_dict["created_at"] = cat_dict["created_at"].isoformat()
+    await db.categories.insert_one(cat_dict)
+    return category
+
+@api_router.get("/admin/categories", response_model=List[Category])
+async def list_categories(current_user: User = Depends(get_current_admin)):
+    items = await db.categories.find({}, {"_id": 0}).sort("name", 1).to_list(1000)
+    for c in items:
+        if isinstance(c.get("created_at"), str):
+            c["created_at"] = datetime.fromisoformat(c["created_at"])
+    return [Category(**c) for c in items]
+
+# Public categories listing for students (read-only)
+@api_router.get("/categories", response_model=List[Category])
+async def public_list_categories():
+    items = await db.categories.find({}, {"_id": 0}).sort("name", 1).to_list(1000)
+    for c in items:
+        if isinstance(c.get("created_at"), str):
+            c["created_at"] = datetime.fromisoformat(c["created_at"])
+    return [Category(**c) for c in items]
+
+@api_router.put("/admin/categories/{category_id}", response_model=Category)
+async def update_category(category_id: str, category_data: CategoryUpdate, current_user: User = Depends(get_current_admin)):
+    existing = await db.categories.find_one({"id": category_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    update_data = category_data.model_dump(exclude_unset=True)
+    # If renaming, ensure unique
+    if "name" in update_data:
+        dup = await db.categories.find_one({"name": update_data["name"], "id": {"$ne": category_id}})
+        if dup:
+            raise HTTPException(status_code=400, detail="Another category with this name already exists")
+
+    await db.categories.update_one({"id": category_id}, {"$set": update_data})
+    updated = await db.categories.find_one({"id": category_id}, {"_id": 0})
+    if isinstance(updated.get("created_at"), str):
+        updated["created_at"] = datetime.fromisoformat(updated["created_at"])
+    return Category(**updated)
+
+@api_router.delete("/admin/categories/{category_id}")
+async def delete_category(category_id: str, current_user: User = Depends(get_current_admin)):
+    result = await db.categories.delete_one({"id": category_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    # Remove this category from all courses' categories lists
+    await db.courses.update_many({}, {"$pull": {"categories": category_id}})
+    return {"message": "Category deleted successfully"}
 
 # ==================== ADMIN ROUTES - MODULES ====================
 
@@ -795,8 +937,6 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
             "role": "student",
             "has_full_access": invite.get('has_full_access', False),
             "avatar": None,
-            "referral_code": invite.get('referral_code', ""),
-            "referred_by": None,
             "has_purchased": False,
             "enrolled_courses": filtered_courses,
             "invited": True,
@@ -948,6 +1088,52 @@ async def delete_user_by_admin(user_id: str, current_user: User = Depends(get_cu
     # Also delete user's enrollments
     await db.enrollments.delete_many({"user_id": user_id})
     return {"message": "User deleted successfully"}
+
+# ==================== ADMIN ROUTES - SUBSCRIPTION PLANS ====================
+
+@api_router.post("/admin/subscription-plans", response_model=SubscriptionPlan)
+async def create_subscription_plan(plan_data: SubscriptionPlanCreate, current_user: User = Depends(get_current_admin)):
+    plan = SubscriptionPlan(**plan_data.model_dump())
+    plan_dict = plan.model_dump()
+    plan_dict['created_at'] = plan_dict['created_at'].isoformat()
+    
+    await db.subscription_plans.insert_one(plan_dict)
+    return plan
+
+@api_router.get("/admin/subscription-plans", response_model=List[SubscriptionPlan])
+async def get_subscription_plans(current_user: User = Depends(get_current_admin)):
+    plans = await db.subscription_plans.find({}, {"_id": 0}).to_list(1000)
+    for plan in plans:
+        if isinstance(plan['created_at'], str):
+            plan['created_at'] = datetime.fromisoformat(plan['created_at'])
+    return plans
+
+@api_router.put("/admin/subscription-plans/{plan_id}", response_model=SubscriptionPlan)
+async def update_subscription_plan(plan_id: str, plan_data: SubscriptionPlanBase, current_user: User = Depends(get_current_admin)):
+    existing = await db.subscription_plans.find_one({"id": plan_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Subscription plan not found")
+    
+    update_data = plan_data.model_dump(exclude_unset=True)
+    await db.subscription_plans.update_one({"id": plan_id}, {"$set": update_data})
+    
+    updated = await db.subscription_plans.find_one({"id": plan_id}, {"_id": 0})
+    if isinstance(updated['created_at'], str):
+        updated['created_at'] = datetime.fromisoformat(updated['created_at'])
+    return SubscriptionPlan(**updated)
+
+@api_router.delete("/admin/subscription-plans/{plan_id}")
+async def delete_subscription_plan(plan_id: str, current_user: User = Depends(get_current_admin)):
+    result = await db.subscription_plans.delete_one({"id": plan_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Subscription plan not found")
+    return {"message": "Subscription plan deleted successfully"}
+
+# Public: List active subscription plans for students to subscribe
+@api_router.get("/subscriptions/plans")
+async def list_active_subscription_plans():
+    plans = await db.subscription_plans.find({"is_active": True}, {"_id": 0}).to_list(100)
+    return plans
 
 # ==================== ADMIN ROUTES - ENROLLMENT MANAGEMENT ====================
 
@@ -1160,29 +1346,18 @@ async def update_progress(progress_data: ProgressBase, current_user: User = Depe
             completed_lessons = [p for p in all_progress if p.get('completed', False)]
             
             if len(completed_lessons) == len(lesson_ids) and len(lesson_ids) > 0:
-                # Course completed! Check if we already rewarded this
-                existing_reward = await db.credit_transactions.find_one({
-                    "user_id": current_user.id,
-                    "reference_id": f"course_completion_{course_id}"
-                })
+                # Course completed! Log completion
+                course = await db.courses.find_one({"id": course_id})
+                course_title = course.get("title", "Unknown Course") if course else "Unknown Course"
                 
-                if not existing_reward:
-                    # Get gamification settings for course completion reward
-                    gamification = await db.gamification_settings.find_one({})
-                    complete_course_reward = gamification.get("complete_course", 30) if gamification else 30
-                    
-                    # Give course completion reward
-                    course = await db.courses.find_one({"id": course_id})
-                    course_title = course.get("title", "Unknown Course") if course else "Unknown Course"
-                    
-                    await add_credit_transaction(
-                        user_id=current_user.id,
-                        amount=complete_course_reward,
-                        transaction_type="earned",
-                        description=f"Conclusão do curso: {course_title}",
-                        reference_id=f"course_completion_{course_id}"
-                    )
-                    logger.info(f"User {current_user.id} completed course {course_id}, awarded {complete_course_reward} credits")
+                logger.info(f"User {current_user.id} completed course {course_id}: {course_title}")
+                
+                # Trigger gamification reward (now just logs)
+                await give_gamification_reward(
+                    current_user.id, 
+                    "complete_course", 
+                    f"Conclusão do curso: {course_title}"
+                )
     
     return {"message": "Progress updated"}
 
@@ -1211,6 +1386,18 @@ async def user_has_access(user_id: str) -> bool:
     # Check if user has full access
     if user.get("has_full_access", False):
         return True
+
+    # Check active subscription
+    valid_until = user.get("subscription_valid_until")
+    if valid_until:
+        # Normalize to datetime if stored as string
+        if isinstance(valid_until, str):
+            try:
+                valid_until = datetime.fromisoformat(valid_until)
+            except Exception:
+                valid_until = None
+        if valid_until and datetime.now(timezone.utc) < valid_until:
+            return True
     
     # Check if user is enrolled in at least one course
     enrollment = await db.enrollments.find_one({"user_id": user_id})
@@ -1749,200 +1936,18 @@ async def get_post_detail(post_id: str, current_user: User = Depends(get_current
     }
 
 
-# ==================== CREDITS SYSTEM ====================
-
-# Helper function to get or create user credits
-async def get_user_credits(user_id: str) -> dict:
-    """Get user credits balance or create if not exists"""
-    credits = await db.user_credits.find_one({"user_id": user_id}, {"_id": 0})
-    if not credits:
-        credits = {
-            "user_id": user_id,
-            "balance": 0,
-            "total_earned": 0,
-            "total_spent": 0,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }
-        await db.user_credits.insert_one(credits.copy())
-    return credits
-
-# Helper function to add credits transaction
-async def add_credit_transaction(user_id: str, amount: int, transaction_type: str, description: str, reference_id: Optional[str] = None, skip_referral_bonus: bool = False):
-    """Add a credit transaction and update user balance"""
-    # Get current balance
-    credits = await get_user_credits(user_id)
-    
-    # Create transaction
-    transaction = {
-        "id": str(uuid.uuid4()),
-        "user_id": user_id,
-        "amount": amount,
-        "transaction_type": transaction_type,
-        "description": description,
-        "reference_id": reference_id,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.credit_transactions.insert_one(transaction.copy())
-    
-    # Update user balance
-    new_balance = credits["balance"] + amount
-    update_data = {
-        "balance": new_balance,
-        "updated_at": datetime.now(timezone.utc).isoformat()
-    }
-    
-    if amount > 0:
-        update_data["total_earned"] = credits.get("total_earned", 0) + amount
-    else:
-        update_data["total_spent"] = credits.get("total_spent", 0) + abs(amount)
-    
-    await db.user_credits.update_one(
-        {"user_id": user_id},
-        {"$set": update_data}
-    )
-    
-    # REFERRAL BONUS LOGIC
-    # Give referral bonus to referrer when referred user earns credits (not spends)
-    # Only if referrer has made a purchase
-    if amount > 0 and transaction_type in ["earned", "purchased"] and not skip_referral_bonus:
-        user = await db.users.find_one({"id": user_id})
-        if user and user.get("referred_by"):
-            referrer = await db.users.find_one({"id": user["referred_by"]})
-            if referrer and referrer.get("has_purchased", False):
-                # Calculate 50% bonus
-                referral_bonus = int(amount * (REFERRAL_PURCHASE_PERCENTAGE / 100))
-                
-                if referral_bonus > 0:
-                    # Add referral bonus (skip_referral_bonus=True to prevent infinite loop)
-                    await add_credit_transaction(
-                        user_id=user["referred_by"],
-                        amount=referral_bonus,
-                        transaction_type="earned",
-                        description=f"Bônus de indicação: {user.get('name', 'Usuário')} ganhou {amount} créditos",
-                        reference_id=transaction["id"],
-                        skip_referral_bonus=True
-                    )
-                    logger.info(f"Awarded {referral_bonus} referral bonus credits to {user['referred_by']} (50% of {amount})")
-                
-                # Check if this is the first purchase/earning - give 10 credits signup bonus
-                # Check if we already gave the signup bonus
-                existing_signup_bonus = await db.credit_transactions.find_one({
-                    "user_id": user["referred_by"],
-                    "description": {"$regex": f"Bônus de cadastro.*{user.get('name', user_id)}"}
-                })
-                
-                if not existing_signup_bonus and user.get("has_purchased", False):
-                    # This is the first time the referred user is earning after making a purchase
-                    # Give 10 credits signup bonus
-                    await add_credit_transaction(
-                        user_id=user["referred_by"],
-                        amount=REFERRAL_SIGNUP_BONUS,
-                        transaction_type="earned",
-                        description=f"Bônus de cadastro: {user.get('name', 'Usuário')} fez a primeira compra",
-                        reference_id=transaction["id"],
-                        skip_referral_bonus=True
-                    )
-                    logger.info(f"Awarded {REFERRAL_SIGNUP_BONUS} signup bonus credits to {user['referred_by']}")
-    
-    return transaction
-
-# Get user credits balance
-@api_router.get("/credits/balance")
-async def get_credits_balance(current_user: User = Depends(get_current_user)):
-    """Get current user's credit balance"""
-    credits = await get_user_credits(current_user.id)
-    return credits
-
-# Get user credits transaction history
-@api_router.get("/credits/transactions")
-async def get_credits_transactions(current_user: User = Depends(get_current_user)):
-    """Get current user's credit transaction history"""
-    transactions = await db.credit_transactions.find(
-        {"user_id": current_user.id},
-        {"_id": 0}
-    ).sort("created_at", -1).to_list(length=100)
-    return {"transactions": transactions}
-
-# Get available credit packages
-@api_router.get("/credits/packages")
-async def get_credit_packages():
-    """Get available credit packages for purchase"""
-    return {"packages": CREDIT_PACKAGES}
-
-# Enroll in course using credits
-@api_router.post("/courses/{course_id}/enroll-with-credits")
-async def enroll_with_credits(course_id: str, current_user: User = Depends(get_current_user)):
-    """Enroll in a course using credits"""
-    # Get course
-    course = await db.courses.find_one({"id": course_id}, {"_id": 0})
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-    
-    # Check if already enrolled
-    existing_enrollment = await db.enrollments.find_one({
-        "user_id": current_user.id,
-        "course_id": course_id
-    })
-    if existing_enrollment:
-        raise HTTPException(status_code=400, detail="Already enrolled in this course")
-    
-    # Get user credits
-    credits = await get_user_credits(current_user.id)
-    course_price = course.get("price_credits", 50)
-    
-    # Check if user has enough credits
-    if credits["balance"] < course_price:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient credits. You have {credits['balance']} credits but need {course_price}"
-        )
-    
-    # Deduct credits
-    await add_credit_transaction(
-        user_id=current_user.id,
-        amount=-course_price,
-        transaction_type="spent",
-        description=f"Matricula no curso: {course['title']}",
-        reference_id=course_id
-    )
-    
-    # Create enrollment
-    enrollment = {
-        "id": str(uuid.uuid4()),
-        "user_id": current_user.id,
-        "course_id": course_id,
-        "enrolled_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.enrollments.insert_one(enrollment)
-    
-    logger.info(f"User {current_user.email} enrolled in course {course_id} using {course_price} credits")
-    
-    return {
-        "message": "Successfully enrolled in course",
-        "credits_spent": course_price,
-        "remaining_balance": credits["balance"] - course_price
-    }
-
 # ==================== ABACATE PAY INTEGRATION ====================
 
-# Create billing for credit purchase or direct course purchase
+# Create billing for course purchase or subscription
 @api_router.post("/billing/create")
 async def create_billing(request: CreateBillingRequest, current_user: User = Depends(get_current_user)):
-    """Create a billing for credit package or direct course purchase"""
+    """Create a billing for course purchase or subscription plan"""
     try:
+        # Verificar gateway ativo
+        gateway_cfg = await db.gateway_config.find_one({}, {"_id": 0})
+        active_gateway = (gateway_cfg or {}).get("active_gateway", "abacatepay")
         # Determine what we're selling
-        if request.package_id:
-            # Buying credits
-            package = next((p for p in CREDIT_PACKAGES if p["id"] == request.package_id), None)
-            if not package:
-                raise HTTPException(status_code=404, detail="Package not found")
-            
-            amount_brl = package["price_brl"]
-            credits = package["credits"]
-            product_name = package["name"]
-            product_description = f"{package['credits']} créditos"
-            
-        elif request.course_id:
+        if request.course_id:
             # Buying course directly
             course = await db.courses.find_one({"id": request.course_id}, {"_id": 0})
             if not course:
@@ -1952,11 +1957,75 @@ async def create_billing(request: CreateBillingRequest, current_user: User = Dep
             if amount_brl <= 0:
                 raise HTTPException(status_code=400, detail="Course price not set")
             
-            credits = None
             product_name = course["title"]
             product_description = f"Acesso ao curso: {course['title']}"
+        elif request.subscription_plan_id:
+            # Buying subscription plan
+            plan = await db.subscription_plans.find_one({"id": request.subscription_plan_id, "is_active": True}, {"_id": 0})
+            if not plan:
+                raise HTTPException(status_code=404, detail="Subscription plan not found or inactive")
+
+            amount_brl = float(plan.get("price_brl", 0))
+            if amount_brl <= 0:
+                raise HTTPException(status_code=400, detail="Subscription price not set")
+
+            product_name = f"Assinatura: {plan['name']}"
+            product_description = f"Acesso à plataforma por {plan['duration_days']} dias"
         else:
-            raise HTTPException(status_code=400, detail="Must specify package_id or course_id")
+            raise HTTPException(status_code=400, detail="Must specify course_id or subscription_plan_id")
+
+        # Fluxo Stripe para assinaturas
+        if request.subscription_plan_id and active_gateway == "stripe":
+            stripe_key = await ensure_stripe_config()
+            if not stripe_key:
+                raise HTTPException(status_code=500, detail="Stripe not configured: missing STRIPE_SECRET_KEY")
+            if not plan.get("stripe_price_id"):
+                raise HTTPException(status_code=400, detail="Subscription plan missing stripe_price_id")
+
+            try:
+                frontend_url = get_frontend_url()
+                if not _is_valid_base_url(frontend_url):
+                    logger.error(f"Invalid FRONTEND_URL for Stripe: '{frontend_url}'")
+                    raise HTTPException(status_code=500, detail="Invalid FRONTEND_URL for Stripe checkout")
+                success_url = f"{frontend_url}/subscription-success?session_id={{CHECKOUT_SESSION_ID}}"
+                cancel_url = f"{frontend_url}/payment-cancelled"
+                logger.info(f"Stripe checkout URLs composed: success={success_url} cancel={cancel_url}")
+                session = stripe.checkout.Session.create(
+                    mode="subscription",
+                    customer_email=request.customer_email,
+                    line_items=[{
+                        "price": plan["stripe_price_id"],
+                        "quantity": 1,
+                    }],
+                    metadata={
+                        "user_id": current_user.id,
+                        "subscription_plan_id": request.subscription_plan_id,
+                        "access_scope": plan.get("access_scope", "full"),
+                        "course_ids": ",".join(plan.get("course_ids", [])),
+                        "duration_days": str(plan.get("duration_days", 0)),
+                    },
+                    client_reference_id=current_user.id,
+                    success_url=success_url,
+                    cancel_url=cancel_url,
+                )
+            except Exception as e:
+                logger.error(f"Stripe session creation failed: {e}", exc_info=True)
+                raise HTTPException(status_code=500, detail="Failed to create Stripe checkout session")
+
+            # Registrar pseudo-billing
+            billing_record = {
+                "billing_id": session.id,
+                "user_id": current_user.id,
+                "amount_brl": amount_brl,
+                "course_id": None,
+                "subscription_plan_id": request.subscription_plan_id,
+                "status": "pending",
+                "payment_url": session.url,
+                "gateway": "stripe",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+            await db.billings.insert_one(billing_record)
+            return {"payment_url": session.url, "billing_id": session.id}
         
         # Create billing with Abacate Pay
         async with httpx.AsyncClient() as client:
@@ -1964,7 +2033,7 @@ async def create_billing(request: CreateBillingRequest, current_user: User = Dep
                 "frequency": "ONE_TIME",
                 "methods": ["PIX"],  # Only PIX for sandbox testing
                 "products": [{
-                    "externalId": request.package_id or request.course_id,
+                    "externalId": request.course_id or request.subscription_plan_id,
                     "name": product_name,
                     "description": product_description,
                     "quantity": 1,
@@ -1976,8 +2045,8 @@ async def create_billing(request: CreateBillingRequest, current_user: User = Dep
                     "cellphone": "+5511999999999",  # Default test cellphone for sandbox
                     "taxId": "11144477735"  # Valid test CPF for sandbox
                 },
-                "returnUrl": f"{os.environ.get('FRONTEND_URL')}/payment-cancelled",
-                "completionUrl": f"{os.environ.get('FRONTEND_URL')}/payment-success"
+                "returnUrl": f"{get_frontend_url()}/payment-cancelled",
+                "completionUrl": f"{get_frontend_url()}/payment-success"
             }
             
             headers = {
@@ -2009,9 +2078,8 @@ async def create_billing(request: CreateBillingRequest, current_user: User = Dep
                 "billing_id": billing_id,
                 "user_id": current_user.id,
                 "amount_brl": amount_brl,
-                "credits": credits,
                 "course_id": request.course_id,
-                "package_id": request.package_id,
+                "subscription_plan_id": request.subscription_plan_id,
                 "status": "pending",
                 "payment_url": payment_url,
                 "created_at": datetime.now(timezone.utc).isoformat(),
@@ -2074,7 +2142,7 @@ async def abacatepay_webhook(request: dict):
             
             user_id = billing["user_id"]
             
-            # Mark user as having made a purchase FIRST (before adding credits)
+            # Mark user as having made a purchase FIRST
             # This is important for referral bonus logic
             await db.users.update_one(
                 {"id": user_id},
@@ -2082,18 +2150,7 @@ async def abacatepay_webhook(request: dict):
             )
             
             # Process based on purchase type
-            if billing.get("credits"):
-                # Credit package purchase - add credits to user
-                await add_credit_transaction(
-                    user_id=user_id,
-                    amount=billing["credits"],
-                    transaction_type="purchased",
-                    description=f"Compra de {billing['credits']} créditos",
-                    reference_id=billing_id
-                )
-                logger.info(f"Added {billing['credits']} credits to user {user_id}")
-                
-            elif billing.get("course_id"):
+            if billing.get("course_id"):
                 # Direct course purchase - create enrollment
                 course_id = billing["course_id"]
                 
@@ -2118,7 +2175,23 @@ async def abacatepay_webhook(request: dict):
                     }
                     await db.enrollments.insert_one(enrollment)
                     logger.info(f"Enrolled user {user_id} in course {course_id} via direct purchase")
-            
+            elif billing.get("subscription_plan_id"):
+                # Subscription purchase - set subscription validity on user
+                plan_id = billing.get("subscription_plan_id")
+                plan = await db.subscription_plans.find_one({"id": plan_id}, {"_id": 0})
+                if plan:
+                    duration_days = int(plan.get("duration_days", 0) or 0)
+                    valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
+                    await db.users.update_one(
+                        {"id": user_id},
+                        {"$set": {
+                            "has_purchased": True,
+                            "subscription_plan_id": plan_id,
+                            "subscription_valid_until": valid_until.isoformat()
+                        }}
+                    )
+                    logger.info(f"Activated subscription {plan_id} for user {user_id} until {valid_until.isoformat()}")
+
             logger.info(f"Successfully processed payment for billing {billing_id}")
             return {"status": "ok", "message": "Payment processed"}
         
@@ -2187,24 +2260,7 @@ async def check_billing_status(billing_id: str, current_user: User = Depends(get
                 user_id = billing["user_id"]
                 
                 # Process based on purchase type
-                if billing.get("credits"):
-                    # Mark user as having made a purchase FIRST (before adding credits)
-                    await db.users.update_one(
-                        {"id": user_id},
-                        {"$set": {"has_purchased": True}}
-                    )
-                    
-                    # Credit package purchase - add credits to user
-                    await add_credit_transaction(
-                        user_id=user_id,
-                        amount=billing["credits"],
-                        transaction_type="purchased",
-                        description=f"Compra de {billing['credits']} créditos",
-                        reference_id=billing_id
-                    )
-                    logger.info(f"Added {billing['credits']} credits to user {user_id} via status check")
-                    
-                elif billing.get("course_id"):
+                if billing.get("course_id"):
                     # Direct course purchase - create enrollment
                     course_id = billing["course_id"]
                     
@@ -2229,8 +2285,24 @@ async def check_billing_status(billing_id: str, current_user: User = Depends(get
                         }
                         await db.enrollments.insert_one(enrollment)
                         logger.info(f"Enrolled user {user_id} in course {course_id} via status check")
+                elif billing.get("subscription_plan_id"):
+                    # Subscription purchase - set subscription validity on user
+                    plan_id = billing.get("subscription_plan_id")
+                    plan = await db.subscription_plans.find_one({"id": plan_id}, {"_id": 0})
+                    if plan:
+                        duration_days = int(plan.get("duration_days", 0) or 0)
+                        valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
+                        await db.users.update_one(
+                            {"id": user_id},
+                            {"$set": {
+                                "has_purchased": True,
+                                "subscription_plan_id": plan_id,
+                                "subscription_valid_until": valid_until.isoformat()
+                            }}
+                        )
+                        logger.info(f"Activated subscription {plan_id} for user {user_id} until {valid_until.isoformat()} via status check")
                 
-                return {"status": "paid", "message": "Payment confirmed! Credits added."}
+                return {"status": "paid", "message": "Payment confirmed! Benefits applied."}
             
             return {"status": "pending", "message": "Payment still pending"}
             
@@ -2239,22 +2311,7 @@ async def check_billing_status(billing_id: str, current_user: User = Depends(get
         raise HTTPException(status_code=500, detail=f"Failed to check status: {str(e)}")
 
 
-# ==================== ADMIN CREDITS & PAYMENTS MANAGEMENT ====================
-
-# Admin: Get all transactions
-@api_router.get("/admin/credits/transactions")
-async def admin_get_all_transactions(current_user: User = Depends(get_current_admin)):
-    """Get all credit transactions (admin only)"""
-    transactions = await db.credit_transactions.find({}, {"_id": 0}).sort("created_at", -1).to_list(length=500)
-    
-    # Enrich with user info
-    for transaction in transactions:
-        user = await db.users.find_one({"id": transaction["user_id"]}, {"_id": 0, "name": 1, "email": 1})
-        if user:
-            transaction["user_name"] = user["name"]
-            transaction["user_email"] = user["email"]
-    
-    return {"transactions": transactions}
+# ==================== ADMIN PAYMENTS MANAGEMENT ====================
 
 # Admin: Get all billings/purchases
 @api_router.get("/admin/billings")
@@ -2270,33 +2327,6 @@ async def admin_get_all_billings(current_user: User = Depends(get_current_admin)
             billing["user_email"] = user["email"]
     
     return {"billings": billings}
-
-# Admin: Add credits manually to a user
-@api_router.post("/admin/credits/add-manual")
-async def admin_add_credits_manually(
-    user_id: str,
-    amount: int,
-    description: str,
-    current_user: User = Depends(get_current_admin)
-):
-    """Manually add credits to a user (admin only)"""
-    # Verify user exists
-    user = await db.users.find_one({"id": user_id})
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Add credits
-    await add_credit_transaction(
-        user_id=user_id,
-        amount=amount,
-        transaction_type="earned",
-        description=f"[Admin] {description}",
-        reference_id=None
-    )
-    
-    logger.info(f"Admin {current_user.email} added {amount} credits to user {user_id}")
-    
-    return {"message": f"Successfully added {amount} credits", "user_id": user_id}
 
 # Admin: Get payment settings
 @api_router.get("/admin/payment-settings")
@@ -2318,6 +2348,8 @@ async def get_payment_settings(current_user: User = Depends(get_current_admin)):
 async def update_payment_settings(
     abacatepay_api_key: str,
     environment: str,
+    stripe_secret_key: Optional[str] = None,
+    stripe_webhook_secret: Optional[str] = None,
     current_user: User = Depends(get_current_admin)
 ):
     """Update payment gateway settings (admin only)"""
@@ -2327,6 +2359,8 @@ async def update_payment_settings(
     settings = {
         "abacatepay_api_key": abacatepay_api_key,
         "environment": environment,
+        "stripe_secret_key": stripe_secret_key,
+        "stripe_webhook_secret": stripe_webhook_secret,
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "updated_by": current_user.email
     }
@@ -2340,6 +2374,14 @@ async def update_payment_settings(
     # Update environment variables (note: requires restart to take full effect)
     os.environ['ABACATEPAY_API_KEY'] = abacatepay_api_key
     os.environ['ABACATEPAY_ENVIRONMENT'] = environment
+    if stripe_secret_key:
+        os.environ['STRIPE_SECRET_KEY'] = stripe_secret_key
+        try:
+            stripe.api_key = stripe_secret_key
+        except Exception:
+            pass
+    if stripe_webhook_secret:
+        os.environ['STRIPE_WEBHOOK_SECRET'] = stripe_webhook_secret
     
     logger.info(f"Admin {current_user.email} updated payment settings to {environment}")
     
@@ -2354,12 +2396,6 @@ async def get_admin_statistics(current_user: User = Depends(get_current_admin)):
     
     # Total courses
     total_courses = await db.courses.count_documents({})
-    
-    # Total credits distributed
-    all_credits = await db.user_credits.find({}, {"_id": 0}).to_list(length=None)
-    total_credits_distributed = sum(c.get("balance", 0) for c in all_credits)
-    total_credits_earned = sum(c.get("total_earned", 0) for c in all_credits)
-    total_credits_spent = sum(c.get("total_spent", 0) for c in all_credits)
     
     # Total billings
     total_billings = await db.billings.count_documents({})
@@ -2377,11 +2413,6 @@ async def get_admin_statistics(current_user: User = Depends(get_current_admin)):
         "courses": {
             "total": total_courses
         },
-        "credits": {
-            "total_distributed": total_credits_distributed,
-            "total_earned": total_credits_earned,
-            "total_spent": total_credits_spent
-        },
         "billings": {
             "total": total_billings,
             "paid": paid_billings,
@@ -2397,7 +2428,7 @@ async def get_admin_statistics(current_user: User = Depends(get_current_admin)):
 # Admin: Manually mark billing as paid
 @api_router.post("/admin/billings/{billing_id}/mark-paid")
 async def admin_mark_billing_paid(billing_id: str, current_user: User = Depends(get_current_admin)):
-    """Manually mark a billing as paid and process credits/enrollment (admin only)"""
+    """Manually mark a billing as paid and process enrollment (admin only)"""
     try:
         # Get billing from database
         billing = await db.billings.find_one({"billing_id": billing_id}, {"_id": 0})
@@ -2420,25 +2451,14 @@ async def admin_mark_billing_paid(billing_id: str, current_user: User = Depends(
         
         user_id = billing["user_id"]
         
-        # Mark user as having made a purchase FIRST (before adding credits)
+        # Mark user as having made a purchase FIRST
         await db.users.update_one(
             {"id": user_id},
             {"$set": {"has_purchased": True}}
         )
         
         # Process based on purchase type
-        if billing.get("credits"):
-            # Credit package purchase - add credits to user
-            await add_credit_transaction(
-                user_id=user_id,
-                amount=billing["credits"],
-                transaction_type="purchased",
-                description=f"Compra de {billing['credits']} créditos (confirmado manualmente)",
-                reference_id=billing_id
-            )
-            logger.info(f"Admin {current_user.email} manually confirmed billing {billing_id} - added {billing['credits']} credits to user {user_id}")
-            
-        elif billing.get("course_id"):
+        if billing.get("course_id"):
             # Direct course purchase - create enrollment
             course_id = billing["course_id"]
             
@@ -2466,7 +2486,6 @@ async def admin_mark_billing_paid(billing_id: str, current_user: User = Depends(
         
         return {
             "message": "Billing marked as paid successfully",
-            "credits_added": billing.get("credits"),
             "course_enrolled": billing.get("course_id")
         }
         
@@ -2545,16 +2564,15 @@ async def update_support_config(
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "updated_by": current_user.email
     }
-    
     await db.support_config.update_one(
         {},
         {"$set": config},
         upsert=True
     )
-    
     logger.info(f"Admin {current_user.email} updated support config")
-    
     return {"message": "Support configuration updated successfully"}
+
+# (Feature flags removidos)
 
 # Debug endpoint to check user enrollment
 @api_router.get("/debug/user/{email}")
@@ -2619,8 +2637,8 @@ async def update_gateway_config(
     current_user: User = Depends(get_current_admin)
 ):
     """Update payment gateway configuration (admin only)"""
-    if active_gateway not in ["abacatepay", "hotmart"]:
-        raise HTTPException(status_code=400, detail="Invalid gateway. Must be 'abacatepay' or 'hotmart'")
+    if active_gateway not in ["abacatepay", "hotmart", "stripe"]:
+        raise HTTPException(status_code=400, detail="Invalid gateway. Must be 'abacatepay', 'hotmart' or 'stripe'")
     
     config = {
         "active_gateway": active_gateway,
@@ -2638,6 +2656,86 @@ async def update_gateway_config(
     logger.info(f"Admin {current_user.email} updated gateway config to {active_gateway}")
     
     return {"message": "Gateway configuration updated successfully"}
+
+# ==================== STRIPE WEBHOOK ====================
+
+@api_router.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET') or STRIPE_WEBHOOK_SECRET
+    if not webhook_secret:
+        # Try reading from payment_settings in DB as a fallback
+        try:
+            settings = await db.payment_settings.find_one({}, {"_id": 0})
+            if settings and settings.get("stripe_webhook_secret"):
+                webhook_secret = settings["stripe_webhook_secret"]
+                os.environ['STRIPE_WEBHOOK_SECRET'] = webhook_secret
+        except Exception:
+            pass
+    if not webhook_secret:
+        logger.error("Stripe webhook secret not configured")
+        raise HTTPException(status_code=500, detail="Stripe webhook not configured")
+
+    payload = await request.body()
+    sig_header = request.headers.get("Stripe-Signature")
+    try:
+        event = stripe.Webhook.construct_event(
+            payload=payload,
+            sig_header=sig_header,
+            secret=webhook_secret,
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
+    event_type = event.get("type")
+    data_obj = (event.get("data", {}) or {}).get("object", {})
+
+    try:
+        if event_type in ("checkout.session.completed", "invoice.payment_succeeded"):
+            meta = data_obj.get("metadata", {})
+            user_id = meta.get("user_id") or data_obj.get("client_reference_id")
+            plan_id = meta.get("subscription_plan_id")
+            access_scope = meta.get("access_scope", "full")
+            course_ids = [c for c in (meta.get("course_ids") or "").split(",") if c]
+            duration_days = int(meta.get("duration_days", "0") or 0)
+
+            if not user_id or not plan_id:
+                logger.warning("Missing user_id or plan_id in webhook metadata; skipping")
+                return {"status": "ignored"}
+
+            if access_scope == "full":
+                valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
+                await db.users.update_one(
+                    {"id": user_id},
+                    {"$set": {
+                        "has_purchased": True,
+                        "has_full_access": True,
+                        "subscription_plan_id": plan_id,
+                        "subscription_valid_until": valid_until.isoformat(),
+                    }}
+                )
+                logger.info(f"Stripe: full access activated for user {user_id} until {valid_until.isoformat()}")
+            else:
+                if course_ids:
+                    await db.users.update_one(
+                        {"id": user_id},
+                        {"$addToSet": {"enrolled_courses": {"$each": course_ids}}, "$set": {"has_purchased": True}}
+                    )
+                logger.info(f"Stripe: specific courses granted to user {user_id}: {course_ids}")
+
+            billing_id = data_obj.get("id") or data_obj.get("subscription") or data_obj.get("payment_intent")
+            if billing_id:
+                await db.billings.update_one(
+                    {"billing_id": billing_id},
+                    {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat()}},
+                    upsert=True,
+                )
+
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Error processing Stripe webhook: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Webhook processing error")
 
 # Hotmart Webhook Endpoint
 @api_router.post("/hotmart/webhook")
@@ -2715,12 +2813,62 @@ async def hotmart_webhook(webhook_data: dict):
         }
         await db.hotmart_webhooks.insert_one(webhook_record)
         
-        # Only process approved purchases
-        # V2: event = "PURCHASE_APPROVED" and status = "APPROVED"
-        # V1: callback_type = "1" and status = "approved"
-        is_approved_v2 = (version == "2.0.0" and event == "PURCHASE_APPROVED" and status == "APPROVED")
+        # Determine approval and blocking events
+        # Approvals
+        # V2: PURCHASE_APPROVED (APPROVED) or RECURRENCE_PAYMENT_CONFIRMED
+        # V1: callback_type = "1" (approved purchase)
+        is_approved_v2 = (
+            version == "2.0.0" and (
+                (event == "PURCHASE_APPROVED" and status == "APPROVED") or
+                (event == "RECURRENCE_PAYMENT_CONFIRMED")
+            )
+        )
         is_approved_v1 = (version != "2.0.0" and callback_type == "1" and status == "approved")
-        
+
+        # Blocking events for subscriptions (Hotmart v2 common events)
+        is_block_v2 = (
+            version == "2.0.0" and event in [
+                "PURCHASE_CANCELED",
+                "RECURRENCE_OVERDUE",
+                "RECURRENCE_CANCELED",
+                "PURCHASE_EXPIRED"
+            ]
+        )
+        # Minimal v1 handling: treat callback_type != "1" with status in canceled/expired as block
+        is_block_v1 = (
+            version != "2.0.0" and status in ["canceled", "expired", "chargeback"]
+        )
+
+        # If it's a blocking event, attempt to block subscription access
+        if (not is_approved_v2 and not is_approved_v1) and (is_block_v2 or is_block_v1):
+            logger.info(f"⛔ Handling blocking event - version: {version}, event: {event}, status: {status}")
+            # Try to find a subscription plan associated with this product
+            sub_plan = await db.subscription_plans.find_one({"hotmart_product_id": prod_id}, {"_id": 0})
+            if not sub_plan:
+                logger.info("No subscription plan found for blocking; skipping.")
+                return {"message": "Blocking event received but no subscription plan matched"}
+            # Find user
+            user = await db.users.find_one({"email": email})
+            if not user:
+                logger.info("Blocking event received but user not found; skipping.")
+                return {"message": "Blocking event received but user not found"}
+            # Block access by disabling full access and setting subscription validity to now
+            await db.users.update_one(
+                {"id": user["id"]},
+                {"$set": {
+                    "has_full_access": False,
+                    "subscription_plan_id": sub_plan.get("id", user.get("subscription_plan_id")),
+                    "subscription_valid_until": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            await db.hotmart_webhooks.update_one(
+                {"transaction": transaction},
+                {"$set": {"processed": True, "processed_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            logger.info(f"🚫 Subscription access blocked for {email} due to event {event}.")
+            return {"message": "Subscription access blocked", "event": event, "status": status}
+
+        # For any non-approval/non-blocking, do not process further
         if not (is_approved_v2 or is_approved_v1):
             logger.info(f"⏭️  Skipping webhook - version: {version}, event: {event}, status: {status}")
             return {"message": "Webhook received but not processed (not approved purchase)"}
@@ -2728,30 +2876,21 @@ async def hotmart_webhook(webhook_data: dict):
         logger.info(f"✅ Processing approved purchase for {email}")
         logger.info(f"🔍 Looking for product with ID/UCODE: {prod_id}")
         
-        # Find course or credit package by Hotmart product ID
-        course = await db.courses.find_one({"hotmart_product_id": prod_id})
+        # Find subscription plan or course by Hotmart product ID
+        sub_plan = await db.subscription_plans.find_one({"hotmart_product_id": prod_id}, {"_id": 0})
+
+        # If a subscription plan is found, prefer it
+        # Otherwise fall back to course
+        if sub_plan:
+            logger.info(f"📅 Found subscription plan: {sub_plan.get('name')}")
         
+        # Find course by Hotmart product ID (only if not a subscription plan)
+        course = await db.courses.find_one({"hotmart_product_id": prod_id})
         if course:
             logger.info(f"📚 Found course: {course.get('title')}")
         
-        credit_package = None
-        
-        # Check if it's a credit package
-        if not course:
-            # Load packages from database first
-            packages_config = await db.credit_packages_config.find_one({})
-            if packages_config:
-                packages = packages_config.get("packages", CREDIT_PACKAGES)
-            else:
-                packages = CREDIT_PACKAGES
-                
-            for pkg in packages:
-                if pkg.get("hotmart_product_id") == prod_id:
-                    credit_package = pkg
-                    break
-        
-        if not course and not credit_package:
-            logger.warning(f"⚠️  No course or credit package found for Hotmart product ID/UCODE: {prod_id}")
+        if not sub_plan and not course:
+            logger.warning(f"⚠️  No subscription plan or course found for Hotmart product ID/UCODE: {prod_id}")
             logger.warning(f"📋 Product name from webhook: {prod_name}")
             return {"message": "Product not found in system", "product_id": prod_id, "product_name": prod_name}
         
@@ -2771,7 +2910,6 @@ async def hotmart_webhook(webhook_data: dict):
             last_name = name_parts[1] if len(name_parts) > 1 else ""
             
             user_id = str(uuid.uuid4())
-            referral_code = await generate_referral_code()
             
             # Prepare enrolled courses - add course ID if it's a course purchase
             enrolled_courses = [course["id"]] if course else []
@@ -2783,11 +2921,10 @@ async def hotmart_webhook(webhook_data: dict):
                 "password": None,  # Will be set when user creates password
                 "role": "student",
                 "avatar": None,
-                "full_access": False,
+                "full_access": bool(sub_plan is not None),
+                "has_full_access": bool(sub_plan is not None),
                 "enrolled_courses": enrolled_courses,
                 "has_purchased": True,  # Mark as purchased
-                "referral_code": referral_code,
-                "referred_by": None,
                 "password_creation_token": password_token,
                 "password_token_expires": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
                 "created_at": datetime.now(timezone.utc).isoformat(),
@@ -2800,6 +2937,19 @@ async def hotmart_webhook(webhook_data: dict):
             
             if course:
                 logger.info(f"🎓 Course access granted to NEW user: {course['title']} to {email}")
+            if sub_plan:
+                # Activate subscription for new user
+                duration_days = int(sub_plan.get("duration_days", 0) or 0)
+                valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
+                await db.users.update_one(
+                    {"id": user_id},
+                    {"$set": {
+                        "subscription_plan_id": sub_plan["id"],
+                        "subscription_valid_until": valid_until.isoformat(),
+                        "has_full_access": True
+                    }}
+                )
+                logger.info(f"🟢 Subscription '{sub_plan['name']}' activated for NEW user until {valid_until.isoformat()}.")
             
             # Send welcome email with password creation link
             try:
@@ -2833,40 +2983,50 @@ async def hotmart_webhook(webhook_data: dict):
                     {"$addToSet": {"enrolled_courses": course["id"]}}
                 )
                 logger.info(f"🎓 Course access granted to EXISTING user: {course['title']} to {email}")
+            # If it's a subscription plan purchase, grant full access and set validity
+            if sub_plan:
+                duration_days = int(sub_plan.get("duration_days", 0) or 0)
+                valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
+                await db.users.update_one(
+                    {"id": user["id"]},
+                    {"$set": {
+                        "has_full_access": True,
+                        "subscription_plan_id": sub_plan["id"],
+                        "subscription_valid_until": valid_until.isoformat()
+                    }}
+                )
+                logger.info(f"🟢 Subscription '{sub_plan['name']}' activated for EXISTING user until {valid_until.isoformat()}.")
         
         user_id = user["id"]
         
         # Add transaction record
         if course:
-            # Add credit transaction record
+            # Record course purchase
             transaction_record = {
                 "id": str(uuid.uuid4()),
                 "user_id": user_id,
-                "amount": 0,  # No credits, direct course access
                 "transaction_type": "course_purchase",
                 "description": f"Curso comprado via Hotmart: {course['title']}",
                 "reference_id": course["id"],
                 "hotmart_transaction": transaction,
                 "created_at": datetime.now(timezone.utc).isoformat()
             }
-            await db.credit_transactions.insert_one(transaction_record)
+            await db.purchase_transactions.insert_one(transaction_record)
             
             logger.info(f"✅ Course purchase recorded for transaction {transaction}")
-            
-        elif credit_package:
-            # Add credits to user
-            credits_to_add = credit_package["credits"]
-            logger.info(f"💰 Adding {credits_to_add} credits to {email}")
-            
-            await add_credit_transaction(
-                user_id=user_id,
-                amount=credits_to_add,
-                transaction_type="purchased",
-                description=f"Créditos comprados via Hotmart: {credit_package['name']}",
-                reference_id=transaction
-            )
-            
-            logger.info(f"✅ Credits added for transaction {transaction}")
+        elif sub_plan:
+            # Record subscription activation
+            transaction_record = {
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "transaction_type": "subscription_purchase",
+                "description": f"Assinatura ativada via Hotmart: {sub_plan['name']}",
+                "reference_id": sub_plan["id"],
+                "hotmart_transaction": transaction,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.purchase_transactions.insert_one(transaction_record)
+            logger.info(f"✅ Subscription activation recorded for transaction {transaction}")
         
         # Mark webhook as processed
         await db.hotmart_webhooks.update_one(
@@ -2969,45 +3129,6 @@ def send_password_creation_email(email: str, name: str, password_link: str):
     except Exception as e:
         logger.error(f"❌ Failed to send welcome email to {email}: {e}")
         logger.error(f"Exception type: {type(e).__name__}")
-
-# Get credit packages with Hotmart IDs
-@api_router.get("/admin/credit-packages-config")
-async def get_credit_packages_config(current_user: User = Depends(get_current_admin)):
-    """Get credit packages configuration including Hotmart product IDs"""
-    config = await db.credit_packages_config.find_one({}, {"_id": 0})
-    
-    if not config:
-        # Return default packages
-        return {"packages": CREDIT_PACKAGES}
-    
-    return config
-
-# Update credit packages Hotmart IDs
-@api_router.post("/admin/credit-packages-config")
-async def update_credit_packages_config(
-    packages: List[dict],
-    current_user: User = Depends(get_current_admin)
-):
-    """Update credit packages Hotmart product IDs"""
-    config = {
-        "packages": packages,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        "updated_by": current_user.email
-    }
-    
-    await db.credit_packages_config.update_one(
-        {},
-        {"$set": config},
-        upsert=True
-    )
-    
-    # Update global CREDIT_PACKAGES variable
-    global CREDIT_PACKAGES
-    CREDIT_PACKAGES = packages
-    
-    logger.info(f"Admin {current_user.email} updated credit packages configuration")
-    
-    return {"message": "Credit packages configuration updated successfully"}
 
 # Resend password creation email
 @api_router.post("/admin/users/{user_id}/resend-password-email")
@@ -3183,37 +3304,6 @@ def send_password_reset_email(email: str, name: str, password_link: str):
         logger.error(f"❌ Failed to send password reset email to {email}: {e}")
 
 
-# ==================== REFERRAL SYSTEM ====================
-
-# Get user's referral info
-@api_router.get("/referral/info")
-async def get_referral_info(current_user: User = Depends(get_current_user)):
-    """Get user's referral code and statistics"""
-    # Get referral statistics
-    referrals = await db.users.find({"referred_by": current_user.id}, {"_id": 0, "id": 1, "name": 1, "email": 1, "created_at": 1}).to_list(1000)
-    
-    # Count total credits earned from referrals
-    referral_transactions = await db.credit_transactions.find({
-        "user_id": current_user.id,
-        "transaction_type": "earned",
-        "description": {"$regex": "Bônus de indicação"}
-    }, {"_id": 0}).to_list(1000)
-    
-    total_referral_credits = sum(t.get("amount", 0) for t in referral_transactions)
-    
-    # Get referral link
-    frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
-    referral_link = f"{frontend_url}/register?ref={current_user.referral_code}"
-    
-    return {
-        "referral_code": current_user.referral_code,
-        "referral_link": referral_link,
-        "total_referrals": len(referrals),
-        "total_credits_earned": total_referral_credits,
-        "referrals": referrals,
-        "signup_bonus": REFERRAL_SIGNUP_BONUS,
-        "purchase_percentage": REFERRAL_PURCHASE_PERCENTAGE
-    }
 
 # ==================== GAMIFICATION SYSTEM ====================
 
@@ -3277,49 +3367,23 @@ async def get_reward_amount(action_type: str) -> int:
 
 # Helper function to give gamification reward
 async def give_gamification_reward(user_id: str, action_type: str, description: str):
-    """Give credits reward for gamification action (only if user has purchased)"""
-    logger.info(f"🎮 Gamification check for user {user_id}, action: {action_type}")
+    """Log gamification action (credits system removed)"""
+    logger.info(f"🎮 Gamification action logged for user {user_id}, action: {action_type}")
     
     user = await db.users.find_one({"id": user_id})
     
     if not user:
-        logger.warning(f"❌ User {user_id} not found for gamification reward")
+        logger.warning(f"❌ User {user_id} not found for gamification action")
         return False
     
-    # Only give rewards to users who have access to at least one course
+    # Only log for users who have access to at least one course
     has_access = await user_has_access(user_id)
     if not has_access:
-        logger.info(f"❌ User {user.get('email')} has no course access, no gamification reward for {action_type}")
+        logger.info(f"❌ User {user.get('email')} has no course access, no gamification action logged for {action_type}")
         return False
     
-    reward_amount = await get_reward_amount(action_type)
-    logger.info(f"💰 Reward amount for {action_type}: {reward_amount} credits")
-    
-    if reward_amount > 0:
-        await add_credit_transaction(
-            user_id=user_id,
-            amount=reward_amount,
-            transaction_type="earned",
-            description=description,
-            reference_id=None
-        )
-        logger.info(f"✅ Awarded {reward_amount} credits to user {user.get('email')} for {action_type}")
-        return True
-    
-    logger.info(f"⚠️ No reward given - amount is 0 for {action_type}")
-    return False
-
-# Get detailed referral transactions
-@api_router.get("/referral/transactions")
-async def get_referral_transactions(current_user: User = Depends(get_current_user)):
-    """Get all transactions related to referrals"""
-    transactions = await db.credit_transactions.find({
-        "user_id": current_user.id,
-        "transaction_type": "earned",
-        "description": {"$regex": "Bônus de indicação"}
-    }, {"_id": 0}).sort("created_at", -1).to_list(100)
-    
-    return {"transactions": transactions}
+    logger.info(f"✅ Gamification action {action_type} logged for user {user.get('email')}")
+    return True
 
 # Get billing status
 @api_router.get("/billing/{billing_id}")
@@ -3340,7 +3404,6 @@ async def get_billing_status(billing_id: str, current_user: User = Depends(get_c
 async def update_course_pricing(
     course_id: str,
     price_brl: Optional[float] = None,
-    price_credits: Optional[int] = None,
     current_user: User = Depends(get_current_admin)
 ):
     """Update course pricing (admin only)"""
@@ -3351,8 +3414,6 @@ async def update_course_pricing(
     update_data = {}
     if price_brl is not None:
         update_data["price_brl"] = price_brl
-    if price_credits is not None:
-        update_data["price_credits"] = price_credits
     
     if not update_data:
         raise HTTPException(status_code=400, detail="No pricing data provided")
@@ -3371,15 +3432,21 @@ async def update_course_pricing(
 @app.on_event("startup")
 async def startup_event():
     """Run migrations on startup"""
-    await migrate_referral_codes()
+    pass
 
 
 app.include_router(api_router)
 
+cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
+cors_origin_regex = os.environ.get('CORS_ORIGIN_REGEX')
+
+# Se allow_credentials=True, não podemos usar '*' como origem.
+# Preferimos lista explícita via CORS_ORIGINS ou regex via CORS_ORIGIN_REGEX (ex.: https://.*\.trycloudflare\.com)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=cors_origins,
+    allow_origin_regex=cors_origin_regex,
     allow_methods=["*"],
     allow_headers=["*"],
 )

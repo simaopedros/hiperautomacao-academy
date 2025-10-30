@@ -1,12 +1,33 @@
-import { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Routes, Route, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { BookOpen, LogOut, Plus, Edit, Trash2, FolderOpen, FileText, Users, MessageCircle, Gift, CreditCard, Package, Settings, DollarSign, ChevronDown, Mail } from 'lucide-react';
+import { 
+  Users, 
+  BookOpen, 
+  Settings, 
+  Plus, 
+  Edit, 
+  Trash2, 
+  FileText,
+  FolderOpen,
+  LogOut,
+  ChevronDown,
+  Mail,
+  MessageCircle,
+  Gift,
+  Package,
+  DollarSign,
+  CreditCard
+} from 'lucide-react';
+import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import UserManagement from './UserManagement';
+import CommunityModeration from './CommunityModeration';
+import EmailSettings from './EmailSettings';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -18,14 +39,14 @@ function CourseList({ onLogout, user }) {
   const [editingCourse, setEditingCourse] = useState(null);
   const [showFinanceMenu, setShowFinanceMenu] = useState(false);
   const [showSystemMenu, setShowSystemMenu] = useState(false);
+  const [allCategories, setAllCategories] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     thumbnail_url: '',
-    category: '',
+    categories: [],
     published: false,
     price_brl: 0,
-    price_credits: 50,
     hotmart_product_id: '',
     hotmart_checkout_url: ''
   });
@@ -33,6 +54,7 @@ function CourseList({ onLogout, user }) {
 
   useEffect(() => {
     fetchCourses();
+    fetchAllCategories();
   }, []);
 
   useEffect(() => {
@@ -60,9 +82,24 @@ function CourseList({ onLogout, user }) {
     }
   };
 
+  const fetchAllCategories = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API}/admin/categories`, { headers: { Authorization: `Bearer ${token}` } });
+      setAllCategories(res.data);
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const cats = formData.categories || [];
+      if (!cats.length) {
+        alert('Selecione pelo menos uma categoria para o curso.');
+        return;
+      }
       const token = localStorage.getItem('token');
       if (editingCourse) {
         await axios.put(`${API}/admin/courses/${editingCourse.id}`, formData, {
@@ -75,7 +112,7 @@ function CourseList({ onLogout, user }) {
       }
       setShowDialog(false);
       setEditingCourse(null);
-      setFormData({ title: '', description: '', thumbnail_url: '', category: '', published: false, price_brl: 0, price_credits: 50, hotmart_product_id: '', hotmart_checkout_url: '' });
+      setFormData({ title: '', description: '', thumbnail_url: '', categories: [], published: false, price_brl: 0, hotmart_product_id: '', hotmart_checkout_url: '' });
       fetchCourses();
     } catch (error) {
       console.error('Error saving course:', error);
@@ -88,10 +125,11 @@ function CourseList({ onLogout, user }) {
       title: course.title,
       description: course.description,
       thumbnail_url: course.thumbnail_url || '',
-      category: course.category || '',
+      categories: Array.isArray(course.categories) && course.categories.length
+        ? course.categories
+        : (course.category ? [course.category] : []),
       published: course.published,
       price_brl: course.price_brl || 0,
-      price_credits: course.price_credits || 50,
       hotmart_product_id: course.hotmart_product_id || '',
       hotmart_checkout_url: course.hotmart_checkout_url || ''
     });
@@ -192,13 +230,13 @@ function CourseList({ onLogout, user }) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate('/admin/credit-packages');
+                        navigate('/admin/subscription-plans');
                         setShowFinanceMenu(false);
                       }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
                     >
-                      <Package size={16} />
-                      Pacotes de Créditos
+                      <Settings size={16} />
+                      Planos de Assinatura
                     </button>
                   </div>
                 )}
@@ -234,6 +272,17 @@ function CourseList({ onLogout, user }) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        navigate('/admin/categories');
+                        setShowSystemMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
+                    >
+                      <FolderOpen size={16} />
+                      Categorias
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
                         navigate('/admin/support');
                         setShowSystemMenu(false);
                       }}
@@ -242,6 +291,7 @@ function CourseList({ onLogout, user }) {
                       <MessageCircle size={16} />
                       Config. Suporte
                     </button>
+                    
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -285,7 +335,7 @@ function CourseList({ onLogout, user }) {
                 data-testid="create-course-button"
                 onClick={() => {
                   setEditingCourse(null);
-                  setFormData({ title: '', description: '', thumbnail_url: '', category: '', published: false, price_brl: 0, price_credits: 50, hotmart_product_id: '', hotmart_checkout_url: '' });
+                  setFormData({ title: '', description: '', thumbnail_url: '', category: '', published: false, price_brl: 0, hotmart_product_id: '', hotmart_checkout_url: '' });
                 }}
                 className="bg-emerald-500 hover:bg-emerald-600"
               >
@@ -330,14 +380,29 @@ function CourseList({ onLogout, user }) {
                   />
                 </div>
                 <div>
-                  <Label>Categoria</Label>
-                  <Input
-                    data-testid="course-category-input"
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    placeholder="Ex: Programação, Design..."
-                    className="bg-[#111111] border-[#2a2a2a]"
-                  />
+                  <Label>Categorias</Label>
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {allCategories.map((cat) => {
+                      const checked = (formData.categories || []).includes(cat.id);
+                      const IconEl = Icons[cat.icon] || Icons.FolderOpen;
+                      return (
+                        <label key={cat.id} className="flex items-center gap-2 bg-[#111111] border border-[#2a2a2a] rounded-lg px-3 py-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = new Set(formData.categories || []);
+                              if (e.target.checked) next.add(cat.id); else next.delete(cat.id);
+                              setFormData({ ...formData, categories: Array.from(next) });
+                            }}
+                          />
+                          <IconEl size={16} className={cat.color || 'text-emerald-400'} />
+                          <span className="text-sm">{cat.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Selecione pelo menos uma categoria.</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -348,16 +413,6 @@ function CourseList({ onLogout, user }) {
                       value={formData.price_brl || 0}
                       onChange={(e) => setFormData({ ...formData, price_brl: parseFloat(e.target.value) })}
                       placeholder="0.00"
-                      className="bg-[#111111] border-[#2a2a2a]"
-                    />
-                  </div>
-                  <div>
-                    <Label>Preço em Créditos</Label>
-                    <Input
-                      type="number"
-                      value={formData.price_credits || 50}
-                      onChange={(e) => setFormData({ ...formData, price_credits: parseInt(e.target.value) })}
-                      placeholder="50"
                       className="bg-[#111111] border-[#2a2a2a]"
                     />
                   </div>
@@ -411,7 +466,7 @@ function CourseList({ onLogout, user }) {
           <div className="text-center py-20 bg-[#1a1a1a] rounded-xl border border-[#252525]">
             <BookOpen size={64} className="mx-auto text-gray-600 mb-4" />
             <p className="text-gray-400 text-lg mb-4">Nenhum curso criado ainda</p>
-            <p className="text-gray-500 text-sm">Clique em "Novo Curso" para começar</p>
+            <p className="text-gray-500 text-sm">Clique em &quot;Novo Curso&quot; para começar</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-6">
@@ -436,9 +491,28 @@ function CourseList({ onLogout, user }) {
                       )}
                     </div>
                     <p className="text-gray-400 mb-4">{course.description}</p>
-                    {course.category && (
-                      <span className="text-sm text-gray-500">Categoria: {course.category}</span>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {(
+                        (Array.isArray(course.categories) && course.categories.length ? course.categories : [])
+                          .map((catId) => {
+                            const catObj = allCategories.find((c) => c.id === catId);
+                            if (!catObj) return null;
+                            const IconEl = Icons[catObj.icon] || Icons.FolderOpen;
+                            return (
+                              <span key={`${course.id}-${catId}`} className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-400 text-xs px-2 py-1 rounded-full">
+                                <IconEl size={12} />
+                                {catObj.name}
+                              </span>
+                            );
+                          })
+                      )}
+                      {(!course.categories || course.categories.length === 0) && course.category && (
+                        <span className="inline-flex items-center gap-1 bg-gray-500/10 text-gray-400 text-xs px-2 py-1 rounded-full">
+                          <FolderOpen size={12} />
+                          {course.category}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -477,10 +551,6 @@ function CourseList({ onLogout, user }) {
     </div>
   );
 }
-
-import UserManagement from './UserManagement';
-import CommunityModeration from './CommunityModeration';
-import EmailSettings from './EmailSettings';
 
 export default function AdminDashboard({ user, onLogout }) {
   return (
@@ -721,12 +791,19 @@ function CourseManagement({ user, onLogout }) {
               {modules.map((module) => (
                 <div
                   key={module.id}
+                  role="button"
+                  tabIndex={0}
                   className={`p-4 rounded-lg border cursor-pointer transition-all ${
                     selectedModule?.id === module.id
                       ? 'bg-emerald-500/10 border-emerald-500'
                       : 'bg-[#1a1a1a] border-[#252525] hover:border-[#3a3a3a]'
                   }`}
                   onClick={() => setSelectedModule(module)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      setSelectedModule(module);
+                    }
+                  }}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
@@ -929,7 +1006,7 @@ function CourseManagement({ user, onLogout }) {
                           )}
                           {(!lessonForm.links || lessonForm.links.length === 0) && (
                             <p className="text-xs text-gray-500 text-center py-4">
-                              Nenhum link adicionado. Clique em "Adicionar Link" para começar.
+                              Nenhum link adicionado. Clique em &quot;Adicionar Link&quot; para começar.
                             </p>
                           )}
                         </div>
@@ -1017,5 +1094,3 @@ function CourseManagement({ user, onLogout }) {
     </div>
   );
 }
-
-import { useParams } from 'react-router-dom';

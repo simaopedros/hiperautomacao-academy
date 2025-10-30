@@ -14,7 +14,9 @@ export default function PaymentSettings({ user, onLogout }) {
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
     abacatepay_api_key: '',
-    environment: 'sandbox'
+    environment: 'sandbox',
+    stripe_secret_key: '',
+    stripe_webhook_secret: ''
   });
 
   useEffect(() => {
@@ -46,7 +48,9 @@ export default function PaymentSettings({ user, onLogout }) {
         {
           params: {
             abacatepay_api_key: settings.abacatepay_api_key,
-            environment: settings.environment
+            environment: settings.environment,
+            stripe_secret_key: settings.stripe_secret_key,
+            stripe_webhook_secret: settings.stripe_webhook_secret
           },
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -131,6 +135,40 @@ export default function PaymentSettings({ user, onLogout }) {
               </div>
             </div>
 
+            {/* Stripe Section */}
+            <div className="border-t border-[#252525] pt-6">
+              <h2 className="text-xl font-bold text-white mb-4">Stripe</h2>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-gray-300">Secret Key</Label>
+                  <Input
+                    type="password"
+                    value={settings.stripe_secret_key || ''}
+                    onChange={(e) => setSettings({ ...settings, stripe_secret_key: e.target.value })}
+                    className="bg-[#0a0a0a] border-[#2a2a2a] text-white font-mono"
+                    placeholder="sk_live_... / sk_test_..."
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Chave secreta da Stripe para criar sessões de checkout</p>
+                </div>
+                <div>
+                  <Label className="text-gray-300">Webhook Secret</Label>
+                  <Input
+                    type="password"
+                    value={settings.stripe_webhook_secret || ''}
+                    onChange={(e) => setSettings({ ...settings, stripe_webhook_secret: e.target.value })}
+                    className="bg-[#0a0a0a] border-[#2a2a2a] text-white font-mono"
+                    placeholder="whsec_..."
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Segredo do webhook para validar eventos da Stripe</p>
+                </div>
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+                  <p className="text-emerald-300 text-sm font-semibold mb-2">URL do Webhook da Stripe:</p>
+                  <code className="text-emerald-400 text-sm bg-[#0a0a0a] p-2 rounded block break-all">{`${API}/api/webhook/stripe`}</code>
+                  <p className="text-emerald-300 text-sm mt-2">Configure esta URL no dashboard da Stripe em Webhooks</p>
+                </div>
+              </div>
+            </div>
+
             {/* Instructions */}
             <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
               <div className="flex items-start gap-3">
@@ -148,26 +186,13 @@ export default function PaymentSettings({ user, onLogout }) {
               </div>
             </div>
 
-            {/* Pacotes de Créditos Info */}
+            {/* Informações sobre Cursos */}
             <div className="border-t border-[#252525] pt-6">
-              <h3 className="text-lg font-semibold text-white mb-3">Pacotes Configurados</h3>
+              <h3 className="text-lg font-semibold text-white mb-3">Produtos Disponíveis</h3>
               <div className="space-y-2 text-sm text-gray-400">
-                <div className="flex justify-between py-2 border-b border-[#252525]">
-                  <span>Pacote Inicial</span>
-                  <span className="text-white">R$ 10 = 50 créditos</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-[#252525]">
-                  <span>Pacote Médio (20% bônus)</span>
-                  <span className="text-white">R$ 25 = 150 créditos</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-[#252525]">
-                  <span>Pacote Grande (40% bônus)</span>
-                  <span className="text-white">R$ 50 = 350 créditos</span>
-                </div>
+                <p>Os cursos e seus preços são configurados individualmente através do painel administrativo.</p>
+                <p>Cada curso pode ter seu próprio preço e configurações de pagamento.</p>
               </div>
-              <p className="text-xs text-gray-500 mt-3">
-                Os pacotes estão fixos no código. Para alterar, contate o desenvolvedor.
-              </p>
             </div>
 
             {/* Save Button */}

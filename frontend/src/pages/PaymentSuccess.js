@@ -6,7 +6,6 @@ const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 function PaymentSuccess() {
   const navigate = useNavigate();
-  const [credits, setCredits] = useState(null);
   const [checking, setChecking] = useState(true);
   const [message, setMessage] = useState('Verificando pagamento...');
 
@@ -29,7 +28,6 @@ function PaymentSuccess() {
       if (!billingId) {
         setMessage('Retornando ao dashboard...');
         setChecking(false);
-        await fetchCredits();
         return;
       }
 
@@ -44,32 +42,19 @@ function PaymentSuccess() {
       if (response.data.status === 'paid') {
         setMessage('✅ ' + response.data.message);
         setChecking(false);
-        await fetchCredits();
         localStorage.removeItem('last_billing_id');
       } else {
         setMessage('⏳ Pagamento pendente. Clique em "Verificar Pagamento" no dashboard para confirmar.');
         setChecking(false);
-        await fetchCredits();
       }
     } catch (error) {
       console.error('Error in checkPaymentStatus:', error);
       setMessage('Use o botão "Verificar Pagamento" no dashboard para confirmar.');
       setChecking(false);
-      await fetchCredits();
     }
   };
 
-  const fetchCredits = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API}/api/credits/balance`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setCredits(response.data);
-    } catch (error) {
-      console.error('Error fetching credits:', error);
-    }
-  };
+
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
@@ -95,15 +80,6 @@ function PaymentSuccess() {
           {message}
         </p>
 
-        {/* Credits Display */}
-        {credits && !checking && (
-          <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-lg p-6 mb-8">
-            <p className="text-emerald-100 text-sm mb-2">Seu Saldo Atual</p>
-            <p className="text-5xl font-bold text-white mb-1">{credits.balance}</p>
-            <p className="text-emerald-100 text-sm">créditos disponíveis</p>
-          </div>
-        )}
-
         {/* Action Buttons */}
         {!checking && (
           <div className="space-y-4">
@@ -112,12 +88,6 @@ function PaymentSuccess() {
               className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-lg transition"
             >
               Ir para o Dashboard
-            </button>
-            <button
-              onClick={() => navigate('/buy-credits')}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition"
-            >
-              Comprar Mais Créditos
             </button>
           </div>
         )}

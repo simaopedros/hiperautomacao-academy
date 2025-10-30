@@ -57,26 +57,6 @@ export default function CourseView({ user, onLogout }) {
     }
   };
 
-  const handleEnrollWithCredits = async () => {
-    if (!courseInfo) return;
-
-    try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API}/courses/${courseId}/enroll-with-credits`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      alert('✅ Matrícula realizada com sucesso!');
-      // Refresh page to show course content
-      window.location.reload();
-    } catch (error) {
-      console.error('Error enrolling:', error);
-      alert(error.response?.data?.detail || 'Erro ao se matricular');
-    }
-  };
-
   const handleBuyCourse = async () => {
     if (!courseInfo) return;
 
@@ -185,26 +165,11 @@ export default function CourseView({ user, onLogout }) {
             <div className="space-y-4 mb-8">
               <h2 className="text-xl font-bold text-white">Este curso requer matrícula</h2>
               <p className="text-gray-400">
-                Para acessar o conteúdo deste curso, você precisa se matricular usando créditos ou fazer a compra direta.
+                Para acessar o conteúdo deste curso, você precisa se matricular fazendo a compra direta.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              {courseInfo.price_credits > 0 && (
-                <div className="bg-[#1a1a1a] rounded-lg p-6 border-2 border-emerald-500/30">
-                  <h3 className="text-lg font-semibold text-white mb-2">Usar Créditos</h3>
-                  <div className="text-3xl font-bold text-emerald-400 mb-4">
-                    {courseInfo.price_credits} créditos
-                  </div>
-                  <button
-                    onClick={handleEnrollWithCredits}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg font-semibold transition-colors"
-                  >
-                    Matricular com Créditos
-                  </button>
-                </div>
-              )}
-
+            <div className="grid md:grid-cols-1 gap-4">
               {courseInfo.price_brl > 0 && (
                 <div className="bg-[#1a1a1a] rounded-lg p-6 border-2 border-blue-500/30">
                   <h3 className="text-lg font-semibold text-white mb-2">Compra Direta</h3>
@@ -221,7 +186,7 @@ export default function CourseView({ user, onLogout }) {
               )}
             </div>
 
-            {(!courseInfo.price_credits || courseInfo.price_credits === 0) && (!courseInfo.price_brl || courseInfo.price_brl === 0) && (
+            {(!courseInfo.price_brl || courseInfo.price_brl === 0) && (
               <div className="text-center">
                 <p className="text-gray-400 mb-4">Este curso não está disponível para compra no momento.</p>
                 <Button onClick={() => navigate('/dashboard')}>
@@ -306,10 +271,10 @@ export default function CourseView({ user, onLogout }) {
 
                 <div className="divide-y divide-[#252525]">
                   {module.lessons?.map((lesson, lessonIndex) => (
-                    <div
+                    <button
                       key={lesson.id}
                       data-testid={`lesson-${lesson.id}`}
-                      className="p-4 hover:bg-[#1f1f1f] transition-colors cursor-pointer group"
+                      className="w-full text-left p-4 hover:bg-[#1f1f1f] transition-colors cursor-pointer group"
                       onClick={() => navigate(`/lesson/${lesson.id}`)}
                     >
                       <div className="flex items-center justify-between">
@@ -339,7 +304,7 @@ export default function CourseView({ user, onLogout }) {
                           )}
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>

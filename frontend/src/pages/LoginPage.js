@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import {
   Eye,
@@ -170,8 +170,9 @@ export default function LoginPage({ onLogin }) {
 
                     <form onSubmit={handleForgotPassword} className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-200 mb-2">Email</label>
+                        <label htmlFor="forgot-email" className="block text-sm font-medium text-gray-200 mb-2">Email</label>
                         <input
+                          id="forgot-email"
                           type="email"
                           value={forgotEmail}
                           onChange={(e) => setForgotEmail(e.target.value)}
@@ -242,8 +243,9 @@ export default function LoginPage({ onLogin }) {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   {!isLogin && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-200 mb-2">Nome</label>
+                      <label htmlFor="name-input" className="block text-sm font-medium text-gray-200 mb-2">Nome</label>
                       <input
+                        id="name-input"
                         data-testid="name-input"
                         type="text"
                         value={formData.name}
@@ -256,8 +258,9 @@ export default function LoginPage({ onLogin }) {
                   )}
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-200 mb-2">Email</label>
+                    <label htmlFor="email-input" className="block text-sm font-medium text-gray-200 mb-2">Email</label>
                     <input
+                      id="email-input"
                       data-testid="email-input"
                       type="email"
                       value={formData.email}
@@ -270,7 +273,7 @@ export default function LoginPage({ onLogin }) {
 
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-gray-200">Senha</label>
+                      <label htmlFor="password-input" className="block text-sm font-medium text-gray-200">Senha</label>
                       {isLogin && (
                         <button
                           type="button"
@@ -283,6 +286,7 @@ export default function LoginPage({ onLogin }) {
                     </div>
                     <div className="relative">
                       <input
+                        id="password-input"
                         data-testid="password-input"
                         type={showPassword ? 'text' : 'password'}
                         value={formData.password}

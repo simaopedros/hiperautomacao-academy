@@ -27,14 +27,8 @@ function PaymentCancelled() {
         {/* Action Buttons */}
         <div className="space-y-4">
           <button
-            onClick={() => navigate('/buy-credits')}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-lg transition"
-          >
-            Tentar Novamente
-          </button>
-          <button
             onClick={() => navigate('/dashboard')}
-            className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition"
+            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-lg transition"
           >
             Voltar ao Dashboard
           </button>

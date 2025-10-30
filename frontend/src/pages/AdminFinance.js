@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, DollarSign, CreditCard, TrendingUp, Users, Coins } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ArrowLeft, Users, DollarSign, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
@@ -13,14 +10,9 @@ export default function AdminFinance({ user, onLogout }) {
   const navigate = useNavigate();
   const [statistics, setStatistics] = useState(null);
   const [billings, setBillings] = useState([]);
-  const [transactions, setTransactions] = useState([]);
   const [users, setUsers] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
-  const [showAddCreditsDialog, setShowAddCreditsDialog] = useState(false);
-  const [selectedUser, setSelectedUser] = useState('');
-  const [creditsAmount, setCreditsAmount] = useState('');
-  const [creditsDescription, setCreditsDescription] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -31,16 +23,14 @@ export default function AdminFinance({ user, onLogout }) {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [statsRes, billingsRes, transactionsRes, usersRes] = await Promise.all([
+      const [statsRes, billingsRes, usersRes] = await Promise.all([
         axios.get(`${API}/api/admin/statistics`, { headers }),
         axios.get(`${API}/api/admin/billings`, { headers }),
-        axios.get(`${API}/api/admin/credits/transactions`, { headers }),
         axios.get(`${API}/api/admin/users`, { headers })
       ]);
 
       setStatistics(statsRes.data);
       setBillings(billingsRes.data.billings);
-      setTransactions(transactionsRes.data.transactions);
       setUsers(usersRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -49,37 +39,8 @@ export default function AdminFinance({ user, onLogout }) {
     }
   };
 
-  const handleAddCredits = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API}/api/admin/credits/add-manual`,
-        null,
-        {
-          params: {
-            user_id: selectedUser,
-            amount: parseInt(creditsAmount),
-            description: creditsDescription
-          },
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-
-      alert('Créditos adicionados com sucesso!');
-      setShowAddCreditsDialog(false);
-      setSelectedUser('');
-      setCreditsAmount('');
-      setCreditsDescription('');
-      fetchData();
-    } catch (error) {
-      console.error('Error adding credits:', error);
-      alert(error.response?.data?.detail || 'Erro ao adicionar créditos');
-    }
-  };
-
   const handleMarkPaid = async (billingId) => {
-    if (!confirm('Tem certeza que deseja marcar este pagamento como PAGO? Esta ação irá processar os créditos/matrícula.')) {
+    if (!confirm('Tem certeza que deseja marcar este pagamento como PAGO? Esta ação irá processar a matrícula.')) {
       return;
     }
 
@@ -133,13 +94,7 @@ export default function AdminFinance({ user, onLogout }) {
               </button>
               <h1 className="text-2xl font-bold text-white">Gestão Financeira</h1>
             </div>
-            <Button
-              onClick={() => setShowAddCreditsDialog(true)}
-              className="bg-emerald-500 hover:bg-emerald-600"
-            >
-              <Coins size={18} className="mr-2" />
-              Adicionar Créditos
-            </Button>
+            {/* Removed credit-related buttons */}
           </div>
         </div>
       </header>
@@ -167,16 +122,6 @@ export default function AdminFinance({ user, onLogout }) {
               }`}
             >
               Compras ({billings.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('transactions')}
-              className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-                activeTab === 'transactions'
-                  ? 'border-emerald-500 text-emerald-400'
-                  : 'border-transparent text-gray-400 hover:text-white'
-              }`}
-            >
-              Transações ({transactions.length})
             </button>
           </div>
         </div>
@@ -208,19 +153,6 @@ export default function AdminFinance({ user, onLogout }) {
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
                   {statistics.billings?.pending || 0} pendentes
-                </p>
-              </div>
-
-              <div className="bg-[#111111] rounded-lg p-6 border border-[#252525]">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-gray-400">Créditos Distribuídos</p>
-                  <Coins className="text-yellow-400" size={24} />
-                </div>
-                <p className="text-3xl font-bold text-white">
-                  {statistics.credits?.total_distributed || 0}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {statistics.credits?.total_spent || 0} gastos
                 </p>
               </div>
 
@@ -278,7 +210,7 @@ export default function AdminFinance({ user, onLogout }) {
                         <div className="text-xs text-gray-500">{billing.user_email || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                        {billing.credits ? `${billing.credits} créditos` : billing.course_id ? 'Curso direto' : 'N/A'}
+                        {billing.course_id ? 'Curso direto' : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
                         {formatCurrency(billing.amount_brl || 0)}
@@ -316,119 +248,7 @@ export default function AdminFinance({ user, onLogout }) {
             </div>
           </div>
         )}
-
-        {/* Transactions Tab */}
-        {activeTab === 'transactions' && (
-          <div className="bg-[#111111] rounded-lg border border-[#252525] overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-[#1a1a1a]">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                      Data
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                      Usuário
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                      Descrição
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                      Tipo
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                      Créditos
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#252525]">
-                  {transactions.map((transaction) => (
-                    <tr key={transaction.id} className="hover:bg-[#1a1a1a]">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                        {formatDate(transaction.created_at)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-white">{transaction.user_name || 'N/A'}</div>
-                        <div className="text-xs text-gray-500">{transaction.user_email || 'N/A'}</div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-300">
-                        {transaction.description || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-700 text-gray-300">
-                          {transaction.transaction_type || 'unknown'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <span
-                          className={
-                            (transaction.amount || 0) > 0 ? 'text-emerald-400' : 'text-red-400'
-                          }
-                        >
-                          {(transaction.amount || 0) > 0 ? '+' : ''}
-                          {transaction.amount || 0}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
       </main>
-
-      {/* Add Credits Dialog */}
-      <Dialog open={showAddCreditsDialog} onOpenChange={setShowAddCreditsDialog}>
-        <DialogContent className="bg-[#1a1a1a] border-[#2a2a2a]">
-          <DialogHeader>
-            <DialogTitle className="text-white">Adicionar Créditos Manualmente</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddCredits} className="space-y-4">
-            <div>
-              <Label className="text-gray-300">Usuário</Label>
-              <select
-                value={selectedUser}
-                onChange={(e) => setSelectedUser(e.target.value)}
-                required
-                className="w-full bg-[#111111] border-[#2a2a2a] text-white rounded-md px-3 py-2"
-              >
-                <option value="">Selecione um usuário</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name} ({user.email})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label className="text-gray-300">Quantidade de Créditos</Label>
-              <Input
-                type="number"
-                value={creditsAmount}
-                onChange={(e) => setCreditsAmount(e.target.value)}
-                required
-                min="1"
-                className="bg-[#111111] border-[#2a2a2a] text-white"
-                placeholder="Ex: 100"
-              />
-            </div>
-            <div>
-              <Label className="text-gray-300">Descrição</Label>
-              <Input
-                value={creditsDescription}
-                onChange={(e) => setCreditsDescription(e.target.value)}
-                required
-                className="bg-[#111111] border-[#2a2a2a] text-white"
-                placeholder="Ex: Bônus de boas-vindas"
-              />
-            </div>
-            <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600">
-              Adicionar Créditos
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -6,7 +6,7 @@ Check admin user configuration
 import requests
 import json
 
-BACKEND_URL = "https://hyperlearn.preview.emergentagent.com/api"
+BACKEND_URL = "http://localhost:8000/api"
 ADMIN_EMAIL = "admin@test.com"
 ADMIN_PASSWORD = "admin123"
 
