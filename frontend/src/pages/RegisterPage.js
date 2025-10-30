@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,23 +9,13 @@ const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 export default function RegisterPage({ onLogin }) {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    name: '',
-    referralCode: ''
+    name: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    // Get referral code from URL
-    const refCode = searchParams.get('ref');
-    if (refCode) {
-      setFormData(prev => ({ ...prev, referralCode: refCode }));
-    }
-  }, [searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,8 +27,7 @@ export default function RegisterPage({ onLogin }) {
         email: formData.email,
         password: formData.password,
         name: formData.name,
-        role: 'student',
-        referral_code: formData.referralCode || undefined
+        role: 'student'
       });
 
       localStorage.setItem('token', response.data.access_token);
@@ -67,20 +56,6 @@ export default function RegisterPage({ onLogin }) {
 
         {/* Registration Card */}
         <div className="bg-[#111111] rounded-xl shadow-2xl p-8 border border-[#252525]">
-          {formData.referralCode && (
-            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 mb-6">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
-                </svg>
-                <div>
-                  <p className="text-emerald-400 font-semibold text-sm">Você foi convidado!</p>
-                  <p className="text-emerald-300 text-xs">Você ganhará créditos bônus ao se cadastrar</p>
-                </div>
-              </div>
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <Label htmlFor="name" className="text-gray-300">Nome Completo</Label>

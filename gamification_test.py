@@ -13,8 +13,8 @@ from datetime import datetime
 import uuid
 
 # Configuration
-BACKEND_URL = "https://hyperlearn.preview.emergentagent.com/api"
-ADMIN_EMAIL = "admin@exemplo.com"
+BACKEND_URL = "http://localhost:8000/api"
+ADMIN_EMAIL = "admin@test.com"
 ADMIN_PASSWORD = "admin123"
 STUDENT_EMAIL = f"student{int(time.time())}@exemplo.com"
 STUDENT_PASSWORD = "student123"
@@ -26,6 +26,7 @@ class GamificationTester:
         self.student_token = None
         self.student_user_id = None
         self.test_lesson_id = None
+        self.test_course_id = None
         self.test_results = []
         
     def log_test(self, test_name, success, message, details=None):
@@ -131,10 +132,64 @@ class GamificationTester:
             return False
     
     def create_test_lesson(self):
-        """Create a test lesson for comment testing"""
+        """Create a test lesson for gamification testing or use existing course"""
         try:
             headers = {'Authorization': f'Bearer {self.admin_token}'}
             
+            # First, try to get existing courses
+            print(f"🔍 Fetching existing courses from {BACKEND_URL}/admin/courses")
+            courses_response = self.session.get(f"{BACKEND_URL}/admin/courses", headers=headers)
+            print(f"📊 Courses response status: {courses_response.status_code}")
+            
+            if courses_response.status_code == 200:
+                courses = courses_response.json()
+                print(f"📚 Found {len(courses)} courses")
+                if courses:
+                    # Use the first existing course
+                    course_id = courses[0]['id']
+                    print(f"🎯 Using course: {course_id} - {courses[0].get('title', 'Unknown')}")
+                    
+                    # Get modules for this course
+                    print(f"🔍 Fetching modules for course {course_id}")
+                    modules_response = self.session.get(f"{BACKEND_URL}/admin/modules/{course_id}", headers=headers)
+                    print(f"📊 Modules response status: {modules_response.status_code}")
+                    
+                    if modules_response.status_code == 200:
+                        modules = modules_response.json()
+                        print(f"📦 Found {len(modules)} modules")
+                        if modules:
+                            # Use the first existing module
+                            module_id = modules[0]['id']
+                            self.test_course_id = course_id
+                            print(f"🎯 Using module: {module_id} - {modules[0].get('title', 'Unknown')}")
+                            
+                            # Get lessons for this module
+                            print(f"🔍 Fetching lessons for module {module_id}")
+                            lessons_response = self.session.get(f"{BACKEND_URL}/admin/lessons/{module_id}", headers=headers)
+                            print(f"📊 Lessons response status: {lessons_response.status_code}")
+                            
+                            if lessons_response.status_code == 200:
+                                lessons = lessons_response.json()
+                                print(f"📝 Found {len(lessons)} lessons")
+                                if lessons:
+                                    # Use the first existing lesson
+                                    self.test_lesson_id = lessons[0]['id']
+                                    print(f"🎯 Using lesson: {self.test_lesson_id} - {lessons[0].get('title', 'Unknown')}")
+                                    self.log_test("Test Lesson Setup", True, "Using existing lesson for testing")
+                                    return True
+                            else:
+                                print(f"❌ Failed to fetch lessons: {lessons_response.text}")
+                        else:
+                            print("📦 No modules found for this course")
+                    else:
+                        print(f"❌ Failed to fetch modules: {modules_response.text}")
+                else:
+                    print("📚 No courses found")
+            else:
+                print(f"❌ Failed to fetch courses: {courses_response.text}")
+            
+            print("🔨 Creating new test content...")
+            # If no existing content, create new test content
             # First create a course
             course_data = {
                 "title": "Test Course for Gamification",
@@ -148,10 +203,12 @@ class GamificationTester:
                                               json=course_data, headers=headers)
             
             if course_response.status_code != 200:
+                print(f"❌ Failed to create course: {course_response.status_code} - {course_response.text}")
                 self.log_test("Test Lesson Creation", False, "Failed to create test course")
                 return False
             
             course_id = course_response.json()['id']
+            self.test_course_id = course_id
             
             # Create a module
             module_data = {
@@ -295,179 +352,37 @@ class GamificationTester:
             self.log_test("Verify Updated Settings", False, f"Settings verification error: {str(e)}")
             return False
     
-    def test_user_without_credits_comment_rejection(self):
-        """Test 4: Usuário sem créditos tenta comentar"""
-        try:
-            headers = {'Authorization': f'Bearer {self.student_token}'}
-            
-            # Check current balance - new user should have 0 credits
-            balance_response = self.session.get(f"{BACKEND_URL}/credits/balance", headers=headers)
-            if balance_response.status_code == 200:
-                balance = balance_response.json().get('balance', 0)
-                print(f"   Current user balance: {balance} credits")
-            
-            # Try to create a comment
-            comment_data = {
-                "content": "Test comment without credits",
-                "lesson_id": self.test_lesson_id
-            }
-            
-            response = self.session.post(f"{BACKEND_URL}/comments", 
-                                       json=comment_data, headers=headers)
-            
-            if response.status_code == 403:
-                data = response.json()
-                if "pelo menos 1 crédito" in data.get('detail', ''):
-                    self.log_test("User Without Credits Comment Rejection", True, 
-                                "Correctly rejected comment due to insufficient credits", data)
-                    return True
-                else:
-                    self.log_test("User Without Credits Comment Rejection", False, 
-                                "Wrong error message for insufficient credits", data)
-                    return False
-            else:
-                self.log_test("User Without Credits Comment Rejection", False, 
-                            f"Expected 403 status, got {response.status_code}", response.text[:200])
-                return False
-        except Exception as e:
-            self.log_test("User Without Credits Comment Rejection", False, f"Comment rejection test error: {str(e)}")
-            return False
-    
-    def add_credits_to_user(self, amount=10):
-        """Helper: Add credits to user via billing simulation"""
-        try:
-            headers = {'Authorization': f'Bearer {self.student_token}'}
-            
-            # Create billing for small package
-            billing_data = {
-                "package_id": "pkg_small",
-                "customer_name": "Test Student",
-                "customer_email": STUDENT_EMAIL
-            }
-            
-            response = self.session.post(f"{BACKEND_URL}/billing/create", 
-                                       json=billing_data, headers=headers)
-            
-            if response.status_code == 200:
-                billing_info = response.json()
-                billing_id = billing_info['billing_id']
-                
-                # Simulate webhook payment confirmation
-                webhook_data = {
-                    "type": "billing.paid",
-                    "data": {
-                        "id": billing_id,
-                        "status": "PAID"
-                    }
-                }
-                
-                webhook_response = self.session.post(f"{BACKEND_URL}/webhook/abacatepay", 
-                                                   json=webhook_data)
-                
-                return webhook_response.status_code == 200
-            return False
-        except Exception as e:
-            return False
-    
-    def test_user_with_credits_no_purchase_comment(self):
-        """Test 5: Usuário com créditos mas sem compra"""
-        try:
-            # Add credits to user
-            if not self.add_credits_to_user():
-                self.log_test("User With Credits No Purchase Comment", False, 
-                            "Failed to add credits to user for testing")
-                return False
-            
-            headers = {'Authorization': f'Bearer {self.student_token}'}
-            
-            # Get initial balance
-            balance_response = self.session.get(f"{BACKEND_URL}/credits/balance", headers=headers)
-            if balance_response.status_code != 200:
-                self.log_test("User With Credits No Purchase Comment", False, 
-                            "Could not check balance before comment")
-                return False
-            
-            initial_balance = balance_response.json().get('balance', 0)
-            
-            # Create a comment (new post, no parent_id)
-            comment_data = {
-                "content": "Test post without purchase but with credits",
-                "lesson_id": self.test_lesson_id
-            }
-            
-            response = self.session.post(f"{BACKEND_URL}/comments", 
-                                       json=comment_data, headers=headers)
-            
-            if response.status_code == 200:
-                # Comment should be created
-                comment = response.json()
-                
-                # Check balance after comment - should be same (no reward)
-                new_balance_response = self.session.get(f"{BACKEND_URL}/credits/balance", headers=headers)
-                if new_balance_response.status_code == 200:
-                    new_balance = new_balance_response.json().get('balance', 0)
-                    
-                    if new_balance == initial_balance:
-                        self.log_test("User With Credits No Purchase Comment", True, 
-                                    "Comment created but no reward given (user hasn't purchased)", 
-                                    f"Balance unchanged: {initial_balance}")
-                        return True
-                    else:
-                        self.log_test("User With Credits No Purchase Comment", False, 
-                                    f"Unexpected balance change: {initial_balance} -> {new_balance}")
-                        return False
-                else:
-                    self.log_test("User With Credits No Purchase Comment", False, 
-                                "Could not check balance after comment")
-                    return False
-            else:
-                self.log_test("User With Credits No Purchase Comment", False, 
-                            f"Comment creation failed: {response.status_code}", response.text[:200])
-                return False
-        except Exception as e:
-            self.log_test("User With Credits No Purchase Comment", False, f"Comment test error: {str(e)}")
-            return False
-    
-    def mark_user_as_purchased(self):
-        """Helper: Mark user as having made a purchase"""
+    def enroll_student_in_course(self):
+        """Helper: Enroll student in the test course"""
         try:
             headers = {'Authorization': f'Bearer {self.admin_token}'}
             
-            # Update user to mark as purchased
-            update_data = {
-                "has_purchased": True
+            enrollment_data = {
+                "user_id": self.student_user_id,
+                "course_id": self.test_course_id
             }
             
-            response = self.session.put(f"{BACKEND_URL}/admin/users/{self.student_user_id}", 
-                                      json=update_data, headers=headers)
+            response = self.session.post(f"{BACKEND_URL}/admin/enrollments", 
+                                       json=enrollment_data, headers=headers)
             
             return response.status_code == 200
         except Exception as e:
             return False
-    
-    def test_user_with_credits_and_purchase_comment(self):
-        """Test 6: Usuário com créditos E compra"""
+
+    def test_user_comment_creation(self):
+        """Test 4: Usuário pode criar comentários"""
         try:
-            # Mark user as having purchased
-            if not self.mark_user_as_purchased():
-                self.log_test("User With Credits And Purchase Comment", False, 
-                            "Failed to mark user as purchased")
+            # First, enroll the student in the course
+            if not self.enroll_student_in_course():
+                self.log_test("User Comment Creation", False, 
+                            "Failed to enroll student in course")
                 return False
             
             headers = {'Authorization': f'Bearer {self.student_token}'}
             
-            # Get initial balance
-            balance_response = self.session.get(f"{BACKEND_URL}/credits/balance", headers=headers)
-            if balance_response.status_code != 200:
-                self.log_test("User With Credits And Purchase Comment", False, 
-                            "Could not check balance before comment")
-                return False
-            
-            initial_balance = balance_response.json().get('balance', 0)
-            
             # Create a comment (new post)
             comment_data = {
-                "content": "Test post with purchase and credits - should get reward",
+                "content": "Test post for gamification without credits system",
                 "lesson_id": self.test_lesson_id
             }
             
@@ -476,33 +391,16 @@ class GamificationTester:
             
             if response.status_code == 200:
                 comment = response.json()
-                
-                # Check balance after comment - should increase by reward amount
-                new_balance_response = self.session.get(f"{BACKEND_URL}/credits/balance", headers=headers)
-                if new_balance_response.status_code == 200:
-                    new_balance = new_balance_response.json().get('balance', 0)
-                    reward_received = new_balance - initial_balance
-                    
-                    # Should receive 10 credits for create_post (from updated settings)
-                    if reward_received == 10:
-                        self.log_test("User With Credits And Purchase Comment", True, 
-                                    f"Comment created and reward given correctly: +{reward_received} credits", 
-                                    f"Balance: {initial_balance} -> {new_balance}")
-                        return True
-                    else:
-                        self.log_test("User With Credits And Purchase Comment", False, 
-                                    f"Unexpected reward amount: expected 10, got {reward_received}")
-                        return False
-                else:
-                    self.log_test("User With Credits And Purchase Comment", False, 
-                                "Could not check balance after comment")
-                    return False
+                self.log_test("User Comment Creation", True, 
+                            "Comment created successfully without credits system", 
+                            f"Comment ID: {comment.get('id', 'N/A')}")
+                return True
             else:
-                self.log_test("User With Credits And Purchase Comment", False, 
+                self.log_test("User Comment Creation", False, 
                             f"Comment creation failed: {response.status_code}", response.text[:200])
                 return False
         except Exception as e:
-            self.log_test("User With Credits And Purchase Comment", False, f"Comment with reward test error: {str(e)}")
+            self.log_test("User Comment Creation", False, f"Comment test error: {str(e)}")
             return False
     
     def run_all_tests(self):
@@ -537,9 +435,7 @@ class GamificationTester:
             self.test_get_default_gamification_settings,
             self.test_update_gamification_settings,
             self.test_verify_updated_settings,
-            self.test_user_without_credits_comment_rejection,
-            self.test_user_with_credits_no_purchase_comment,
-            self.test_user_with_credits_and_purchase_comment
+            self.test_user_comment_creation
         ]
         
         passed = 0

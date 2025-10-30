@@ -35,7 +35,7 @@ A comprehensive online learning platform built with modern web technologies for 
 
 ## Overview
 
-Hiperautomação Academy is a full-stack educational platform that allows administrators to create and manage courses while students can enroll, learn, and interact with the community. The platform features a credit-based economy, multiple payment gateways, referral system, and social learning features.
+Hiperautomação Academy is a full-stack educational platform that allows administrators to create and manage courses while students can enroll, learn, and interact with the community. The platform features a credit-based economy, multiple payment gateways, and social learning features.
 
 ## Technology Stack
 
@@ -79,11 +79,6 @@ Hiperautomação Academy is a full-stack educational platform that allows admini
 - Lesson and course commenting system
 - Like/comment functionality
 - Gamification with credit rewards
-
-### Referral Program
-- Unique referral codes for each user
-- Credit bonuses for successful referrals
-- Referral tracking dashboard
 
 ### Administrative Tools
 - Admin dashboard with analytics
@@ -515,14 +510,14 @@ Plataforma de ensino com foco em automação que combina um backend em FastAPI e
 
 ## Visão geral
 
-O backend fornece APIs para autenticação com JWT, convites, recuperação de senha, gestão de cursos/matrículas e relatórios administrativos utilizando MongoDB como banco de dados principal.【F:backend/server.py†L35-L344】【F:backend/server.py†L437-L843】 Além do catálogo de cursos, a aplicação traz feed social, gamificação, programa de indicação e um sistema de créditos que permite comprar pacotes via Abacate Pay ou liberar acesso direto a cursos.【F:backend/server.py†L1084-L1712】【F:backend/server.py†L1721-L2119】【F:backend/server.py†L3034-L3114】 O frontend criado com React, React Router e Tailwind CSS consome essas APIs para entregar experiências diferenciadas para administradores e estudantes, incluindo dashboards, player de aulas, comunidade e fluxo de pagamento.【F:frontend/src/App.js†L1-L200】【F:frontend/tailwind.config.js†L1-L82】
+O backend fornece APIs para autenticação com JWT, convites, recuperação de senha, gestão de cursos/matrículas e relatórios administrativos utilizando MongoDB como banco de dados principal.【F:backend/server.py†L35-L344】【F:backend/server.py†L437-L843】 Além do catálogo de cursos, a aplicação traz feed social, gamificação e um sistema de créditos que permite comprar pacotes via Abacate Pay ou liberar acesso direto a cursos.【F:backend/server.py†L1084-L1712】【F:backend/server.py†L1721-L2119】【F:backend/server.py†L3034-L3114】 O frontend criado com React, React Router e Tailwind CSS consome essas APIs para entregar experiências diferenciadas para administradores e estudantes, incluindo dashboards, player de aulas, comunidade e fluxo de pagamento.【F:frontend/src/App.js†L1-L200】【F:frontend/tailwind.config.js†L1-L82】
 
 ## Principais funcionalidades
 
 - **Autenticação completa**: registro público, login, reset de senha via e-mail e convites com criação de senha, todos protegidos por tokens JWT.【F:backend/server.py†L437-L597】【F:backend/server.py†L1320-L1542】
 - **Gestão de conteúdo educacional**: CRUD de cursos, módulos e lições, controle de publicação e checagem de acesso retrocompatível com dados legados.【F:backend/server.py†L600-L976】
 - **Progresso e engajamento**: rastreamento de progresso por lição, feed social com posts/comentários, curtidas e recompensas de gamificação configuráveis.【F:backend/server.py†L985-L1234】【F:backend/server.py†L1544-L1597】【F:backend/server.py†L3068-L3114】
-- **Sistema de créditos**: saldo individual, histórico de transações, compra de pacotes, matrícula com créditos e bonificação automática para indicações.【F:backend/server.py†L1602-L2094】【F:backend/server.py†L3034-L3064】
+- **Sistema de créditos**: saldo individual, histórico de transações, compra de pacotes e matrícula com créditos.【F:backend/server.py†L1602-L2094】【F:backend/server.py†L3034-L3064】
 - **Integrações de pagamento**: criação e conciliação de cobranças via Abacate Pay, configuração de gateway ativo (Abacate Pay ou Hotmart) e importação de webhooks da Hotmart.【F:backend/server.py†L1774-L2083】【F:backend/server.py†L2330-L2520】
 - **Configurações administrativas**: ajustes de e-mail SMTP, gamificação, pacotes de créditos, botões de suporte e estatísticas consolidadas para gestão financeira.【F:backend/server.py†L1235-L1399】【F:backend/server.py†L2150-L2405】
 - **Frontend responsivo**: roteamento com áreas protegidas para admin e estudante, páginas de login/registro, dashboards, player de aulas, histórico de créditos e configurações de pagamento.【F:frontend/src/App.js†L1-L200】

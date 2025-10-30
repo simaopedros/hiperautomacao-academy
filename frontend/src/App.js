@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import '@/App.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '@/pages/LoginPage';
@@ -10,29 +10,26 @@ import LessonPlayer from '@/pages/LessonPlayer';
 import SocialFeed from '@/pages/SocialFeed';
 import CreatePassword from '@/pages/CreatePassword';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
-import CreditHistory from '@/pages/CreditHistory';
 import PaymentSuccess from '@/pages/PaymentSuccess';
 import PaymentCancelled from '@/pages/PaymentCancelled';
+import SubscriptionSuccess from '@/pages/SubscriptionSuccess';
 import AdminFinance from '@/pages/AdminFinance';
 import PaymentSettings from '@/pages/PaymentSettings';
-import ReferralPage from '@/pages/ReferralPage';
+
 import GamificationSettings from '@/pages/GamificationSettings';
 import GatewaySettings from '@/pages/GatewaySettings';
-import CreditPackagesConfig from '@/pages/CreditPackagesConfig';
 import SupportSettings from '@/pages/SupportSettings';
+import SubscriptionPlansAdmin from '@/pages/SubscriptionPlansAdmin';
+import SubscribePage from '@/pages/SubscribePage';
+import AdminCategories from '@/pages/AdminCategories';
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
+  const [user, setUser] = useState(() => {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
-    if (token && userData) {
-      setUser(JSON.parse(userData));
-    }
-    setLoading(false);
-  }, []);
+    return token && userData ? JSON.parse(userData) : null;
+  });
+  const [loading] = useState(false);
 
   const handleLogin = (token, userData) => {
     localStorage.setItem('token', token);
@@ -163,10 +160,10 @@ function App() {
             }
           />
           <Route
-            path="/credit-history"
+            path="/subscription-success"
             element={
               user ? (
-                <CreditHistory user={user} onLogout={handleLogout} />
+                <SubscriptionSuccess user={user} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/login" replace />
               )
@@ -212,6 +209,7 @@ function App() {
               )
             }
           />
+          
           <Route
             path="/admin/gamification"
             element={
@@ -243,20 +241,30 @@ function App() {
             }
           />
           <Route
-            path="/admin/credit-packages"
+            path="/admin/categories"
             element={
               user && user.role === 'admin' ? (
-                <CreditPackagesConfig user={user} onLogout={handleLogout} />
+                <AdminCategories user={user} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/login" replace />
               )
             }
           />
           <Route
-            path="/referral"
+            path="/admin/subscription-plans"
+            element={
+              user && user.role === 'admin' ? (
+                <SubscriptionPlansAdmin user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/subscribe"
             element={
               user ? (
-                <ReferralPage user={user} onLogout={handleLogout} />
+                <SubscribePage />
               ) : (
                 <Navigate to="/login" replace />
               )

@@ -94,13 +94,14 @@ export default function GatewaySettings({ user, onLogout }) {
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
               <p className="text-blue-300 text-sm">
                 <strong>Importante:</strong> Escolha qual gateway de pagamento será utilizado 
-                globalmente na plataforma. Esta configuração afeta todos os cursos e pacotes de créditos.
+                globalmente na plataforma. Esta configuração afeta todos os cursos.
               </p>
             </div>
 
             {/* Gateway Selection */}
             <div>
-              <Label className="text-gray-300 mb-3 block">Gateway Ativo</Label>
+              <fieldset>
+                <legend className="text-gray-300 mb-3 block text-sm font-medium">Gateway Ativo</legend>
               <div className="space-y-3">
                 <label className="flex items-center gap-3 p-4 bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg cursor-pointer hover:border-emerald-500 transition-colors">
                   <input
@@ -131,14 +132,31 @@ export default function GatewaySettings({ user, onLogout }) {
                     <p className="text-sm text-gray-500">Vendas através da Hotmart (webhook)</p>
                   </div>
                 </label>
-              </div>
+
+                <label className="flex items-center gap-3 p-4 bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg cursor-pointer hover:border-emerald-500 transition-colors">
+                  <input
+                    type="radio"
+                    name="gateway"
+                    value="stripe"
+                    checked={config.active_gateway === 'stripe'}
+                    onChange={(e) => setConfig({ ...config, active_gateway: e.target.value })}
+                    className="w-4 h-4 text-emerald-500"
+                  />
+                  <div>
+                    <p className="text-white font-semibold">Stripe</p>
+                    <p className="text-sm text-gray-500">Assinaturas e pagamentos via Stripe Checkout</p>
+                  </div>
+                </label>
+                </div>
+              </fieldset>
             </div>
 
             {/* Hotmart Token (only show if Hotmart is selected) */}
             {config.active_gateway === 'hotmart' && (
               <div>
-                <Label className="text-gray-300">Token de Segurança Hotmart (hottok)</Label>
+                <Label htmlFor="hotmart-token" className="text-gray-300">Token de Segurança Hotmart (hottok)</Label>
                 <Input
+                  id="hotmart-token"
                   type="text"
                   value={config.hotmart_token || ''}
                   onChange={(e) => setConfig({ ...config, hotmart_token: e.target.value })}
@@ -163,6 +181,14 @@ export default function GatewaySettings({ user, onLogout }) {
                 <p className="text-emerald-300 text-sm mt-2">
                   Configure esta URL na sua conta Hotmart para receber notificações de compra.
                 </p>
+              </div>
+            )}
+
+            {config.active_gateway === 'stripe' && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+                <p className="text-emerald-300 text-sm font-semibold mb-2">URL do Webhook para Stripe:</p>
+                <code className="text-emerald-400 text-sm bg-[#0a0a0a] p-2 rounded block break-all">{`${API}/api/webhook/stripe`}</code>
+                <p className="text-emerald-300 text-sm mt-2">Configure esta URL no dashboard da Stripe em Webhooks.</p>
               </div>
             )}
 

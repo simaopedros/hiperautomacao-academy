@@ -33,15 +33,13 @@ The frontend application provides a responsive, user-friendly interface for stud
 - Course browsing and enrollment
 - Lesson viewing with progress tracking
 - Social feed and community discussions
-- Credit management and purchase
-- Referral program participation
 - Support access
 
 ### Admin Features
 - Dashboard with analytics
 - Course, module, and lesson management
 - User management and enrollment control
-- Payment and credit transaction monitoring
+- Payment transaction monitoring
 - Email and payment gateway configuration
 - Support settings management
 

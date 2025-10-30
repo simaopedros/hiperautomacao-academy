@@ -20,7 +20,7 @@ export default function EmailSettings({ user, onLogout }) {
     sender_email: '',
     sender_name: ''
   });
-  const [loading, setLoading] = useState(true);
+
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
   const navigate = useNavigate();
@@ -38,8 +38,6 @@ export default function EmailSettings({ user, onLogout }) {
       setConfig(response.data);
     } catch (error) {
       console.error('Error:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
