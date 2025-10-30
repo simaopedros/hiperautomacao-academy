@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
@@ -9,18 +9,7 @@ function PaymentSuccess() {
   const [checking, setChecking] = useState(true);
   const [message, setMessage] = useState('Verificando pagamento...');
 
-  useEffect(() => {
-    checkPaymentStatus();
-    
-    // Redirect to dashboard after 10 seconds
-    const timer = setTimeout(() => {
-      navigate('/dashboard');
-    }, 10000);
-
-    return () => clearTimeout(timer);
-  }, [navigate]);
-
-  const checkPaymentStatus = async () => {
+  const checkPaymentStatus = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const billingId = localStorage.getItem('last_billing_id');
@@ -52,7 +41,18 @@ function PaymentSuccess() {
       setMessage('Use o botão "Verificar Pagamento" no dashboard para confirmar.');
       setChecking(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    checkPaymentStatus(); // eslint-disable-line react-hooks/set-state-in-effect
+    
+    // Redirect to dashboard after 10 seconds
+    const timer = setTimeout(() => {
+      navigate('/dashboard');
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, [navigate, checkPaymentStatus]);
 
 
 
