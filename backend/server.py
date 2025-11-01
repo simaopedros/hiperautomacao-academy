@@ -1066,7 +1066,55 @@ async def create_lesson(lesson_data: LessonCreate, current_user: User = Depends(
     lesson_dict['created_at'] = lesson_dict['created_at'].isoformat()
     
     await db.lessons.insert_one(lesson_dict)
+    
+    # Create automatic social post for the new lesson
+    await create_lesson_social_post(lesson, current_user)
+    
     return lesson
+
+async def create_lesson_social_post(lesson: Lesson, admin_user: User):
+    """Create an automatic social post when a new lesson is published"""
+    try:
+        # Get module and course information
+        module = await db.modules.find_one({"id": lesson.module_id}, {"_id": 0})
+        if not module:
+            return
+            
+        course = await db.courses.find_one({"id": module["course_id"]}, {"_id": 0})
+        if not course:
+            return
+        
+        # Create social post content
+        post_content = f"🎓 Nova aula disponível!\n\n📚 **{lesson.title}**\n\n"
+        
+        if lesson.type == "video":
+            post_content += "🎥 Aula em vídeo"
+        elif lesson.type == "text":
+            post_content += "📖 Conteúdo textual"
+        elif lesson.type == "file":
+            post_content += "📁 Material para download"
+        
+        post_content += f"\n\n🏷️ Curso: {course['title']}"
+        post_content += f"\n📂 Módulo: {module['title']}"
+        
+        # Create the social post
+        social_post = Comment(
+            content=post_content,
+            lesson_id=lesson.id,
+            user_id=admin_user.id,
+            user_name=admin_user.name,
+            user_avatar=admin_user.avatar,
+            parent_id=None  # This makes it a top-level post
+        )
+        
+        post_dict = social_post.model_dump()
+        post_dict['created_at'] = post_dict['created_at'].isoformat()
+        
+        await db.comments.insert_one(post_dict)
+        
+    except Exception as e:
+        # Log error but don't fail lesson creation
+        logger.error(f"Failed to create social post for lesson {lesson.id}: {str(e)}")
 
 @api_router.get("/admin/lessons/{module_id}", response_model=List[Lesson])
 async def get_module_lessons(module_id: str, current_user: User = Depends(get_current_admin)):
@@ -1111,6 +1159,13 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
     for user in users:
         if isinstance(user['created_at'], str):
             user['created_at'] = datetime.fromisoformat(user['created_at'])
+        
+        # Skip users without 'id' field (legacy users)
+        if 'id' not in user:
+            # Generate a temporary ID for legacy users or skip them
+            user['id'] = f"legacy-{user.get('email', 'unknown')}"
+            user['enrolled_courses'] = []
+            continue
         
         # Get enrolled courses from enrollments collection
         enrollments = await db.enrollments.find({"user_id": user['id']}).to_list(1000)

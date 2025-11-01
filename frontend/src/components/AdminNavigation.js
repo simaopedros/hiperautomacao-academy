@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from './LanguageSwitcher';
 import {
   Users,
   Settings,
@@ -293,7 +292,6 @@ const AdminNavigation = ({ user, onLogout }) => {
           </nav>
         </div>
         <div className="flex items-center gap-4">
-          <LanguageSwitcher />
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate('/profile')}

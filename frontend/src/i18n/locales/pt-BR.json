@@ -30,7 +30,9 @@
     "upload": "Enviar",
     "select": "Selecionar",
     "warning": "Aviso",
-    "info": "Informação"
+    "info": "Informação",
+    "returningToDashboard": "Retornando ao dashboard...",
+    "checkingPaymentStatus": "Verificando status do pagamento..."
   },
   "auth": {
     "login": "Entrar",
@@ -84,6 +86,7 @@
     "logout": "Sair",
     "continue": "Continuar",
     "continueDescription": "Retome de onde parou",
+    "quickAccessLastLessons": "Acesso rápido às suas últimas aulas e progresso de aprendizado.",
     "loadingLastLessons": "Carregando suas últimas aulas...",
     "noCourseStarted": "Você ainda não iniciou nenhum curso. Comece um para aparecer aqui.",
     "continueLesson": "Continuar aula",
@@ -97,6 +100,7 @@
     "newCoursesMonthly": "Novos cursos chegam todo mês",
     "shortcuts": "Atalhos",
     "community": "Comunidade",
+    "profileSettings": "Configurações do perfil",
     "overviewHidden": "Visão geral oculta",
     "informationHidden": "Informações escondidas",
     "showOverviewDescription": "Reexiba seus indicadores e atalhos para acompanhar cursos ativos e acessos rápidos.",
@@ -201,6 +205,7 @@
   },
   "subscription": {
     "title": "Assinatura",
+    "confirming": "Confirmando sua assinatura...",
     "plans": "Planos",
     "currentPlan": "Plano Atual",
     "upgradePlan": "Atualizar Plano",
@@ -233,7 +238,146 @@
     "followers": "Seguidores",
     "following": "Seguindo",
     "posts": "Publicações",
-    "activity": "Atividade"
+    "activity": "Atividade",
+    "feedTitle": "Feed da Comunidade",
+    "feedSubtitle": "Conecte-se, aprenda e cresça junto com nossa comunidade",
+    "communityDescription": "Participe de discussões, compartilhe conhecimento e conecte-se com outros estudantes.",
+    "newDiscussion": "Nova Discussão",
+    "searchDiscussions": "Buscar Discussões",
+    "searchPlaceholder": "Busque por tópicos, autores ou conteúdo...",
+    "clearSearch": "Limpar busca",
+    "noResults": "Nenhum resultado para \"{{searchTerm}}\"",
+    "resultsFound": "{{count}} resultado{{count, plural, one {} other {s}}} encontrado{{count, plural, one {} other {s}}}",
+    "filters": "Filtros",
+    "filterAll": "Tudo",
+    "filterDiscussions": "Discussões",
+    "filterLessons": "Aulas",
+    "sortBy": "Ordenar por",
+    "sortRecent": "Mais Recentes",
+    "sortPopular": "Mais Populares",
+    "sortOldest": "Mais Antigas",
+    "activeCommunity": "Comunidade Ativa",
+    "ongoingDiscussions": "Discussões em andamento",
+    "postsCount": "posts",
+    "totalFiltered": "Total filtrado",
+    "page": "Página",
+    "loading": "Carregando discussões",
+    "noDiscussionsFound": "Nenhuma discussão encontrada",
+    "noDiscussionsMessage": "Não encontramos discussões com \"{{searchTerm}}\". Tente outros termos de busca.",
+    "beFirstMessage": "Seja o primeiro a iniciar uma conversa interessante!",
+    "beFirstToStart": "Seja o primeiro a começar uma discussão!",
+    "createFirstDiscussion": "Criar Primeira Discussão",
+    "interactionTypes": {
+      "newLesson": "Nova Aula",
+      "lessonComment": "Comentário em Aula",
+      "discussion": "Discussão",
+      "reply": "Resposta"
+    },
+    "timeAgo": {
+      "now": "agora mesmo",
+      "minutesAgo": "{{count}} min atrás",
+      "hoursAgo": "{{count}}h atrás",
+      "daysAgo": "{{count}}d atrás"
+    },
+    "actions": {
+      "moreOptions": "Mais opções para esta discussão",
+      "likePost": "Curtir discussão, {{count}} curtidas",
+      "replyPost": "Responder discussão, {{count}} respostas",
+      "viewLesson": "Ver aula relacionada",
+      "sharePost": "Compartilhar discussão",
+      "bookmarkPost": "Salvar discussão nos favoritos",
+      "accessLesson": "Acessar aula"
+    },
+    "pagination": {
+      "previousPage": "Página anterior",
+      "nextPage": "Próxima página",
+      "goToPage": "Ir para página {{page}}"
+    },
+    "createPost": {
+      "title": "Nova Discussão",
+      "description": "Formulário para criar uma nova discussão na comunidade",
+      "placeholder": "Compartilhe suas ideias, dúvidas ou conhecimento com a comunidade...",
+      "contentLabel": "Conteúdo da discussão",
+      "contentHelp": "Escreva o conteúdo da sua discussão para compartilhar com a comunidade",
+      "writeContentHelp": "Escreva o conteúdo da sua discussão aqui",
+      "shareIdeasPlaceholder": "Compartilhe suas ideias, dúvidas ou experiências...",
+      "cancel": "Cancelar",
+      "publish": "Publicar",
+      "cancelCreation": "Cancelar criação da discussão",
+      "publishDiscussion": "Publicar nova discussão"
+    },
+    "postDetail": {
+      "title": "Discussão Detalhada",
+      "replies": "Respostas ({{count}})",
+      "noReplies": "Nenhuma resposta ainda. Seja o primeiro!",
+      "replyPlaceholder": "Escreva sua resposta...",
+      "writeReplyPlaceholder": "Digite sua resposta aqui...",
+      "reply": "Responder"
+    },
+    "lessonPost": {
+      "newLessonAvailable": "Nova Aula Disponível",
+      "defaultTitle": "Nova Aula Disponível",
+      "defaultDescription": "Clique para acessar o conteúdo da aula.",
+      "accessLesson": "Acessar Aula"
+    },
+    "errors": {
+      "enrollmentRequired": "Você precisa estar matriculado neste curso para acessar esta aula",
+      "lessonNotFound": "Aula não encontrada",
+      "accessError": "Erro ao acessar a aula. Tente novamente."
+    },
+    "aria": {
+      "mainContent": "Conteúdo principal da comunidade",
+      "sidebar": "Barra lateral com ações e filtros",
+      "createDiscussion": "Criar nova discussão na comunidade",
+      "searchField": "Campo de busca para filtrar discussões",
+      "filterDiscussions": "Filtrar discussões por tipo",
+      "filterBy": "Filtrar por {{type}}",
+      "sortBy": "Ordenar por {{type}}",
+      "communityFeed": "Feed de discussões da comunidade",
+      "userAvatar": "Avatar do usuário {{name}}",
+      "interactionType": "Tipo de interação: {{type}}"
+    }
+  },
+  "moderation": {
+    "title": "Moderação da Comunidade",
+    "description": "Gerencie discussões e comentários da plataforma",
+    "stats": {
+      "totalPosts": "Total de Posts",
+      "comments": "Comentários",
+      "activeUsers": "Usuários Ativos",
+      "postsToday": "Posts Hoje"
+    },
+    "search": {
+      "placeholder": "Buscar por conteúdo ou usuário..."
+    },
+    "filters": {
+      "all": "Todos",
+      "discussions": "Discussões",
+      "lessons": "Aulas"
+    },
+    "post": {
+      "discussion": "Discussão",
+      "lesson": "Aula",
+      "replies": "respostas",
+      "likes": "curtidas",
+      "viewDetails": "Ver Detalhes",
+      "deletePost": "Excluir Post",
+      "noPostsFound": "Nenhuma publicação encontrada"
+    },
+    "postDetail": {
+      "title": "Detalhes da Publicação",
+      "replies": "Respostas ({{count}})",
+      "noReplies": "Nenhuma resposta"
+    },
+    "confirmations": {
+      "deletePost": "Tem certeza que deseja excluir esta publicação e todas as suas respostas?",
+      "deleteComment": "Tem certeza que deseja excluir este comentário?"
+    },
+    "errors": {
+      "deletePost": "Erro ao excluir publicação",
+      "deleteComment": "Erro ao excluir comentário"
+    },
+    "defaultUser": "Usuário"
   },
   "messages": {
     "success": {
@@ -273,12 +417,26 @@
     "subtitle": "Escolha o idioma que você gostaria de usar na plataforma",
     "portuguese": "Português (Brasil)",
     "english": "English (United States)",
+    "spanish": "Español (España)",
     "confirm": "Confirmar Seleção",
     "skip": "Pular por agora"
   },
   "profile": {
     "preferredLanguage": "Idioma Preferido",
-    "languageDescription": "Selecione o idioma da interface do sistema"
+    "languageDescription": "Selecione o idioma da interface do sistema",
+    "notifications": {
+      "social": {
+        "title": "Notificações Sociais",
+        "description": "Receba notificações sobre atividades na comunidade"
+      }
+    }
+  },
+  "payment": {
+    "pending": "⏳ Pagamento pendente. Clique em \"Verificar Pagamento\" no dashboard para confirmar.",
+    "verifyButton": "Use o botão \"Verificar Pagamento\" no dashboard para confirmar.",
+    "success": "Pagamento realizado com sucesso!",
+    "cancelled": "Pagamento cancelado",
+    "error": "Erro no pagamento"
   },
   "course": {
     "paymentError": "Erro ao criar pagamento",

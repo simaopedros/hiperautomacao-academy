@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { 
   MessageCircle, 
@@ -27,7 +28,9 @@ import {
   Bookmark,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  MessageSquare,
+  Reply
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -44,6 +47,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export default function SocialFeed({ user, onLogout }) {
+  const { t } = useTranslation();
   const [feed, setFeed] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -58,6 +62,87 @@ export default function SocialFeed({ user, onLogout }) {
   const [replyContent, setReplyContent] = useState('');
   const [showPostDetail, setShowPostDetail] = useState(false);
   const navigate = useNavigate();
+
+  // Helper functions to extract lesson information from post content
+  const extractLessonTitle = (content) => {
+    const titleMatch = content.match(/\*\*(.*?)\*\*/);
+    return titleMatch ? titleMatch[1] : t('social.lessonPost.defaultTitle');
+  };
+
+  const extractLessonDescription = (content) => {
+    const lines = content.split('\n');
+    const descriptionLines = [];
+    let foundTitle = false;
+    
+    for (const line of lines) {
+      if (line.includes('📚') || line.includes('Título:')) {
+        foundTitle = true;
+        continue;
+      }
+      if (foundTitle && !line.includes('🏷️') && !line.includes('📂') && line.trim()) {
+        descriptionLines.push(line.trim());
+      }
+      if (line.includes('🏷️')) break;
+    }
+    
+    return descriptionLines.join(' ') || t('social.lessonPost.defaultDescription');
+  };
+
+  // Helper function to get interaction type and styling
+  const getInteractionType = (post) => {
+    // Nova aula publicada (post automático do sistema - identifica pelo conteúdo)
+    if (post.lesson_id && !post.parent_id && post.content && post.content.includes('🎓 Nova aula disponível!')) {
+      return {
+        type: 'new_lesson',
+        label: t('social.interactionTypes.newLesson'),
+        icon: BookOpen,
+        bgColor: 'from-purple-500/20 to-blue-500/20',
+        borderColor: 'border-purple-500/30',
+        textColor: 'text-purple-400',
+        iconBg: 'from-purple-500 to-blue-500',
+        hoverColor: 'hover:border-purple-500/50'
+      };
+    }
+    // Comentário em aula específica (usuário comentando em uma aula)
+    else if (post.lesson_id && !post.parent_id) {
+      return {
+        type: 'lesson_comment',
+        label: t('social.interactionTypes.lessonComment'),
+        icon: MessageSquare,
+        bgColor: 'from-orange-500/20 to-yellow-500/20',
+        borderColor: 'border-orange-500/30',
+        textColor: 'text-orange-400',
+        iconBg: 'from-orange-500 to-yellow-500',
+        hoverColor: 'hover:border-orange-500/50'
+      };
+    }
+    // Discussão geral no feed social
+    else if (!post.lesson_id && !post.parent_id) {
+      return {
+        type: 'discussion',
+        label: t('social.interactionTypes.discussion'),
+        icon: MessageCircle,
+        bgColor: 'from-emerald-500/20 to-cyan-500/20',
+        borderColor: 'border-emerald-500/30',
+        textColor: 'text-emerald-400',
+        iconBg: 'from-emerald-500 to-cyan-500',
+        hoverColor: 'hover:border-emerald-500/50'
+      };
+    } 
+    // Resposta a uma discussão geral (não deveria aparecer no feed principal, mas caso apareça)
+    else {
+      return {
+        type: 'reply',
+        label: t('social.interactionTypes.reply'),
+        icon: Reply,
+        bgColor: 'from-cyan-500/20 to-teal-500/20',
+        borderColor: 'border-cyan-500/30',
+        textColor: 'text-cyan-400',
+        iconBg: 'from-cyan-500 to-teal-500',
+        hoverColor: 'hover:border-cyan-500/50'
+      };
+    }
+  };
 
   useEffect(() => {
     fetchFeed();
@@ -174,10 +259,10 @@ export default function SocialFeed({ user, onLogout }) {
     const now = new Date();
     const diff = Math.floor((now - date) / 1000);
 
-    if (diff < 60) return 'agora mesmo';
-    if (diff < 3600) return `${Math.floor(diff / 60)} min atrás`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h atrás`;
-    return `${Math.floor(diff / 86400)}d atrás`;
+    if (diff < 60) return t('social.timeAgo.now');
+    if (diff < 3600) return t('social.timeAgo.minutesAgo', { count: Math.floor(diff / 60) });
+    if (diff < 86400) return t('social.timeAgo.hoursAgo', { count: Math.floor(diff / 3600) });
+    return t('social.timeAgo.daysAgo', { count: Math.floor(diff / 86400) });
   };
 
   // Filter and sort feed based on search, active filter, and sort option
@@ -229,7 +314,7 @@ export default function SocialFeed({ user, onLogout }) {
       <main 
         className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8"
         role="main"
-        aria-label="Conteúdo principal da comunidade"
+        aria-label={t('social.aria.mainContent')}
       >
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
           
@@ -237,7 +322,7 @@ export default function SocialFeed({ user, onLogout }) {
           <aside 
             className="lg:col-span-1 space-y-6 animate-slide-in-left"
             role="complementary"
-            aria-label="Barra lateral com ações e filtros"
+            aria-label={t('social.aria.sidebar')}
           >
             {/* Create Post Card */}
             <Card className="bg-gradient-to-br from-[#1a1a1a] to-[#151515] border-[#252525]/50 shadow-xl smooth-hover glow-on-hover">
@@ -245,10 +330,10 @@ export default function SocialFeed({ user, onLogout }) {
                 <Button
                   onClick={() => setShowCreatePost(true)}
                   className="w-full bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white font-semibold py-4 rounded-xl shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 button-press ripple animate-pulse-hover"
-                  aria-label="Criar nova discussão na comunidade"
+                  aria-label={t('social.aria.createDiscussion')}
                 >
                   <Plus className="w-5 h-5 mr-2" aria-hidden="true" />
-                  Nova Discussão
+                  {t('social.newDiscussion')}
                 </Button>
               </CardContent>
             </Card>
@@ -258,18 +343,18 @@ export default function SocialFeed({ user, onLogout }) {
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <Search className="w-5 h-5 text-emerald-400 float-animation" aria-hidden="true" />
-                  <h3 className="font-semibold text-white">Buscar Discussões</h3>
+                  <h3 className="font-semibold text-white">{t('social.searchDiscussions')}</h3>
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="relative">
                   <Input
                     type="text"
-                    placeholder="Busque por tópicos, autores ou conteúdo..."
+                    placeholder={t('social.searchPlaceholder')}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="bg-[#0f0f0f] border-[#252525] text-white placeholder-gray-500 rounded-xl transition-all duration-300 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 pr-10"
-                    aria-label="Campo de busca para filtrar discussões"
+                    aria-label={t('social.aria.searchField')}
                     role="searchbox"
                   />
                   {searchTerm && (
@@ -278,7 +363,7 @@ export default function SocialFeed({ user, onLogout }) {
                       size="sm"
                       onClick={() => setSearchTerm('')}
                       className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white p-1 h-auto"
-                      aria-label="Limpar busca"
+                      aria-label={t('social.clearSearch')}
                     >
                       <X className="w-4 h-4" />
                     </Button>
@@ -287,8 +372,8 @@ export default function SocialFeed({ user, onLogout }) {
                 {searchTerm && (
                     <div className="mt-3 text-sm text-gray-400">
                       {allFilteredFeed.length === 0 
-                        ? `Nenhum resultado para "${searchTerm}"`
-                        : `${allFilteredFeed.length} resultado${allFilteredFeed.length > 1 ? 's' : ''} encontrado${allFilteredFeed.length > 1 ? 's' : ''}`
+                        ? t('social.noResults', { searchTerm })
+                        : t('social.resultsFound', { count: allFilteredFeed.length })
                       }
                     </div>
                   )}
@@ -300,17 +385,17 @@ export default function SocialFeed({ user, onLogout }) {
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <Filter className="w-5 h-5 text-emerald-400" aria-hidden="true" />
-                  <h3 className="font-semibold text-white">Filtros</h3>
+                  <h3 className="font-semibold text-white">{t('social.filters')}</h3>
                 </div>
               </CardHeader>
               <CardContent className="pt-0 space-y-4">
                 <fieldset>
-                  <legend className="sr-only">Filtrar discussões por tipo</legend>
+                  <legend className="sr-only">{t('social.aria.filterDiscussions')}</legend>
                   <div className="space-y-2">
                     {[
-                      { key: 'all', label: 'Tudo', icon: TrendingUp },
-                      { key: 'discussions', label: 'Discussões', icon: MessageCircle },
-                      { key: 'lessons', label: 'Aulas', icon: BookOpen }
+                      { key: 'all', label: t('social.filterAll'), icon: TrendingUp },
+                      { key: 'discussions', label: t('social.filterDiscussions'), icon: MessageCircle },
+                      { key: 'lessons', label: t('social.filterLessons'), icon: BookOpen }
                     ].map(({ key, label, icon: Icon }) => (
                       <Button
                         key={key}
@@ -335,13 +420,13 @@ export default function SocialFeed({ user, onLogout }) {
                 <div className="border-t border-[#252525]/50 pt-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Clock className="w-4 h-4 text-cyan-400" aria-hidden="true" />
-                    <h4 className="font-medium text-white text-sm">Ordenar por</h4>
+                    <h4 className="font-medium text-white text-sm">{t('social.sortBy')}</h4>
                   </div>
                   <div className="space-y-2">
                     {[
-                      { key: 'recent', label: 'Mais Recentes', icon: Clock },
-                      { key: 'popular', label: 'Mais Populares', icon: Heart },
-                      { key: 'oldest', label: 'Mais Antigas', icon: Clock }
+                      { key: 'recent', label: t('social.sortRecent'), icon: Clock },
+                      { key: 'popular', label: t('social.sortPopular'), icon: Heart },
+                      { key: 'oldest', label: t('social.sortOldest'), icon: Clock }
                     ].map(({ key, label, icon: Icon }) => (
                       <Button
                         key={key}
@@ -354,7 +439,7 @@ export default function SocialFeed({ user, onLogout }) {
                             : 'text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10'
                         }`}
                         aria-pressed={sortBy === key}
-                        aria-label={`Ordenar por ${label.toLowerCase()}`}
+                        aria-label={t('social.aria.sortBy', { type: label.toLowerCase() })}
                       >
                         <Icon className="w-3 h-3 mr-2" aria-hidden="true" />
                         {label}
@@ -376,23 +461,23 @@ export default function SocialFeed({ user, onLogout }) {
                     <Users className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-white">Comunidade Ativa</h3>
-                    <p className="text-xs text-gray-400">Discussões em andamento</p>
+                    <h3 className="font-semibold text-white">{t('social.activeCommunity')}</h3>
+                    <p className="text-xs text-gray-400">{t('social.ongoingDiscussions')}</p>
                   </div>
                 </div>
                 <div className="space-y-3">
                   <div className="flex items-baseline gap-2">
                     <p 
                       className="text-3xl font-bold text-emerald-400 count-up"
-                      aria-label={`${filteredFeed.length} posts na comunidade`}
+                      aria-label={t('social.aria.postsCount', { count: filteredFeed.length })}
                     >
                       {filteredFeed.length}
                     </p>
-                    <p className="text-sm text-gray-400">posts</p>
+                    <p className="text-sm text-gray-400">{t('social.posts')}</p>
                   </div>
                   {allFilteredFeed.length !== feed.length && (
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-400 text-sm">Total filtrado</span>
+                      <span className="text-gray-400 text-sm">{t('social.totalFiltered')}</span>
                       <span className="font-bold text-yellow-400 count-up">
                         {allFilteredFeed.length}
                       </span>
@@ -400,9 +485,9 @@ export default function SocialFeed({ user, onLogout }) {
                   )}
                   {totalPages > 1 && (
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-400 text-sm">Página</span>
+                      <span className="text-gray-400 text-sm">{t('social.page')}</span>
                       <span className="font-bold text-blue-400">
-                        {currentPage} de {totalPages}
+                        {t('social.pageOf', { current: currentPage, total: totalPages })}
                       </span>
                     </div>
                   )}
@@ -414,22 +499,22 @@ export default function SocialFeed({ user, onLogout }) {
           {/* Enhanced Feed */}
           <section 
             className="lg:col-span-3 space-y-6"
-            aria-label="Feed de discussões da comunidade"
+            aria-label={t('social.aria.communityFeed')}
           >
 
 
             {/* Feed Header */}
             <header className="text-center lg:text-left">
               <h2 className="text-3xl lg:text-4xl font-bold text-white mb-2">
-                Feed da Comunidade
+                {t('social.communityFeed')}
               </h2>
               <p className="text-gray-400 text-lg">
-                Conecte-se, aprenda e cresça junto com nossa comunidade
+                {t('social.communityDescription')}
               </p>
             </header>
 
             {loading ? (
-                <div className="space-y-6" aria-live="polite" aria-label="Carregando discussões">
+                <div className="space-y-6" aria-live="polite" aria-label={t('social.aria.loadingDiscussions')}>
                   {[...Array(3)].map((_, i) => (
                     <Card key={i} className="bg-gradient-to-br from-[#1a1a1a] to-[#151515] border-[#252525]/50 shadow-xl shimmer-loading">
                       <CardContent className="p-6">
@@ -460,91 +545,134 @@ export default function SocialFeed({ user, onLogout }) {
                       <MessageCircle className="w-8 h-8 text-emerald-400 float-animation" />
                     </div>
                     <h3 className="text-xl font-semibold text-white mb-2">
-                      Nenhuma discussão encontrada
+                      {t('social.noDiscussionsFound')}
                     </h3>
                     <p className="text-gray-400 mb-6 max-w-md mx-auto">
                       {searchTerm 
-                        ? `Não encontramos discussões com "${searchTerm}". Tente outros termos de busca.`
-                        : 'Seja o primeiro a iniciar uma conversa interessante!'
+                        ? t('social.noSearchResults', { searchTerm })
+                        : t('social.beFirstToStart')
                       }
                     </p>
                     <Button
                       onClick={() => setShowCreatePost(true)}
                       className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 rounded-xl button-press ripple glow-on-hover"
-                      aria-label="Criar primeira discussão na comunidade"
+                      aria-label={t('social.aria.createFirstDiscussion')}
                     >
                       <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
-                      Criar Primeira Discussão
+                      {t('social.createFirstDiscussion')}
                     </Button>
                   </CardContent>
                 </Card>
               ) : (
                 <>
                   <div className="space-y-6">
-                    {filteredFeed.map((post, index) => (
-                      <Card
+                    {filteredFeed.map((post, index) => {
+                      const interactionType = getInteractionType(post);
+                      const IconComponent = interactionType.icon;
+                      
+                      return (
+                        <Card
                         key={post.id}
                         data-testid={`feed-item-${post.id}`}
-                        className="bg-gradient-to-br from-[#1a1a1a] to-[#151515] border-[#252525]/50 hover:border-emerald-500/30 transition-all duration-300 cursor-pointer shadow-xl hover:shadow-2xl hover:shadow-emerald-500/10 group smooth-hover animate-fade-in-up"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                    onClick={() => fetchPostDetail(post.id)}
-                    role="article"
-                    aria-labelledby={`post-title-${post.id}`}
-                    tabIndex="0"
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-4">
-                        {/* Enhanced Avatar */}
-                        <div 
-                          className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-emerald-500/20 flex-shrink-0 animate-pulse-hover"
-                          role="img"
-                          aria-label={`Avatar do usuário ${post.user_name}`}
-                        >
-                          {post.user_name[0].toUpperCase()}
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          {/* Header */}
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3 flex-wrap">
-                              <span className="font-bold text-white text-lg">{post.user_name}</span>
-                              <div className="flex items-center gap-2 text-sm text-gray-400">
-                                <Clock className="w-4 h-4" aria-hidden="true" />
-                                <time dateTime={post.created_at}>{formatDate(post.created_at)}</time>
+                        className={`bg-gradient-to-br from-[#1a1a1a] to-[#151515] border-[#252525]/50 ${interactionType.hoverColor} transition-all duration-300 cursor-pointer shadow-xl hover:shadow-2xl group smooth-hover animate-fade-in-up`}
+                        style={{ animationDelay: `${index * 100}ms` }}
+                        onClick={() => fetchPostDetail(post.id)}
+                        role="article"
+                        aria-labelledby={`post-title-${post.id}`}
+                        tabIndex="0"
+                      >
+                        <CardContent className="p-6">
+                          <div className="flex items-start gap-4">
+                            {/* Enhanced Avatar with interaction type indicator */}
+                            <div className="relative">
+                              <div 
+                                className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-emerald-500/20 flex-shrink-0 animate-pulse-hover"
+                                role="img"
+                                aria-label={`Avatar do usuário ${post.user_name}`}
+                              >
+                                {post.user_name[0].toUpperCase()}
                               </div>
-                              {!post.lesson_id && (
-                                <Badge 
-                                  className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 animate-scale-in"
-                                  aria-label="Tipo de discussão: Discussão geral"
-                                >
-                                  <MessageCircle className="w-3 h-3 mr-1" aria-hidden="true" />
-                                  Discussão
-                                </Badge>
-                              )}
+                              {/* Interaction type indicator */}
+                              <div className={`absolute -bottom-1 -right-1 w-6 h-6 bg-gradient-to-br ${interactionType.iconBg} rounded-full flex items-center justify-center border-2 border-[#1a1a1a]`}>
+                                <IconComponent className="w-3 h-3 text-white" />
+                              </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity rounded-full button-press"
-                              aria-label="Mais opções para esta discussão"
-                            >
-                              <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
-                            </Button>
-                          </div>
 
-                          {/* Post Content */}
-                          <p 
-                            id={`post-title-${post.id}`}
-                            className="text-gray-200 mb-4 leading-relaxed text-base"
-                          >
-                            {post.content}
-                          </p>
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              {/* Header */}
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-3 flex-wrap">
+                                  <span className="font-bold text-white text-lg">{post.user_name}</span>
+                                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                                    <Clock className="w-4 h-4" aria-hidden="true" />
+                                    <time dateTime={post.created_at}>{formatDate(post.created_at)}</time>
+                                  </div>
+                                  {/* Enhanced Badge with specific styling */}
+                                  <Badge 
+                                    className={`bg-gradient-to-r ${interactionType.bgColor} ${interactionType.textColor} ${interactionType.borderColor} animate-scale-in font-medium`}
+                                    aria-label={`Tipo de interação: ${interactionType.label}`}
+                                  >
+                                    <IconComponent className="w-3 h-3 mr-1" aria-hidden="true" />
+                                    {interactionType.label}
+                                  </Badge>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity rounded-full button-press"
+                                  aria-label={t('social.aria.moreOptions')}
+                                >
+                                  <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
+                                </Button>
+                              </div>
+
+                          {/* Post Content - Enhanced for New Lesson Posts Only */}
+                          {post.lesson_id && post.content.includes('🎓 Nova aula disponível!') ? (
+                            <div className="mb-4">
+                              {/* New Lesson Post Special Layout */}
+                              <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-xl p-4 mb-3">
+                                <div className="flex items-start gap-3">
+                                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <BookOpen className="w-5 h-5 text-white" />
+                                  </div>
+                                  <div className="flex-1">
+                                    <h3 className="font-semibold text-white text-lg mb-2">
+                                      {extractLessonTitle(post.content)}
+                                    </h3>
+                                    <p className="text-gray-300 text-sm leading-relaxed">
+                                      {extractLessonDescription(post.content)}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="mt-3 pt-3 border-t border-purple-500/20">
+                                  <Button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleViewLesson(post.lesson_id);
+                                    }}
+                                    className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-medium px-4 py-2 rounded-lg transition-all duration-300 button-press ripple glow-on-hover"
+                                    aria-label={t('social.aria.accessLesson')}
+                                  >
+                                    <BookOpen className="w-4 h-4 mr-2" />
+                                    {t('social.accessLesson')}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <p 
+                              id={`post-title-${post.id}`}
+                              className="text-gray-200 mb-4 leading-relaxed text-base"
+                            >
+                              {post.content}
+                            </p>
+                          )}
 
                           <Separator className="my-4 bg-[#252525]" />
 
                           {/* Enhanced Actions */}
-                          <div className="flex items-center justify-between" role="toolbar" aria-label="Ações da discussão">
+                          <div className="flex items-center justify-between" role="toolbar" aria-label={t('social.aria.discussionActions')}>
                             <div className="flex items-center gap-6">
                               <Button
                                 variant="ghost"
@@ -554,7 +682,7 @@ export default function SocialFeed({ user, onLogout }) {
                                   handleLike(post.id);
                                 }}
                                 className="text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 rounded-xl group/like button-press ripple"
-                                aria-label={`Curtir discussão, ${post.likes} curtidas`}
+                                aria-label={t('social.aria.likePost', { count: post.likes })}
                               >
                                 <Heart className="w-4 h-4 mr-2 group-hover/like:fill-current" aria-hidden="true" />
                                 <span className="font-medium count-up">{post.likes}</span>
@@ -564,7 +692,7 @@ export default function SocialFeed({ user, onLogout }) {
                                 variant="ghost"
                                 size="sm"
                                 className="text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all duration-300 rounded-xl button-press ripple"
-                                aria-label={`Responder discussão, ${post.replies_count || 0} respostas`}
+                                aria-label={t('social.aria.replyPost', { count: post.replies_count || 0 })}
                               >
                                 <MessageCircle className="w-4 h-4 mr-2" aria-hidden="true" />
                                 <span className="font-medium count-up">{post.replies_count || 0}</span>
@@ -579,10 +707,10 @@ export default function SocialFeed({ user, onLogout }) {
                                     handleViewLesson(post.lesson_id);
                                   }}
                                   className="text-gray-400 hover:text-purple-400 hover:bg-purple-500/10 transition-all duration-300 rounded-xl button-press ripple"
-                                  aria-label="Ver aula relacionada"
+                                  aria-label={t('social.aria.viewRelatedLesson')}
                                 >
                                   <BookOpen className="w-4 h-4 mr-2" aria-hidden="true" />
-                                  Ver aula
+                                  {t('social.viewLesson')}
                                 </Button>
                               )}
                             </div>
@@ -592,7 +720,7 @@ export default function SocialFeed({ user, onLogout }) {
                                 variant="ghost"
                                 size="icon"
                                 className="text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all duration-300 rounded-full button-press"
-                                aria-label="Compartilhar discussão"
+                                aria-label={t('social.aria.shareDiscussion')}
                               >
                                 <Share2 className="w-4 h-4" aria-hidden="true" />
                               </Button>
@@ -600,7 +728,7 @@ export default function SocialFeed({ user, onLogout }) {
                                 variant="ghost"
                                 size="icon"
                                 className="text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/10 transition-all duration-300 rounded-full button-press"
-                                aria-label="Salvar discussão nos favoritos"
+                                aria-label={t('social.aria.saveDiscussion')}
                               >
                                 <Bookmark className="w-4 h-4" aria-hidden="true" />
                               </Button>
@@ -610,7 +738,8 @@ export default function SocialFeed({ user, onLogout }) {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                      );
+                    })}
               </div>
 
               {totalPages > 1 && (
@@ -621,7 +750,7 @@ export default function SocialFeed({ user, onLogout }) {
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
                     className="bg-[#1a1a1a] border-[#252525] text-white hover:bg-[#252525] disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label="Página anterior"
+                    aria-label={t('social.aria.previousPage')}
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
@@ -650,7 +779,7 @@ export default function SocialFeed({ user, onLogout }) {
                               ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white border-0"
                               : "bg-[#1a1a1a] border-[#252525] text-white hover:bg-[#252525]"
                           }`}
-                          aria-label={`Ir para página ${pageNum}`}
+                          aria-label={t('social.aria.goToPage', { page: pageNum })}
                         >
                           {pageNum}
                         </Button>
@@ -664,7 +793,7 @@ export default function SocialFeed({ user, onLogout }) {
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
                     className="bg-[#1a1a1a] border-[#252525] text-white hover:bg-[#252525] disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label="Próxima página"
+                    aria-label={t('social.aria.nextPage')}
                   >
                     <ChevronRight className="w-4 h-4" />
                   </Button>
@@ -689,10 +818,10 @@ export default function SocialFeed({ user, onLogout }) {
               id="create-post-title"
               className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent"
             >
-              Nova Discussão
+              {t('social.newDiscussion')}
             </DialogTitle>
             <p id="create-post-description" className="sr-only">
-              Formulário para criar uma nova discussão na comunidade
+              {t('social.createPostFormDescription')}
             </p>
           </DialogHeader>
           <form onSubmit={handleCreatePost} className="space-y-6">
@@ -700,7 +829,7 @@ export default function SocialFeed({ user, onLogout }) {
               <div 
                 className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg flex-shrink-0"
                 role="img"
-                aria-label={`Avatar do usuário ${user.name}`}
+                aria-label={t('social.aria.userAvatar', { name: user.name })}
               >
                 {user.name[0].toUpperCase()}
               </div>
@@ -708,15 +837,15 @@ export default function SocialFeed({ user, onLogout }) {
                 id="post-content"
                 value={newPostContent}
                 onChange={(e) => setNewPostContent(e.target.value)}
-                placeholder="Compartilhe suas ideias, dúvidas ou conhecimento com a comunidade..."
+                placeholder={t('social.shareIdeasPlaceholder')}
                 rows={4}
                 className="bg-[#111111] border-[#2a2a2a] text-white flex-1 min-h-[120px] rounded-xl resize-none focus:ring-2 focus:ring-emerald-500/50"
                 required
-                aria-label="Conteúdo da discussão"
+                aria-label={t('social.aria.discussionContent')}
                 aria-describedby="content-help"
               />
               <p id="content-help" className="sr-only">
-                Escreva o conteúdo da sua discussão para compartilhar com a comunidade
+                {t('social.writeContentHelp')}
               </p>
             </div>
             <div className="flex justify-end gap-3">
@@ -725,18 +854,18 @@ export default function SocialFeed({ user, onLogout }) {
                 variant="outline"
                 onClick={() => setShowCreatePost(false)}
                 className="border-[#2a2a2a] hover:bg-[#252525] rounded-xl"
-                aria-label="Cancelar criação da discussão"
+                aria-label={t('social.aria.cancelCreation')}
               >
-                Cancelar
+                {t('social.cancel')}
               </Button>
               <Button
                 type="submit"
                 className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 rounded-xl shadow-lg"
                 disabled={!newPostContent.trim()}
-                aria-label="Publicar nova discussão"
+                aria-label={t('social.aria.publishDiscussion')}
               >
                 <Send className="w-4 h-4 mr-2" aria-hidden="true" />
-                Publicar
+                {t('social.publish')}
               </Button>
             </div>
           </form>
@@ -750,7 +879,7 @@ export default function SocialFeed({ user, onLogout }) {
             <>
               <DialogHeader>
                 <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-                  Discussão Detalhada
+                  {t('social.detailedDiscussion')}
                 </DialogTitle>
               </DialogHeader>
 
@@ -787,7 +916,7 @@ export default function SocialFeed({ user, onLogout }) {
                     </Button>
                     <div className="flex items-center gap-2 text-gray-400">
                       <MessageCircle className="w-4 h-4" />
-                      <span>{postReplies.length} respostas</span>
+                      <span>{t('social.repliesCount', { count: postReplies.length })}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -804,7 +933,7 @@ export default function SocialFeed({ user, onLogout }) {
                       <Textarea
                         value={replyContent}
                         onChange={(e) => setReplyContent(e.target.value)}
-                        placeholder="Escreva sua resposta..."
+                        placeholder={t('social.writeReplyPlaceholder')}
                         rows={3}
                         className="bg-[#0a0a0a] border-[#2a2a2a] text-white flex-1 rounded-xl"
                       />
@@ -816,7 +945,7 @@ export default function SocialFeed({ user, onLogout }) {
                         disabled={!replyContent.trim()}
                       >
                         <Send className="w-4 h-4 mr-2" />
-                        Responder
+                        {t('social.reply')}
                       </Button>
                     </div>
                   </form>
@@ -827,13 +956,13 @@ export default function SocialFeed({ user, onLogout }) {
               <div className="space-y-4">
                 <h3 className="font-semibold text-white text-lg flex items-center gap-2">
                   <MessageCircle className="w-5 h-5 text-emerald-400" />
-                  Respostas ({postReplies.length})
+                  {t('social.replies')} ({postReplies.length})
                 </h3>
                 {postReplies.length === 0 ? (
                   <Card className="bg-[#111111] border-[#252525]">
                     <CardContent className="text-center py-12">
                       <MessageCircle className="w-12 h-12 mx-auto text-gray-600 mb-4" />
-                      <p className="text-gray-400">Nenhuma resposta ainda. Seja o primeiro!</p>
+                      <p className="text-gray-400">{t('social.noRepliesYet')}</p>
                     </CardContent>
                   </Card>
                 ) : (

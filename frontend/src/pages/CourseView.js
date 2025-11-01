@@ -147,7 +147,7 @@ export default function CourseView({ user, onLogout }) {
           <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <BookOpen size={32} className="text-red-400" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">Curso não encontrado</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">{t('course.notFound')}</h2>
           <p className="text-gray-400 mb-6">{t('course.notFound')}</p>
           <Button onClick={() => navigate('/dashboard')} className="bg-emerald-500 hover:bg-emerald-600">
             {t('course.backToCourses')}

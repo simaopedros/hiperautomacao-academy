@@ -1,13 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useI18n } from '../hooks/useI18n';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 function PaymentSuccess() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [checking, setChecking] = useState(true);
-  const [message, setMessage] = useState('Verificando pagamento...');
+  const [message, setMessage] = useState(t('payment.verifyButton'));
 
   const checkPaymentStatus = useCallback(async () => {
     try {
@@ -15,12 +17,12 @@ function PaymentSuccess() {
       const billingId = localStorage.getItem('last_billing_id');
       
       if (!billingId) {
-        setMessage('Retornando ao dashboard...');
+        setMessage(t('common.returningToDashboard'));
         setChecking(false);
         return;
       }
 
-      setMessage('Verificando status do pagamento...');
+      setMessage(t('common.checkingPaymentStatus'));
 
       // Check payment status
       const response = await axios.get(
@@ -33,12 +35,12 @@ function PaymentSuccess() {
         setChecking(false);
         localStorage.removeItem('last_billing_id');
       } else {
-        setMessage('⏳ Pagamento pendente. Clique em "Verificar Pagamento" no dashboard para confirmar.');
+        setMessage(t('payment.pending'));
         setChecking(false);
       }
     } catch (error) {
       console.error('Error in checkPaymentStatus:', error);
-      setMessage('Use o botão "Verificar Pagamento" no dashboard para confirmar.');
+      setMessage(t('payment.verifyButton'));
       setChecking(false);
     }
   }, []);

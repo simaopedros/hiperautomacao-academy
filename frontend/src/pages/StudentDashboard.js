@@ -55,13 +55,12 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
     if (user?.preferred_language !== userLanguage) {
       setUserLanguage(user?.preferred_language || null);
     }
-  }, [user?.preferred_language, userLanguage]);
+  }, [user?.preferred_language]); // Removida a dependência userLanguage para evitar loop
 
   // Recarregar cursos quando o idioma do usuário muda
   useEffect(() => {
-    if (userLanguage !== null) {
-      fetchCourses();
-    }
+    // Sempre recarregar cursos quando userLanguage muda, incluindo quando é null (todos os idiomas)
+    fetchCourses();
   }, [userLanguage]);
 
   // Escutar mudanças no idioma

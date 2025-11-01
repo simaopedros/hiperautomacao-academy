@@ -98,17 +98,36 @@ export default function ProfileSettings({ user, onLogout }) {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.put(`${API}/user/profile`, profileData, {
+      
+      // Converter código de idioma completo para código simples que o backend espera
+      const profileDataToSend = { ...profileData };
+      if (profileDataToSend.preferred_language) {
+        if (profileDataToSend.preferred_language === 'pt-BR') {
+          profileDataToSend.preferred_language = 'pt';
+        } else if (profileDataToSend.preferred_language === 'en-US') {
+          profileDataToSend.preferred_language = 'en';
+        } else if (profileDataToSend.preferred_language === 'es-ES') {
+          profileDataToSend.preferred_language = 'es';
+        }
+      }
+      
+      const response = await axios.put(`${API}/user/profile`, profileDataToSend, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Atualizar dados do usuário no localStorage
-      const updatedUser = { ...user, ...profileData };
+      // Atualizar dados do usuário no localStorage com o código simples
+      const updatedUser = { ...user, ...profileDataToSend };
       localStorage.setItem('user', JSON.stringify(updatedUser));
       
       // Atualizar idioma se foi alterado
       if (profileData.preferred_language !== getCurrentLanguage()) {
-        changeLanguage(profileData.preferred_language);
+        await changeLanguage(profileData.preferred_language);
+        
+        // Forçar recarregamento da página para atualizar os cursos no dashboard
+        // Isso garante que os cursos sejam filtrados corretamente pelo novo idioma
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
       }
 
       setMessage({ type: 'success', text: 'Perfil atualizado com sucesso!' });
@@ -725,9 +744,9 @@ export default function ProfileSettings({ user, onLogout }) {
                       <div className="space-y-2">
                         <h4 className="text-white font-semibold flex items-center gap-2">
                           <User className="w-5 h-5 text-emerald-400" />
-                          Notificações Sociais
+                          {t('profile.notifications.social.title')}
                         </h4>
-                        <p className="text-gray-300 text-sm">Receba notificações sobre atividades na comunidade</p>
+                        <p className="text-gray-300 text-sm">{t('profile.notifications.social.description')}</p>
                       </div>
                       <Switch
                         checked={preferences.social_notifications}

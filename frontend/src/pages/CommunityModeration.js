@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { MessageCircle, Trash2, Users, TrendingUp, Filter, Search, AlertTriangle, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export default function CommunityModeration({ user, onLogout }) {
+  const { t } = useTranslation();
   const [posts, setPosts] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -91,7 +93,7 @@ export default function CommunityModeration({ user, onLogout }) {
   };
 
   const handleDeletePost = async (postId) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta publicação e todas as suas respostas?')) return;
+    if (!window.confirm(t('moderation.confirmations.deletePost'))) return;
     
     try {
       const token = localStorage.getItem('token');
@@ -103,12 +105,12 @@ export default function CommunityModeration({ user, onLogout }) {
       setShowDetailDialog(false);
     } catch (error) {
       console.error('Error deleting post:', error);
-      alert('Erro ao excluir publicação');
+      alert(t('moderation.errors.deletePost'));
     }
   };
 
   const handleDeleteComment = async (commentId) => {
-    if (!window.confirm('Tem certeza que deseja excluir este comentário?')) return;
+    if (!window.confirm(t('moderation.confirmations.deleteComment'))) return;
     
     try {
       const token = localStorage.getItem('token');
@@ -123,13 +125,13 @@ export default function CommunityModeration({ user, onLogout }) {
       fetchAllData();
     } catch (error) {
       console.error('Error deleting comment:', error);
-      alert('Erro ao excluir comentário');
+      alert(t('moderation.errors.deleteComment'));
     }
   };
 
   const getUserName = (userId) => {
     const user = users.find(u => u.id === userId);
-    return user?.name || 'Usuário';
+    return user?.name || t('moderation.defaultUser');
   };
 
   const formatDate = (dateString) => {
@@ -149,8 +151,8 @@ export default function CommunityModeration({ user, onLogout }) {
 
       <main className="max-w-7xl mx-auto px-6 py-12">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Moderação da Comunidade</h1>
-          <p className="text-gray-400">Gerencie discussões e comentários da plataforma</p>
+          <h1 className="text-3xl font-bold text-white mb-2">{t('moderation.title')}</h1>
+          <p className="text-gray-400">{t('moderation.description')}</p>
         </div>
 
         {/* Stats Cards */}
@@ -158,7 +160,7 @@ export default function CommunityModeration({ user, onLogout }) {
           <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 border border-emerald-500/30 rounded-xl p-6">
             <div className="flex items-center gap-3 mb-2">
               <MessageCircle className="text-emerald-400" size={24} />
-              <h3 className="font-semibold text-white">Total de Posts</h3>
+              <h3 className="font-semibold text-white">{t('moderation.stats.totalPosts')}</h3>
             </div>
             <p className="text-3xl font-bold text-emerald-400">{stats.totalPosts}</p>
           </div>
@@ -166,7 +168,7 @@ export default function CommunityModeration({ user, onLogout }) {
           <div className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/10 border border-cyan-500/30 rounded-xl p-6">
             <div className="flex items-center gap-3 mb-2">
               <MessageCircle className="text-cyan-400" size={24} />
-              <h3 className="font-semibold text-white">Comentários</h3>
+              <h3 className="font-semibold text-white">{t('moderation.stats.comments')}</h3>
             </div>
             <p className="text-3xl font-bold text-cyan-400">{stats.totalComments}</p>
           </div>
@@ -174,7 +176,7 @@ export default function CommunityModeration({ user, onLogout }) {
           <div className="bg-gradient-to-br from-purple-500/10 to-purple-600/10 border border-purple-500/30 rounded-xl p-6">
             <div className="flex items-center gap-3 mb-2">
               <Users className="text-purple-400" size={24} />
-              <h3 className="font-semibold text-white">Usuários Ativos</h3>
+              <h3 className="font-semibold text-white">{t('moderation.stats.activeUsers')}</h3>
             </div>
             <p className="text-3xl font-bold text-purple-400">{stats.activeUsers}</p>
           </div>
@@ -182,7 +184,7 @@ export default function CommunityModeration({ user, onLogout }) {
           <div className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/10 border border-yellow-500/30 rounded-xl p-6">
             <div className="flex items-center gap-3 mb-2">
               <TrendingUp className="text-yellow-400" size={24} />
-              <h3 className="font-semibold text-white">Posts Hoje</h3>
+              <h3 className="font-semibold text-white">{t('moderation.stats.postsToday')}</h3>
             </div>
             <p className="text-3xl font-bold text-yellow-400">{stats.todayPosts}</p>
           </div>
@@ -197,7 +199,7 @@ export default function CommunityModeration({ user, onLogout }) {
                 <Input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar por conteúdo ou usuário..."
+                  placeholder={t('moderation.search.placeholder')}
                   className="pl-10 bg-[#111111] border-[#2a2a2a] text-white"
                 />
               </div>
@@ -209,21 +211,21 @@ export default function CommunityModeration({ user, onLogout }) {
                 variant={filter === 'all' ? 'default' : 'outline'}
                 className={filter === 'all' ? 'bg-emerald-500' : 'border-[#2a2a2a]'}
               >
-                Todos
+                {t('moderation.filters.all')}
               </Button>
               <Button
                 onClick={() => setFilter('discussions')}
                 variant={filter === 'discussions' ? 'default' : 'outline'}
                 className={filter === 'discussions' ? 'bg-emerald-500' : 'border-[#2a2a2a]'}
               >
-                Discussões
+                {t('moderation.filters.discussions')}
               </Button>
               <Button
                 onClick={() => setFilter('lessons')}
                 variant={filter === 'lessons' ? 'default' : 'outline'}
                 className={filter === 'lessons' ? 'bg-emerald-500' : 'border-[#2a2a2a]'}
               >
-                Aulas
+                {t('moderation.filters.lessons')}
               </Button>
             </div>
           </div>
@@ -237,7 +239,7 @@ export default function CommunityModeration({ user, onLogout }) {
         ) : filteredPosts.length === 0 ? (
           <div className="text-center py-20 bg-[#1a1a1a] rounded-xl border border-[#252525]">
             <MessageCircle size={64} className="mx-auto text-gray-600 mb-4" />
-            <p className="text-gray-400 text-lg">Nenhuma publicação encontrada</p>
+            <p className="text-gray-400 text-lg">{t('moderation.posts.noPostsFound')}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -258,12 +260,12 @@ export default function CommunityModeration({ user, onLogout }) {
                       </div>
                       {!post.lesson_id && (
                         <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-1 rounded-full">
-                          Discussão
+                          {t('moderation.posts.discussion')}
                         </span>
                       )}
                       {post.lesson_id && (
                         <span className="bg-purple-500/20 text-purple-400 text-xs px-2 py-1 rounded-full">
-                          Aula
+                          {t('moderation.posts.lesson')}
                         </span>
                       )}
                     </div>
@@ -273,9 +275,9 @@ export default function CommunityModeration({ user, onLogout }) {
                     <div className="flex items-center gap-6 text-sm text-gray-400">
                       <span className="flex items-center gap-1">
                         <MessageCircle size={16} />
-                        {post.replies_count || 0} respostas
+                        {t('moderation.posts.replies', { count: post.replies_count || 0 })}
                       </span>
-                      <span>{post.likes} curtidas</span>
+                      <span>{t('moderation.posts.likes', { count: post.likes })}</span>
                     </div>
                   </div>
 
@@ -286,7 +288,7 @@ export default function CommunityModeration({ user, onLogout }) {
                       size="sm"
                       className="border-[#2a2a2a] hover:bg-[#252525]"
                     >
-                      Ver Detalhes
+                      {t('moderation.posts.viewDetails')}
                     </Button>
                     <Button
                       onClick={() => handleDeletePost(post.id)}
@@ -310,7 +312,7 @@ export default function CommunityModeration({ user, onLogout }) {
           {selectedPost && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-2xl">Detalhes da Publicação</DialogTitle>
+                <DialogTitle className="text-2xl">{t('moderation.postDetail.title')}</DialogTitle>
               </DialogHeader>
 
               {/* Original Post */}
@@ -332,7 +334,7 @@ export default function CommunityModeration({ user, onLogout }) {
                         className="border-red-500/30 hover:bg-red-500/10 text-red-400"
                       >
                         <Trash2 size={16} className="mr-2" />
-                        Excluir Post
+                        {t('moderation.posts.deletePost')}
                       </Button>
                     </div>
                     <p className="text-gray-200 leading-relaxed">{selectedPost.content}</p>
@@ -342,9 +344,9 @@ export default function CommunityModeration({ user, onLogout }) {
                 <div className="flex items-center gap-6 pt-4 border-t border-[#252525]">
                   <div className="flex items-center gap-2 text-gray-400">
                     <MessageCircle size={18} />
-                    <span className="text-sm">{postReplies.length} respostas</span>
+                    <span className="text-sm">{t('moderation.postDetail.replies', { count: postReplies.length })}</span>
                   </div>
-                  <div className="text-gray-400 text-sm">{selectedPost.likes} curtidas</div>
+                  <div className="text-gray-400 text-sm">{t('moderation.posts.likes', { count: selectedPost.likes })}</div>
                 </div>
               </div>
 
@@ -352,11 +354,11 @@ export default function CommunityModeration({ user, onLogout }) {
               <div className="space-y-4">
                 <h3 className="font-semibold text-white text-lg flex items-center gap-2">
                   <MessageCircle size={20} />
-                  Respostas ({postReplies.length})
+                  {t('moderation.postDetail.repliesTitle', { count: postReplies.length })}
                 </h3>
                 
                 {postReplies.length === 0 ? (
-                  <p className="text-gray-400 text-center py-8">Nenhuma resposta</p>
+                  <p className="text-gray-400 text-center py-8">{t('moderation.postDetail.noReplies')}</p>
                 ) : (
                   postReplies.map((reply) => (
                     <div key={reply.id} className="bg-[#111111] rounded-lg p-4 border border-[#252525]">
@@ -371,7 +373,7 @@ export default function CommunityModeration({ user, onLogout }) {
                               <span className="text-xs text-gray-500">{formatDate(reply.created_at)}</span>
                             </div>
                             <p className="text-gray-300 text-sm mb-2">{reply.content}</p>
-                            <div className="text-xs text-gray-500">{reply.likes} curtidas</div>
+                            <div className="text-xs text-gray-500">{t('moderation.posts.likes', { count: reply.likes })}</div>
                           </div>
                         </div>
                         <Button

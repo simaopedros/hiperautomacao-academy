@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
+import { useI18n } from '../hooks/useI18n';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export default function SubscriptionSuccess() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const [checking, setChecking] = useState(true);
-  const [message, setMessage] = useState('Confirmando sua assinatura...');
+  const [message, setMessage] = useState(t('subscription.confirming'));
   const [userInfo, setUserInfo] = useState(null);
 
   useEffect(() => {
@@ -70,7 +72,7 @@ export default function SubscriptionSuccess() {
       setChecking(false);
     } catch (error) {
       console.error('Erro ao verificar assinatura:', error);
-      setMessage('Use o botão "Verificar Pagamento" no dashboard para confirmar.');
+      setMessage(t('payment.verifyButton'));
       await fetchUserInfo();
       setChecking(false);
     }

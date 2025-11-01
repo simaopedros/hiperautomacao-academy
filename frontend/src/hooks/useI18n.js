@@ -19,17 +19,24 @@ export const useI18n = () => {
       if (user && user.id) {
         try {
           const token = localStorage.getItem('token');
-          const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/users/language`, {
+          // Converter códigos de idioma completos para códigos simples que o backend espera
+          let backendLanguageCode = languageCode;
+          if (languageCode === 'pt-BR') backendLanguageCode = 'pt';
+          else if (languageCode === 'en-US') backendLanguageCode = 'en';
+          else if (languageCode === 'es-ES') backendLanguageCode = 'es';
+          
+          const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+          const response = await fetch(`${BACKEND_URL}/api/auth/language`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ preferred_language: languageCode })
+            body: JSON.stringify({ language: backendLanguageCode })
           });
 
           if (response.ok) {
-            const updatedUser = { ...user, preferred_language: languageCode };
+            const updatedUser = { ...user, preferred_language: backendLanguageCode };
             localStorage.setItem('user', JSON.stringify(updatedUser));
           }
         } catch (error) {

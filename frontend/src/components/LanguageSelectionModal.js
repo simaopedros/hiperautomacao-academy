@@ -12,15 +12,25 @@ const LanguageSelectionModal = ({ isOpen, onClose, onLanguageSelect, currentLang
 
   const languages = [
     { code: 'pt-BR', name: t('languageSelection.portuguese'), flag: '🇧🇷' },
-    { code: 'en-US', name: t('languageSelection.english'), flag: '🇺🇸' }
+    { code: 'en-US', name: t('languageSelection.english'), flag: '🇺🇸' },
+    { code: 'es-ES', name: t('languageSelection.spanish'), flag: '🇪🇸' }
   ];
 
-  const handleLanguageSelect = async (language) => {
-    setSelectedLanguage(language);
+  const handleLanguageSelect = async () => {
     setIsLoading(true);
     
     try {
-      // Alterar idioma no i18n
+      // Converter código de idioma completo para código simples que o backend espera
+      let backendLanguageCode = selectedLanguage;
+      if (selectedLanguage === 'pt-BR') {
+        backendLanguageCode = 'pt';
+      } else if (selectedLanguage === 'en-US') {
+        backendLanguageCode = 'en';
+      } else if (selectedLanguage === 'es-ES') {
+        backendLanguageCode = 'es';
+      }
+      
+      // Alterar idioma no i18n primeiro
       await i18n.changeLanguage(selectedLanguage);
       
       const token = localStorage.getItem('token');
@@ -30,7 +40,7 @@ const LanguageSelectionModal = ({ isOpen, onClose, onLanguageSelect, currentLang
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ language: selectedLanguage })
+        body: JSON.stringify({ language: backendLanguageCode })
       });
 
       if (response.ok) {
@@ -38,14 +48,17 @@ const LanguageSelectionModal = ({ isOpen, onClose, onLanguageSelect, currentLang
         const responseClone = response.clone();
         const updatedUser = await responseClone.json();
         
-        // Atualizar dados do usuário no localStorage
+        // Atualizar dados do usuário no localStorage com o código simples
         const userData = JSON.parse(localStorage.getItem('user'));
-        userData.preferred_language = selectedLanguage;
+        userData.preferred_language = backendLanguageCode;
         localStorage.setItem('user', JSON.stringify(userData));
         
-        console.log('Idioma salvo com sucesso:', selectedLanguage);
-        // Fechar o modal após sucesso
-        onLanguageSelect(selectedLanguage);
+        console.log('Idioma salvo com sucesso:', backendLanguageCode);
+        
+        // Fechar o modal após sucesso - usar o código completo para o frontend
+        if (onLanguageSelect) {
+          onLanguageSelect(selectedLanguage);
+        }
       } else {
         // Clonar a resposta ANTES de qualquer tentativa de leitura para erros
         const responseClone = response.clone();

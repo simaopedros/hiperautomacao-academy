@@ -1098,13 +1098,13 @@ function CourseManagement({ user, onLogout }) {
                       <Button
                         onClick={() => {
                           setEditingLesson(null);
-                          setLessonFormData({
+                          setLessonForm({
                             title: '',
                             type: 'video',
                             content: '',
                             duration: 0,
                             order: lessons.filter(l => l.module_id === selectedModule.id).length + 1,
-                            additional_links: []
+                            links: []
                           });
                         }}
                         className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 py-2 rounded-lg shadow-lg hover:shadow-emerald-500/25 transition-all duration-200"
