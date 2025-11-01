@@ -589,3 +589,488 @@ README.md          # Este documento
 - Caso utilize gateways de pagamento em produção, substitua as chaves sandbox por credenciais reais e valide webhooks externos.【F:backend/server.py†L1774-L2083】【F:backend/server.py†L2462-L2520】
 
 Com isso o ambiente estará pronto para evoluir novas funcionalidades, integrar conteúdo e publicar a plataforma Hiperautomação Academy.
+
+---
+
+# 🎨 Guia de Estilo UI/UX - Hiperautomação Academy
+
+Este guia define os padrões visuais e de experiência do usuário da plataforma Hiperautomação Academy, baseado no design da tela de login e componentes existentes.
+
+## 🎯 Filosofia de Design
+
+A plataforma adota um **design moderno e premium** com foco em:
+- **Elegância minimalista** com elementos glassmorphism
+- **Experiência imersiva** através de gradientes e efeitos visuais
+- **Acessibilidade** com contrastes adequados e hierarquia clara
+- **Responsividade** para todos os dispositivos
+
+## 🎨 Fundamentos Visuais
+
+### Paleta de Cores
+
+#### Cores Primárias
+```css
+/* Backgrounds */
+--bg-primary: #01030a;        /* Fundo principal - azul escuro profundo */
+--bg-secondary: #050b16;      /* Fundo secundário */
+--bg-tertiary: #02060f;       /* Fundo da tela de login */
+
+/* Superfícies */
+--surface-dark: rgba(4, 16, 27, 0.85);     /* Cards e painéis */
+--surface-muted: rgba(8, 22, 35, 0.6);     /* Elementos secundários */
+--surface-glass: rgba(15, 23, 42, 0.7);    /* Efeito glassmorphism */
+```
+
+#### Cores de Destaque
+```css
+/* Accent Colors */
+--accent: #10b981;            /* Verde esmeralda - ação primária */
+--accent-strong: #34d399;     /* Verde claro - hover states */
+--accent-secondary: #0ea5e9;  /* Azul - ação secundária */
+
+/* Gradientes Principais */
+background: linear-gradient(130deg, #10b981 0%, #0ea5e9 100%);
+background: linear-gradient(135deg, #10b981 0%, #0ea5e9 100%);
+```
+
+#### Cores de Texto
+```css
+--text-primary: #f8fafc;      /* Texto principal - branco suave */
+--text-muted: #94a3b8;        /* Texto secundário - cinza */
+--text-accent: #10b981;       /* Texto de destaque */
+```
+
+#### Cores de Estado
+```css
+/* Estados */
+--success: #10b981;           /* Sucesso */
+--error: #ef4444;             /* Erro */
+--warning: #f59e0b;           /* Aviso */
+--info: #3b82f6;              /* Informação */
+```
+
+### Bordas e Sombras
+
+#### Bordas
+```css
+--border-color: rgba(255, 255, 255, 0.08);    /* Borda padrão */
+--border-strong: rgba(255, 255, 255, 0.18);   /* Borda enfatizada */
+--border-accent: rgba(16, 185, 129, 0.4);     /* Borda com accent */
+```
+
+#### Sombras
+```css
+--shadow-strong: 0 30px 120px rgba(2, 6, 23, 0.75);
+--shadow-soft: 0 14px 45px rgba(15, 118, 110, 0.25);
+--shadow-card: 0 25px 90px rgba(0, 0, 0, 0.55);
+--shadow-button: 0 12px 30px rgba(16, 185, 129, 0.35);
+```
+
+#### Raios de Borda
+```css
+--radius-sm: 8px;             /* Pequeno */
+--radius-md: 16px;            /* Médio */
+--radius-lg: 24px;            /* Grande */
+--radius-xl: 32px;            /* Extra grande */
+--radius-full: 999px;         /* Circular */
+```
+
+## 📝 Tipografia
+
+### Família de Fontes
+```css
+font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+```
+
+### Hierarquia Tipográfica
+
+#### Títulos
+```css
+/* H1 - Título Principal */
+.title-primary {
+  font-size: 3rem;           /* 48px */
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* H2 - Título Secundário */
+.title-secondary {
+  font-size: 2rem;           /* 32px */
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* H3 - Subtítulo */
+.title-tertiary {
+  font-size: 1.5rem;         /* 24px */
+  font-weight: 600;
+  line-height: 1.3;
+}
+```
+
+#### Texto Corpo
+```css
+/* Texto Principal */
+.text-body {
+  font-size: 1rem;           /* 16px */
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* Texto Pequeno */
+.text-small {
+  font-size: 0.875rem;       /* 14px */
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* Texto Micro */
+.text-micro {
+  font-size: 0.75rem;        /* 12px */
+  font-weight: 500;
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.4em;
+}
+```
+
+#### Texto Especial
+```css
+/* Texto com Gradiente */
+.gradient-text {
+  background: linear-gradient(135deg, #10b981 0%, #0ea5e9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+```
+
+## 🧩 Componentes
+
+### Botões
+
+#### Botão Primário
+```css
+.btn-primary {
+  background: linear-gradient(130deg, #10b981 0%, #0ea5e9 100%);
+  color: #f8fafc;
+  padding: 14px 36px;
+  border-radius: 16px;
+  border: none;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 14px 45px rgba(15, 118, 110, 0.25);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 18px 35px rgba(16, 185, 129, 0.35);
+}
+```
+
+#### Botão Secundário
+```css
+.btn-secondary {
+  background: rgba(15, 23, 42, 0.65);
+  color: #f8fafc;
+  padding: 12px 32px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+```
+
+### Campos de Entrada
+
+#### Input Padrão
+```css
+.input-field {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f8fafc;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 16px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.input-field::placeholder {
+  color: #94a3b8;
+}
+```
+
+### Cards e Superfícies
+
+#### Card Principal
+```css
+.card {
+  background: rgba(4, 16, 27, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 30px 120px rgba(2, 6, 23, 0.75);
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  transform: translateY(-4px);
+}
+```
+
+#### Glass Panel
+```css
+.glass-panel {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 32px;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 25px 90px rgba(0, 0, 0, 0.55);
+}
+```
+
+### Elementos de Feedback
+
+#### Mensagem de Erro
+```css
+.error-message {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+```
+
+#### Mensagem de Sucesso
+```css
+.success-message {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #6ee7b7;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+```
+
+## 📐 Layout e Espaçamento
+
+### Sistema de Espaçamento
+```css
+/* Escala de espaçamento baseada em 4px */
+--space-1: 4px;     /* 0.25rem */
+--space-2: 8px;     /* 0.5rem */
+--space-3: 12px;    /* 0.75rem */
+--space-4: 16px;    /* 1rem */
+--space-6: 24px;    /* 1.5rem */
+--space-8: 32px;    /* 2rem */
+--space-12: 48px;   /* 3rem */
+--space-16: 64px;   /* 4rem */
+--space-20: 80px;   /* 5rem */
+--space-24: 96px;   /* 6rem */
+```
+
+### Grid System
+```css
+/* Container Principal */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Grid Responsivo */
+.grid {
+  display: grid;
+  gap: 24px;
+}
+
+.grid-cols-1 { grid-template-columns: repeat(1, 1fr); }
+.grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+```
+
+### Breakpoints
+```css
+/* Mobile First */
+@media (min-width: 640px) { /* sm */ }
+@media (min-width: 768px) { /* md */ }
+@media (min-width: 1024px) { /* lg */ }
+@media (min-width: 1280px) { /* xl */ }
+@media (min-width: 1536px) { /* 2xl */ }
+```
+
+## ✨ Animações e Transições
+
+### Animações Padrão
+```css
+/* Fade In */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Slide In */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.4s ease-out;
+}
+```
+
+### Transições
+```css
+/* Transições Suaves */
+.transition-smooth {
+  transition: all 0.25s ease;
+}
+
+.transition-colors {
+  transition: color 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.transition-transform {
+  transition: transform 0.25s ease;
+}
+```
+
+## 🎭 Estados Interativos
+
+### Estados de Hover
+```css
+/* Elevação suave */
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Escala sutil */
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* Brilho */
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+```
+
+### Estados de Foco
+```css
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+```
+
+## 📱 Responsividade
+
+### Princípios Mobile-First
+1. **Design para mobile primeiro**, depois adapte para desktop
+2. **Touch targets** mínimos de 44px
+3. **Espaçamento adequado** entre elementos interativos
+4. **Tipografia legível** em todos os tamanhos de tela
+
+### Adaptações por Dispositivo
+```css
+/* Mobile (até 640px) */
+.mobile-padding { padding: 16px; }
+.mobile-text { font-size: 14px; }
+
+/* Tablet (640px - 1024px) */
+@media (min-width: 640px) {
+  .tablet-padding { padding: 24px; }
+  .tablet-text { font-size: 16px; }
+}
+
+/* Desktop (1024px+) */
+@media (min-width: 1024px) {
+  .desktop-padding { padding: 32px; }
+  .desktop-text { font-size: 18px; }
+}
+```
+
+## 🔧 Implementação
+
+### Estrutura CSS Recomendada
+```css
+/* 1. Reset e Base */
+@import 'reset.css';
+@import 'base.css';
+
+/* 2. Variáveis e Tokens */
+@import 'tokens.css';
+
+/* 3. Componentes */
+@import 'components/buttons.css';
+@import 'components/forms.css';
+@import 'components/cards.css';
+
+/* 4. Layouts */
+@import 'layouts/grid.css';
+@import 'layouts/containers.css';
+
+/* 5. Utilitários */
+@import 'utilities.css';
+```
+
+### Boas Práticas
+
+#### Nomenclatura
+- Use **BEM** para classes CSS complexas
+- Prefira **utility classes** para espaçamentos e cores
+- Mantenha **consistência** na nomenclatura
+
+#### Performance
+- Use **CSS custom properties** para temas
+- Minimize **reflows** com transform em vez de position
+- Otimize **animações** com will-change quando necessário
+
+#### Acessibilidade
+- Mantenha **contraste mínimo** de 4.5:1 para texto
+- Use **focus indicators** visíveis
+- Teste com **leitores de tela**
+
+---
+
+Este guia deve ser seguido para manter a consistência visual e a qualidade da experiência do usuário em toda a plataforma Hiperautomação Academy.

@@ -5,6 +5,7 @@ import { ArrowLeft, Mail, Save, AlertCircle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import AdminNavigation from '../components/AdminNavigation';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -61,15 +62,14 @@ export default function EmailSettings({ user, onLogout }) {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      <header className="bg-[#111111] border-b border-[#252525] sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <Button variant="ghost" onClick={() => navigate('/admin')}>
-            <ArrowLeft size={20} className="mr-2" />Voltar
-          </Button>
-        </div>
-      </header>
+      <AdminNavigation user={user} onLogout={onLogout} />
 
       <main className="max-w-4xl mx-auto px-6 py-12">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Configurações de Email</h1>
+          <p className="text-gray-400">Configure as credenciais do Brevo para envio de emails</p>
+        </div>
+
         <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-6 mb-8">
           <h3 className="text-lg font-semibold text-white mb-2">Como configurar Brevo</h3>
           <ol className="text-gray-300 space-y-1 text-sm">

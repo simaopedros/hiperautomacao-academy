@@ -5,11 +5,12 @@ import { MessageCircle, Trash2, Users, TrendingUp, Filter, Search, AlertTriangle
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import AdminNavigation from '../components/AdminNavigation';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-export default function CommunityModeration({ user }) {
+export default function CommunityModeration({ user, onLogout }) {
   const [posts, setPosts] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -144,27 +145,14 @@ export default function CommunityModeration({ user }) {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      {/* Header */}
-      <header className="bg-[#111111] border-b border-[#252525] sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/admin')}
-              className="text-gray-400 hover:text-white"
-            >
-              <ArrowLeft size={20} className="mr-2" />
-              Voltar
-            </Button>
-            <div>
-              <h1 className="text-xl font-bold text-white">Moderação da Comunidade</h1>
-              <p className="text-sm text-gray-400">Gerencie discussões e comentários</p>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AdminNavigation user={user} onLogout={onLogout} />
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-12">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Moderação da Comunidade</h1>
+          <p className="text-gray-400">Gerencie discussões e comentários da plataforma</p>
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 border border-emerald-500/30 rounded-xl p-6">

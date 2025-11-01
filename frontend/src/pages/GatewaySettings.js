@@ -5,6 +5,7 @@ import { ArrowLeft, Save, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import AdminNavigation from '../components/AdminNavigation';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
@@ -67,26 +68,14 @@ export default function GatewaySettings({ user, onLogout }) {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      {/* Header */}
-      <header className="bg-[#111111] border-b border-[#252525] sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/admin')}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <ArrowLeft size={24} />
-            </button>
-            <div className="flex items-center gap-3">
-              <CreditCard className="text-emerald-400" size={24} />
-              <h1 className="text-2xl font-bold text-white">Gateway de Pagamento</h1>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AdminNavigation user={user} onLogout={onLogout} />
 
-      {/* Content */}
-      <main className="max-w-4xl mx-auto px-6 py-8">
+      <main className="max-w-4xl mx-auto px-6 py-12">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Configurações de Gateway</h1>
+          <p className="text-gray-400">Configure as opções de gateway de pagamento</p>
+        </div>
+
         <div className="bg-[#111111] rounded-lg border border-[#252525] p-8">
           <h2 className="text-xl font-bold text-white mb-6">Configuração Global de Gateway</h2>
           

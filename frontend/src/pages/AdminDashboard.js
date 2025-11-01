@@ -17,7 +17,11 @@ import {
   Gift,
   Package,
   DollarSign,
-  CreditCard
+  CreditCard,
+  GraduationCap,
+  UserCheck,
+  HeadphonesIcon,
+  BarChart3
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -28,6 +32,7 @@ import { Label } from '@/components/ui/label';
 import UserManagement from './UserManagement';
 import CommunityModeration from './CommunityModeration';
 import EmailSettings from './EmailSettings';
+import LeadSettings from './LeadSettings';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -37,8 +42,10 @@ function CourseList({ onLogout, user }) {
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
+  const [showContentMenu, setShowContentMenu] = useState(false);
+  const [showUsersMenu, setShowUsersMenu] = useState(false);
   const [showFinanceMenu, setShowFinanceMenu] = useState(false);
-  const [showSystemMenu, setShowSystemMenu] = useState(false);
+  const [showConfigMenu, setShowConfigMenu] = useState(false);
   const [allCategories, setAllCategories] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
@@ -60,8 +67,10 @@ function CourseList({ onLogout, user }) {
   useEffect(() => {
     // Close dropdowns when clicking outside
     const handleClickOutside = () => {
+      setShowContentMenu(false);
+      setShowUsersMenu(false);
       setShowFinanceMenu(false);
-      setShowSystemMenu(false);
+      setShowConfigMenu(false);
     };
     
     document.addEventListener('click', handleClickOutside);
@@ -156,27 +165,112 @@ function CourseList({ onLogout, user }) {
           <div className="flex items-center gap-8">
             <h1 className="text-2xl font-bold gradient-text">Hiperautomação Admin</h1>
             <nav className="flex gap-6">
-              <button
-                onClick={() => navigate('/admin')}
-                className="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-colors"
-              >
-                <BookOpen size={20} />
-                Cursos
-              </button>
-              <button
-                onClick={() => navigate('/admin/users')}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-              >
-                <Users size={20} />
-                Usuários
-              </button>
-              <button
-                onClick={() => navigate('/admin/community')}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-              >
-                <MessageCircle size={20} />
-                Comunidade
-              </button>
+              {/* Conteúdo Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowContentMenu(!showContentMenu);
+                    setShowUsersMenu(false);
+                    setShowFinanceMenu(false);
+                    setShowConfigMenu(false);
+                  }}
+                  className={`flex items-center gap-2 transition-colors ${
+                    location.pathname === '/admin' || location.pathname.includes('/admin/categories')
+                      ? 'text-emerald-400 hover:text-emerald-300'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <GraduationCap size={20} />
+                  Conteúdo
+                  <ChevronDown size={16} />
+                </button>
+                {showContentMenu && (
+                  <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/admin');
+                        setShowContentMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-t-lg"
+                    >
+                      <GraduationCap size={16} />
+                      Cursos & Aulas
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/admin/categories');
+                        setShowContentMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
+                    >
+                      <FolderOpen size={16} />
+                      Categorias
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Usuários & Comunidade Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowUsersMenu(!showUsersMenu);
+                    setShowContentMenu(false);
+                    setShowFinanceMenu(false);
+                    setShowConfigMenu(false);
+                  }}
+                  className={`flex items-center gap-2 transition-colors ${
+                    location.pathname.includes('/admin/users') || location.pathname.includes('/admin/community')
+                      ? 'text-emerald-400 hover:text-emerald-300'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <UserCheck size={20} />
+                  Usuários & Comunidade
+                  <ChevronDown size={16} />
+                </button>
+                {showUsersMenu && (
+                  <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/admin/users');
+                        setShowUsersMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-t-lg"
+                    >
+                      <Users size={16} />
+                      Gerenciar Usuários
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/admin/community');
+                        setShowUsersMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
+                    >
+                      <MessageCircle size={16} />
+                      Comunidade
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/admin/gamification');
+                        setShowUsersMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
+                    >
+                      <Gift size={16} />
+                      Gamificação
+                    </button>
+                  </div>
+                )}
+              </div>
               
               {/* Financeiro Dropdown */}
               <div className="relative">
@@ -184,48 +278,35 @@ function CourseList({ onLogout, user }) {
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowFinanceMenu(!showFinanceMenu);
-                    setShowSystemMenu(false);
+                    setShowContentMenu(false);
+                    setShowUsersMenu(false);
+                    setShowConfigMenu(false);
                   }}
-                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                  className={`flex items-center gap-2 transition-colors ${
+                    location.pathname.includes('/admin/finance') || 
+                    location.pathname.includes('/admin/gateway') || 
+                    location.pathname.includes('/admin/payment') ||
+                    location.pathname.includes('/admin/subscription')
+                      ? 'text-emerald-400 hover:text-emerald-300'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
                 >
-                  <DollarSign size={20} />
+                  <BarChart3 size={20} />
                   Financeiro
                   <ChevronDown size={16} />
                 </button>
                 {showFinanceMenu && (
-                  <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
+                  <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[220px] z-50">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate('/admin/finance');
                         setShowFinanceMenu(false);
                       }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-t-lg"
                     >
                       <DollarSign size={16} />
-                      Finanças
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/gateway');
-                        setShowFinanceMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
-                    >
-                      <CreditCard size={16} />
-                      Gateway
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/payment-settings');
-                        setShowFinanceMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
-                    >
-                      <Settings size={16} />
-                      Config. Pagamentos
+                      Relatórios Financeiros
                     </button>
                     <button
                       onClick={(e) => {
@@ -235,73 +316,91 @@ function CourseList({ onLogout, user }) {
                       }}
                       className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
                     >
+                      <CreditCard size={16} />
+                      Planos & Preços
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/admin/gateway');
+                        setShowFinanceMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
+                    >
                       <Settings size={16} />
-                      Planos de Assinatura
+                      Gateway Pagamento
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/admin/payment-settings');
+                        setShowFinanceMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
+                    >
+                      <Settings size={16} />
+                      Config. Pagamentos
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Sistema Dropdown */}
+              {/* Configurações Dropdown */}
               <div className="relative">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setShowSystemMenu(!showSystemMenu);
+                    setShowConfigMenu(!showConfigMenu);
+                    setShowContentMenu(false);
+                    setShowUsersMenu(false);
                     setShowFinanceMenu(false);
                   }}
-                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                  className={`flex items-center gap-2 transition-colors ${
+                    location.pathname.includes('/admin/email') || 
+                    location.pathname.includes('/admin/lead') || 
+                    location.pathname.includes('/admin/support')
+                      ? 'text-emerald-400 hover:text-emerald-300'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
                 >
                   <Settings size={20} />
-                  Sistema
+                  Configurações
                   <ChevronDown size={16} />
                 </button>
-                {showSystemMenu && (
+                {showConfigMenu && (
                   <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate('/admin/email-settings');
-                        setShowSystemMenu(false);
+                        setShowConfigMenu(false);
                       }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-t-lg"
                     >
                       <Mail size={16} />
-                      Config. Email
+                      Configurar Email
                     </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate('/admin/categories');
-                        setShowSystemMenu(false);
+                        navigate('/admin/lead-settings');
+                        setShowConfigMenu(false);
                       }}
                       className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
                     >
-                      <FolderOpen size={16} />
-                      Categorias
+                      <UserCheck size={16} />
+                      Captura de Leads
                     </button>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate('/admin/support');
-                        setShowSystemMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
-                    >
-                      <MessageCircle size={16} />
-                      Config. Suporte
-                    </button>
-                    
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/gamification');
-                        setShowSystemMenu(false);
+                        setShowConfigMenu(false);
                       }}
                       className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
                     >
-                      <Gift size={16} />
-                      Gamificação
+                      <HeadphonesIcon size={16} />
+                      Configurar Suporte
                     </button>
                   </div>
                 )}
@@ -560,6 +659,7 @@ export default function AdminDashboard({ user, onLogout }) {
       <Route path="users" element={<UserManagement user={user} onLogout={onLogout} />} />
       <Route path="community" element={<CommunityModeration user={user} onLogout={onLogout} />} />
       <Route path="email-settings" element={<EmailSettings user={user} onLogout={onLogout} />} />
+      <Route path="lead-settings" element={<LeadSettings user={user} onLogout={onLogout} />} />
     </Routes>
   );
 }

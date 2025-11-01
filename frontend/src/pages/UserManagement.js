@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import AdminNavigation from '../components/AdminNavigation';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -453,33 +454,15 @@ export default function UserManagement({ user, onLogout }) {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      {/* Header */}
-      <header className="bg-[#111111] border-b border-[#252525] sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/admin')}
-              className="text-gray-400 hover:text-white"
-            >
-              <ArrowLeft size={20} className="mr-2" />
-              Voltar
-            </Button>
-            <div>
-              <h1 className="text-xl font-bold text-white">Gerenciar Usuários</h1>
-              <p className="text-sm text-gray-400">Controle de acesso e matrículas</p>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AdminNavigation user={user} onLogout={onLogout} />
 
       <main className="max-w-7xl mx-auto px-6 py-12">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-white mb-2">Gerenciar Usuários</h2>
+          <p className="text-gray-400">Controle de acesso e matrículas da plataforma</p>
+        </div>
+        
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-white mb-2">Usuários da Plataforma</h2>
-            <p className="text-gray-400">Gerencie usuários e suas permissões de acesso</p>
-          </div>
-          
           <div className="flex gap-3">
             <Button
               onClick={() => navigate('/admin/email-settings')}

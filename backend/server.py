@@ -5,6 +5,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import json
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
@@ -427,6 +428,22 @@ class FeatureFlag(BaseModel):
     enabled_users: List[str] = []  # emails ou IDs de usuários
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: Optional[str] = None
+
+# Lead Capture Models
+class LeadCaptureRequest(BaseModel):
+    name: str
+    email: str
+    whatsapp: str
+
+class BrevoConfig(BaseModel):
+    api_key: str
+    list_id: Optional[int] = None
+    sales_page_url: Optional[str] = None
+
+class BrevoListResponse(BaseModel):
+    id: int
+    name: str
+    folder_id: Optional[int] = None
 
 # ==================== AUTH HELPERS ====================
 
@@ -3426,6 +3443,321 @@ async def update_course_pricing(
     logger.info(f"Admin {current_user.email} updated pricing for course {course_id}")
     
     return {"message": "Course pricing updated successfully", "updates": update_data}
+
+# ==================== LEAD CAPTURE ENDPOINTS ====================
+
+@api_router.post("/leads/capture")
+async def capture_lead(lead_data: LeadCaptureRequest):
+    """Capture lead and send to Brevo"""
+    try:
+        # Get Brevo configuration
+        brevo_config = await db.brevo_config.find_one({})
+        if not brevo_config or not brevo_config.get("api_key"):
+            raise HTTPException(status_code=500, detail="Brevo configuration not found")
+        
+        # Send to Brevo
+        import requests
+        
+        # Normalizar número de WhatsApp para o formato aceito pelo Brevo
+        def normalize_whatsapp(whatsapp_number):
+            """Normaliza número de WhatsApp para formato internacional"""
+            if not whatsapp_number:
+                return None
+            
+            # Remove todos os caracteres não numéricos
+            clean_number = ''.join(filter(str.isdigit, whatsapp_number))
+            
+            # Verificar se o número tem um tamanho válido
+            if len(clean_number) < 10 or len(clean_number) > 15:
+                logger.warning(f"WhatsApp number invalid length: {whatsapp_number} (cleaned: {clean_number})")
+                return None
+            
+            # Se não começar com código do país, adiciona +55 (Brasil)
+            if len(clean_number) == 11 and clean_number.startswith(('11', '12', '13', '14', '15', '16', '17', '18', '19', '21', '22', '24', '27', '28', '31', '32', '33', '34', '35', '37', '38', '41', '42', '43', '44', '45', '46', '47', '48', '49', '51', '53', '54', '55', '61', '62', '63', '64', '65', '66', '67', '68', '69', '71', '73', '74', '75', '77', '79', '81', '82', '83', '84', '85', '86', '87', '88', '89', '91', '92', '93', '94', '95', '96', '97', '98', '99')):
+                return f"+55{clean_number}"
+            elif len(clean_number) == 13 and clean_number.startswith('55'):
+                return f"+{clean_number}"
+            elif clean_number.startswith('55') and len(clean_number) > 11:
+                return f"+{clean_number}"
+            
+            # Se já tem código do país, mantém
+            return f"+{clean_number}" if not whatsapp_number.startswith('+') else whatsapp_number
+
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "api-key": brevo_config["api_key"]
+        }
+        
+        # Função para tentar enviar para Brevo
+        def try_send_to_brevo(contact_data, attempt_description):
+            logger.info(f"Sending to Brevo ({attempt_description}): {json.dumps(contact_data, indent=2)}")
+            
+            response = requests.post(
+                "https://api.brevo.com/v3/contacts",
+                json=contact_data,
+                headers=headers
+            )
+            
+            return response
+        
+        # Primeira tentativa: com WhatsApp (se válido)
+        normalized_whatsapp = normalize_whatsapp(lead_data.whatsapp)
+        
+        if normalized_whatsapp:
+            # Tentar com WhatsApp
+            contact_data = {
+                "email": lead_data.email,
+                "attributes": {
+                    "NOME": lead_data.name,
+                    "WHATSAPP": normalized_whatsapp
+                },
+                "listIds": [brevo_config.get("list_id")] if brevo_config.get("list_id") else []
+            }
+            
+            response = try_send_to_brevo(contact_data, "with WhatsApp")
+        else:
+            # WhatsApp inválido, tentar direto sem WhatsApp
+            logger.info("WhatsApp number invalid, sending without WhatsApp field")
+            contact_data = {
+                "email": lead_data.email,
+                "attributes": {
+                    "NOME": lead_data.name
+                },
+                "listIds": [brevo_config.get("list_id")] if brevo_config.get("list_id") else []
+            }
+            
+            response = try_send_to_brevo(contact_data, "without WhatsApp (invalid number)")
+        
+        brevo_success = False
+        brevo_error = None
+        
+        if response.status_code not in [200, 201, 204]:
+            logger.error(f"Brevo API error: {response.status_code} - {response.text}")
+            
+            # Tratamento específico para erro de IP não autorizado
+            if response.status_code == 401:
+                try:
+                    error_data = response.json()
+                    if "unrecognised IP address" in error_data.get("message", ""):
+                        raise HTTPException(
+                            status_code=400, 
+                            detail="IP não autorizado no Brevo. Configure seu IP em: https://app.brevo.com/security/authorised_ips"
+                        )
+                except:
+                    pass
+                raise HTTPException(status_code=401, detail="API key do Brevo inválida ou não autorizada")
+            
+            # Tratamento específico para erro de parâmetro inválido
+            if response.status_code == 400:
+                try:
+                    error_data = response.json()
+                    error_message = error_data.get("message", "")
+                    error_code = error_data.get("code", "")
+                    
+                    if "Invalid WhatsApp number" in error_message:
+                        # Tentar novamente sem WhatsApp
+                        logger.info("WhatsApp number invalid, trying without WhatsApp field")
+                        contact_data_no_whatsapp = {
+                            "email": lead_data.email,
+                            "attributes": {
+                                "NOME": lead_data.name
+                            },
+                            "listIds": [brevo_config.get("list_id")] if brevo_config.get("list_id") else []
+                        }
+                        
+                        response_retry = try_send_to_brevo(contact_data_no_whatsapp, "without WhatsApp")
+                        
+                        if response_retry.status_code in [200, 201, 204]:
+                            brevo_success = True
+                            logger.info("Lead successfully sent to Brevo without WhatsApp")
+                        else:
+                            brevo_error = f"Erro na API do Brevo: {response_retry.status_code}"
+                            logger.error(f"Failed to send even without WhatsApp: {response_retry.text}")
+                    
+                    elif error_code == "duplicate_parameter":
+                        duplicate_fields = error_data.get("metadata", {}).get("duplicate_identifiers", [])
+                        if "WHATSAPP" in duplicate_fields:
+                            raise HTTPException(
+                                status_code=409, 
+                                detail="Este número de WhatsApp já está cadastrado em nossa base de dados"
+                            )
+                        elif "email" in duplicate_fields or any("email" in field.lower() for field in duplicate_fields):
+                            raise HTTPException(
+                                status_code=409, 
+                                detail="Este email já está cadastrado em nossa base de dados"
+                            )
+                        else:
+                            raise HTTPException(
+                                status_code=409, 
+                                detail="Dados duplicados: já existe um contato com essas informações"
+                            )
+                    elif "invalid_parameter" in error_code:
+                        brevo_error = f"Parâmetro inválido: {error_message}"
+                        logger.error(f"Invalid parameter error: {error_message}")
+                    else:
+                        brevo_error = f"Erro na API do Brevo: {response.status_code}"
+                        
+                except HTTPException:
+                    # Re-raise HTTPException to preserve status codes
+                    raise
+                except Exception as e:
+                    logger.error(f"Error parsing Brevo response: {str(e)}")
+                    brevo_error = f"Erro na API do Brevo: {response.status_code}"
+            else:
+                brevo_error = f"Erro na API do Brevo: {response.status_code}"
+        else:
+            brevo_success = True
+        
+        # Store lead locally sempre, independente do resultado do Brevo
+        lead_doc = {
+            "name": lead_data.name,
+            "email": lead_data.email,
+            "whatsapp": lead_data.whatsapp,
+            "created_at": datetime.now(timezone.utc),
+            "sent_to_brevo": brevo_success,
+            "error": brevo_error if not brevo_success else None
+        }
+        
+        await db.leads.insert_one(lead_doc)
+        
+        if brevo_success:
+            logger.info(f"Lead captured and sent to Brevo: {lead_data.email}")
+            return {"message": "Lead captured successfully"}
+        else:
+            logger.warning(f"Lead captured locally but failed to send to Brevo: {lead_data.email} - Error: {brevo_error}")
+            return {"message": "Lead captured successfully (saved locally, Brevo integration had issues)"}
+        
+    except HTTPException as he:
+        # Re-raise HTTPExceptions (like IP authorization errors and duplicates)
+        logger.error(f"HTTP Error capturing lead: {he.detail}")
+        # Store lead locally even if there's an HTTP error
+        lead_doc = {
+            "name": lead_data.name,
+            "email": lead_data.email,
+            "whatsapp": lead_data.whatsapp,
+            "created_at": datetime.now(timezone.utc),
+            "sent_to_brevo": False,
+            "error": he.detail
+        }
+        
+        await db.leads.insert_one(lead_doc)
+        raise he
+        
+    except Exception as e:
+        logger.error(f"Error capturing lead: {str(e)}")
+        # Store lead locally even if Brevo fails
+        lead_doc = {
+            "name": lead_data.name,
+            "email": lead_data.email,
+            "whatsapp": lead_data.whatsapp,
+            "created_at": datetime.now(timezone.utc),
+            "sent_to_brevo": False,
+            "error": str(e)
+        }
+        
+        await db.leads.insert_one(lead_doc)
+        raise HTTPException(status_code=500, detail="Error processing lead capture")
+
+@api_router.get("/admin/brevo-config")
+async def get_brevo_config(current_user: User = Depends(get_current_admin)):
+    """Get Brevo configuration (admin only)"""
+    config = await db.brevo_config.find_one({})
+    if not config:
+        return {"api_key": "", "list_id": None, "sales_page_url": ""}
+    
+    # Return masked API key for display, but include a flag to indicate if it exists
+    return {
+        "api_key": config.get("api_key", "")[:10] + "..." if config.get("api_key") else "",
+        "api_key_configured": bool(config.get("api_key")),
+        "list_id": config.get("list_id"),
+        "sales_page_url": config.get("sales_page_url", "")
+    }
+
+@api_router.post("/admin/brevo-config")
+async def update_brevo_config(
+    config: BrevoConfig,
+    current_user: User = Depends(get_current_admin)
+):
+    """Update Brevo configuration (admin only)"""
+    config_data = {
+        "api_key": config.api_key,
+        "list_id": config.list_id,
+        "sales_page_url": config.sales_page_url,
+        "updated_at": datetime.now(timezone.utc),
+        "updated_by": current_user.email
+    }
+    
+    await db.brevo_config.replace_one({}, config_data, upsert=True)
+    
+    logger.info(f"Admin {current_user.email} updated Brevo configuration")
+    return {"message": "Brevo configuration updated successfully"}
+
+@api_router.get("/admin/brevo-lists")
+async def get_brevo_lists(current_user: User = Depends(get_current_admin)):
+    """Get Brevo lists (admin only)"""
+    try:
+        brevo_config = await db.brevo_config.find_one({})
+        if not brevo_config or not brevo_config.get("api_key"):
+            raise HTTPException(status_code=400, detail="Brevo API key not configured")
+        
+        import requests
+        
+        headers = {
+            "accept": "application/json",
+            "api-key": brevo_config["api_key"]
+        }
+        
+        response = requests.get(
+            "https://api.brevo.com/v3/contacts/lists",
+            headers=headers
+        )
+        
+        if response.status_code != 200:
+            logger.error(f"Brevo API error: {response.status_code} - {response.text}")
+            
+            # Tratamento específico para erro de IP não autorizado
+            if response.status_code == 401:
+                try:
+                    error_data = response.json()
+                    if "unrecognised IP address" in error_data.get("message", ""):
+                        raise HTTPException(
+                            status_code=400, 
+                            detail="IP não autorizado no Brevo. Adicione seu IP na lista de IPs autorizados em: https://app.brevo.com/security/authorised_ips"
+                        )
+                except:
+                    pass
+                raise HTTPException(status_code=401, detail="API key do Brevo inválida ou não autorizada")
+            
+            raise HTTPException(status_code=500, detail=f"Erro na API do Brevo: {response.status_code}")
+        
+        data = response.json()
+        lists = []
+        
+        for lst in data.get("lists", []):
+            lists.append({
+                "id": lst["id"],
+                "name": lst["name"],
+                "folder_id": lst.get("folderId"),
+                "totalSubscribers": lst.get("totalSubscribers", 0)
+            })
+        
+        return {"lists": lists}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching Brevo lists: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching Brevo lists: {str(e)}")
+
+@api_router.get("/leads/sales-page-url")
+async def get_sales_page_url():
+    """Get sales page URL for lead redirection"""
+    config = await db.brevo_config.find_one({})
+    if not config or not config.get("sales_page_url"):
+        return {"url": "https://exemplo.com/vendas"}  # URL padrão
+    
+    return {"url": config["sales_page_url"]}
 
 # Include the router in the main app
 

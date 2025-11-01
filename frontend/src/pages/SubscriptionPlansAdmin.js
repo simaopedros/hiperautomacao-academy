@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { DollarSign, Plus, Edit, Trash2 } from 'lucide-react';
+import AdminNavigation from '../components/AdminNavigation';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -110,31 +111,13 @@ export default function SubscriptionPlansAdmin({ user, onLogout }) {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      <header className="bg-[#111111] border-b border-[#252525] sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <h1 className="text-2xl font-bold gradient-text">Hiperautomação Admin</h1>
-            <nav className="flex gap-6">
-              <button
-                onClick={() => navigate('/admin')}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-              >
-                Cursos
-              </button>
-              <button
-                onClick={() => navigate('/admin/finance')}
-                className="flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-colors"
-              >
-                <DollarSign size={20} />
-                Planos de Assinatura
-              </button>
-            </nav>
-          </div>
-          <button onClick={onLogout} className="text-gray-300 hover:text-white">Sair</button>
-        </div>
-      </header>
+      <AdminNavigation user={user} onLogout={onLogout} />
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-6 py-12">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Planos & Preços</h1>
+          <p className="text-gray-400">Gerencie os planos de assinatura da plataforma</p>
+        </div>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-white">Gerenciar Planos de Assinatura</h2>
           <button
