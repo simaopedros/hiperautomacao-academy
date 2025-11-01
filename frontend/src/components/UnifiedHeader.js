@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { 
   BookOpen, 
   MessageCircle, 
-  DollarSign, 
   LogOut, 
   Globe, 
   ChevronDown, 
@@ -42,12 +41,6 @@ const UnifiedHeader = ({
       label: t('dashboard.social'),
       icon: MessageCircle,
       testId: 'social-nav'
-    },
-    {
-      path: '/subscribe',
-      label: t('dashboard.subscription'),
-      icon: DollarSign,
-      testId: 'subscribe-nav'
     }
   ];
 
@@ -57,7 +50,7 @@ const UnifiedHeader = ({
       role="banner"
       aria-label="Cabeçalho principal da aplicação"
     >
-      <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4">
+      <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col gap-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-4">
             {/* Back Button for Subscribe Page */}
@@ -135,12 +128,14 @@ const UnifiedHeader = ({
             {user && (
               <>
                 <div className="flex items-center gap-3">
-                  <div 
-                    className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-emerald-500/20"
-                    aria-label={`Avatar do usuário ${user.name}`}
+                  <button
+                    onClick={() => navigate('/profile')}
+                    className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-emerald-500/20 hover:ring-emerald-400/40 transition-all duration-300 hover:scale-105"
+                    aria-label={`Ir para perfil de ${user.name}`}
+                    title="Configurações do Perfil"
                   >
                     {user.name[0].toUpperCase()}
-                  </div>
+                  </button>
                   <div className="text-right hidden sm:block">
                     <p className="text-xs text-gray-400">{t('dashboard.welcome')}</p>
                     <p className="font-semibold text-white">{user.name}</p>

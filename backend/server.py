@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
-import jwt
+from jose import jwt
 from passlib.context import CryptContext
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -576,6 +576,119 @@ async def update_user_language(request: dict, current_user: User = Depends(get_c
     # Return updated user
     updated_user = await db.users.find_one({"id": current_user.id})
     return User(**updated_user)
+
+# ==================== USER PROFILE ROUTES ====================
+
+@api_router.put("/user/profile", response_model=User)
+async def update_user_profile(profile_data: UserUpdate, current_user: User = Depends(get_current_user)):
+    """Update user profile information"""
+    # Get only the fields that are not None
+    update_fields = {}
+    
+    if profile_data.name is not None:
+        update_fields["name"] = profile_data.name
+    
+    if profile_data.email is not None:
+        # Check if email is already taken by another user
+        existing_user = await db.users.find_one({"email": profile_data.email, "id": {"$ne": current_user.id}})
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already in use by another user")
+        update_fields["email"] = profile_data.email
+    
+    if profile_data.preferred_language is not None:
+        # Validate language code
+        if profile_data.preferred_language not in ['pt', 'en', 'es', 'pt-BR', 'en-US', 'es-ES']:
+            raise HTTPException(status_code=400, detail="Invalid language code")
+        update_fields["preferred_language"] = profile_data.preferred_language
+    
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    # Update user in database
+    await db.users.update_one(
+        {"id": current_user.id},
+        {"$set": update_fields}
+    )
+    
+    # Return updated user
+    updated_user = await db.users.find_one({"id": current_user.id})
+    return User(**updated_user)
+
+@api_router.put("/user/password")
+async def update_user_password(password_data: dict, current_user: User = Depends(get_current_user)):
+    """Update user password"""
+    current_password = password_data.get('current_password')
+    new_password = password_data.get('new_password')
+    
+    if not current_password or not new_password:
+        raise HTTPException(status_code=400, detail="Current password and new password are required")
+    
+    # Get current user from database to verify password
+    user_data = await db.users.find_one({"id": current_user.id})
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verify current password
+    if not verify_password(current_password, user_data['password_hash']):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Validate new password length
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters long")
+    
+    # Update password
+    new_password_hash = get_password_hash(new_password)
+    await db.users.update_one(
+        {"id": current_user.id},
+        {"$set": {"password_hash": new_password_hash}}
+    )
+    
+    return {"message": "Password updated successfully"}
+
+@api_router.put("/user/preferences")
+async def update_user_preferences(preferences: dict, current_user: User = Depends(get_current_user)):
+    """Update user preferences"""
+    # For now, we'll store preferences in the user document
+    # In the future, this could be moved to a separate preferences collection
+    
+    allowed_preferences = [
+        'email_notifications',
+        'course_reminders', 
+        'social_notifications',
+        'marketing_emails'
+    ]
+    
+    # Filter only allowed preferences
+    filtered_preferences = {k: v for k, v in preferences.items() if k in allowed_preferences}
+    
+    if not filtered_preferences:
+        raise HTTPException(status_code=400, detail="No valid preferences provided")
+    
+    # Update user preferences
+    await db.users.update_one(
+        {"id": current_user.id},
+        {"$set": {"preferences": filtered_preferences}}
+    )
+    
+    return {"message": "Preferences updated successfully", "preferences": filtered_preferences}
+
+@api_router.get("/user/preferences")
+async def get_user_preferences(current_user: User = Depends(get_current_user)):
+    """Get user preferences"""
+    user_data = await db.users.find_one({"id": current_user.id})
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Return default preferences if none exist
+    default_preferences = {
+        'email_notifications': True,
+        'course_reminders': True,
+        'social_notifications': True,
+        'marketing_emails': False
+    }
+    
+    preferences = user_data.get('preferences', default_preferences)
+    return preferences
 
 # ==================== PASSWORD RECOVERY ====================
 

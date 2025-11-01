@@ -23,7 +23,7 @@ import UnifiedHeader from '../components/UnifiedHeader';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-export default function StudentDashboard({ user, onLogout }) {
+export default function StudentDashboard({ user, onLogout, updateUser }) {
   const { t, changeLanguage, getCurrentLanguage } = useI18n();
   const [currentLanguage, setCurrentLanguage] = useState(getCurrentLanguage());
   const [courses, setCourses] = useState([]);
@@ -49,6 +49,20 @@ export default function StudentDashboard({ user, onLogout }) {
     fetchSupportConfig();
     fetchCategories();
   }, []);
+
+  // Sincronizar userLanguage quando o user muda
+  useEffect(() => {
+    if (user?.preferred_language !== userLanguage) {
+      setUserLanguage(user?.preferred_language || null);
+    }
+  }, [user?.preferred_language, userLanguage]);
+
+  // Recarregar cursos quando o idioma do usuário muda
+  useEffect(() => {
+    if (userLanguage !== null) {
+      fetchCourses();
+    }
+  }, [userLanguage]);
 
   // Escutar mudanças no idioma
   useEffect(() => {
@@ -113,6 +127,11 @@ export default function StudentDashboard({ user, onLogout }) {
         { language: language },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      
+      // Atualizar o estado do usuário no componente pai (App.js)
+      if (updateUser) {
+        updateUser({ preferred_language: language });
+      }
       
       setUserLanguage(language);
       // Refresh courses to apply language filter
@@ -307,7 +326,7 @@ export default function StudentDashboard({ user, onLogout }) {
         setShowLanguageSettings={setShowLanguageSettings}
       />
 
-      <main className="relative z-10 max-w-6xl mx-auto px-4 py-10 space-y-10">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 py-10 space-y-10">
         {/* Continue Watching Section */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
@@ -406,6 +425,13 @@ export default function StudentDashboard({ user, onLogout }) {
                 >
                   <MessageCircle size={16} />
                   {t('dashboard.community')}
+                </button>
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="btn-secondary w-full sm:flex-1 py-3 flex items-center justify-center gap-2"
+                >
+                  <Settings size={16} />
+                  {t('dashboard.profileSettings')}
                 </button>
               </div>
             </div>

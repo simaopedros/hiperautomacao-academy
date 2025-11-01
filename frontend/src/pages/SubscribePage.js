@@ -107,8 +107,7 @@ export default function SubscribePage() {
           localStorage.removeItem('token');
           navigate('/login');
         }}
-        showBackButton={true}
-        onBack={() => navigate('/dashboard')}
+        showBackButton={false}
       />
 
       <div className="max-w-7xl mx-auto px-6 py-10 relative z-10">

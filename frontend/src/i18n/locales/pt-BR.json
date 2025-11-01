@@ -276,6 +276,10 @@
     "confirm": "Confirmar Seleção",
     "skip": "Pular por agora"
   },
+  "profile": {
+    "preferredLanguage": "Idioma Preferido",
+    "languageDescription": "Selecione o idioma da interface do sistema"
+  },
   "course": {
     "paymentError": "Erro ao criar pagamento",
     "notFound": "Curso não encontrado",

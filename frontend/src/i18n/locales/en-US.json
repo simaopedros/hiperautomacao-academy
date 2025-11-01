@@ -192,6 +192,10 @@
     "darkMode": "Dark Mode",
     "systemMode": "System Mode"
   },
+  "profile": {
+    "preferredLanguage": "Preferred Language",
+    "languageDescription": "Select the system interface language"
+  },
   "subscription": {
     "title": "Subscription",
     "plans": "Plans",

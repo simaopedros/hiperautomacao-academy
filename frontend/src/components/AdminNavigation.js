@@ -294,9 +294,19 @@ const AdminNavigation = ({ user, onLogout }) => {
         </div>
         <div className="flex items-center gap-4">
           <LanguageSwitcher />
-          <div className="text-right">
-            <p className="text-sm text-gray-400">{t('navigation.dashboard')}</p>
-            <p className="font-semibold text-white">{user?.name || 'Admin'}</p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/profile')}
+              className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-emerald-500/20 hover:ring-emerald-400/40 transition-all duration-300 hover:scale-105"
+              title="Configurações do Perfil"
+              aria-label={`Ir para perfil de ${user?.name || 'Admin'}`}
+            >
+              {(user?.name || 'Admin')[0].toUpperCase()}
+            </button>
+            <div className="text-right">
+              <p className="text-sm text-gray-400">{t('navigation.dashboard')}</p>
+              <p className="font-semibold text-white">{user?.name || 'Admin'}</p>
+            </div>
           </div>
           <button
             onClick={onLogout}

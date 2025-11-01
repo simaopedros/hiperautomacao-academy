@@ -58,7 +58,8 @@ export const useI18n = () => {
   const getAvailableLanguages = useCallback(() => {
     return [
       { code: 'pt-BR', name: 'Português (Brasil)', flag: '🇧🇷' },
-      { code: 'en-US', name: 'English (United States)', flag: '🇺🇸' }
+      { code: 'en-US', name: 'English (United States)', flag: '🇺🇸' },
+      { code: 'es-ES', name: 'Español (España)', flag: '🇪🇸' }
     ];
   }, []);
 
@@ -80,20 +81,45 @@ export const useI18n = () => {
 
   // Função para formatar números baseado no idioma
   const formatNumber = useCallback((number, options = {}) => {
-    const locale = getCurrentLanguage() === 'pt-BR' ? 'pt-BR' : 'en-US';
+    const currentLang = getCurrentLanguage();
+    let locale = 'pt-BR';
+    
+    if (currentLang === 'en-US') {
+      locale = 'en-US';
+    } else if (currentLang === 'es-ES') {
+      locale = 'es-ES';
+    }
+    
     return new Intl.NumberFormat(locale, options).format(number);
   }, [getCurrentLanguage]);
 
   // Função para formatar datas baseado no idioma
   const formatDate = useCallback((date, options = {}) => {
-    const locale = getCurrentLanguage() === 'pt-BR' ? 'pt-BR' : 'en-US';
+    const currentLang = getCurrentLanguage();
+    let locale = 'pt-BR';
+    
+    if (currentLang === 'en-US') {
+      locale = 'en-US';
+    } else if (currentLang === 'es-ES') {
+      locale = 'es-ES';
+    }
+    
     return new Intl.DateTimeFormat(locale, options).format(new Date(date));
   }, [getCurrentLanguage]);
 
   // Função para formatar moeda baseado no idioma
   const formatCurrency = useCallback((amount, currency = 'BRL') => {
-    const locale = getCurrentLanguage() === 'pt-BR' ? 'pt-BR' : 'en-US';
-    const currencyCode = getCurrentLanguage() === 'pt-BR' ? 'BRL' : 'USD';
+    const currentLang = getCurrentLanguage();
+    let locale = 'pt-BR';
+    let currencyCode = 'BRL';
+    
+    if (currentLang === 'en-US') {
+      locale = 'en-US';
+      currencyCode = 'USD';
+    } else if (currentLang === 'es-ES') {
+      locale = 'es-ES';
+      currencyCode = 'EUR';
+    }
     
     return new Intl.NumberFormat(locale, {
       style: 'currency',

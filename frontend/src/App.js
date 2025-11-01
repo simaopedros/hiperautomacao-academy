@@ -16,6 +16,7 @@ import PaymentCancelled from '@/pages/PaymentCancelled';
 import SubscriptionSuccess from '@/pages/SubscriptionSuccess';
 import AdminFinance from '@/pages/AdminFinance';
 import PaymentSettings from '@/pages/PaymentSettings';
+import ProfileSettings from '@/pages/ProfileSettings';
 
 import GamificationSettings from '@/pages/GamificationSettings';
 import GatewaySettings from '@/pages/GatewaySettings';
@@ -65,6 +66,15 @@ function App() {
     
     setShowLanguageModal(false);
     console.log('Modal fechado, idioma selecionado:', language);
+  };
+
+  const updateUser = (updatedUserData) => {
+    // Atualizar estado do usuário
+    const newUser = { ...user, ...updatedUserData };
+    setUser(newUser);
+    
+    // Atualizar localStorage também
+    localStorage.setItem('user', JSON.stringify(newUser));
   };
 
   if (loading) {
@@ -147,7 +157,7 @@ function App() {
             path="/dashboard"
             element={
               user ? (
-                <StudentDashboard user={user} onLogout={handleLogout} />
+                <StudentDashboard user={user} onLogout={handleLogout} updateUser={updateUser} />
               ) : (
                 <Navigate to="/login" replace />
               )
@@ -178,6 +188,16 @@ function App() {
             element={
               user ? (
                 <SocialFeed user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              user ? (
+                <ProfileSettings user={user} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/login" replace />
               )

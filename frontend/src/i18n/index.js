@@ -6,6 +6,7 @@ import Backend from 'i18next-http-backend';
 // Importar traduções locais como fallback
 import ptBR from './locales/pt-BR.json';
 import enUS from './locales/en-US.json';
+import esES from './locales/es-ES.json';
 
 const resources = {
   'pt-BR': {
@@ -13,6 +14,9 @@ const resources = {
   },
   'en-US': {
     translation: enUS
+  },
+  'es-ES': {
+    translation: esES
   }
 };
 
@@ -27,7 +31,7 @@ i18n
   .init({
     resources,
     fallbackLng: 'pt-BR',
-    supportedLngs: ['pt-BR', 'en-US'],
+    supportedLngs: ['pt-BR', 'en-US', 'es-ES'],
     debug: process.env.NODE_ENV === 'development',
 
     // Opções de detecção de idioma
@@ -53,7 +57,7 @@ i18n
 
     // Configurações de carregamento
     load: 'all', // Carregar todos os códigos de idioma (pt-BR, en-US, etc.)
-    preload: ['pt-BR', 'en-US'],
+    preload: ['pt-BR', 'en-US', 'es-ES'],
 
     // Configurações de pluralização
     pluralSeparator: '_',
