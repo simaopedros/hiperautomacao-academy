@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { useI18n } from '../hooks/useI18n';
+import UnifiedHeader from '../components/UnifiedHeader';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -298,92 +299,13 @@ export default function StudentDashboard({ user, onLogout }) {
       <div className="absolute -top-24 -right-10 w-80 h-80 bg-emerald-500/20 blur-[140px] pointer-events-none" />
       <div className="absolute -bottom-20 -left-8 w-72 h-72 bg-blue-500/15 blur-[130px] pointer-events-none" />
 
-      <header className="relative z-20 border-b border-white/10 bg-black/30/70 backdrop-blur-2xl">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-semibold gradient-text">Hiperautomacao</h1>
-              <nav className="hidden md:flex gap-3 text-sm">
-                <button
-                  data-testid="courses-nav"
-                  onClick={() => navigate('/dashboard')}
-                  className="chip bg-emerald-500/15 border-emerald-400/40 text-emerald-200"
-                >
-                  <BookOpen size={16} />
-                  {t('dashboard.myCourses')}
-                </button>
-                <button
-                  data-testid="social-nav"
-                  onClick={() => navigate('/social')}
-                  className="chip border-white/15 text-gray-300 hover:text-white"
-                >
-                  <MessageCircle size={16} />
-                  {t('dashboard.social')}
-                </button>
-                <button
-                  onClick={() => navigate('/subscribe')}
-                  className="chip border-white/15 text-gray-300 hover:text-white"
-                >
-                  <DollarSign size={16} />
-                  {t('dashboard.subscription')}
-                </button>
-              </nav>
-            </div>
-            <div className="flex items-center gap-3 flex-wrap justify-end">
-              <button
-                onClick={() => setShowInsights((prev) => !prev)}
-                className="flex items-center gap-2 text-xs sm:text-sm px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors whitespace-nowrap"
-              >
-                {showInsights ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                {showInsights ? 'Ocultar visão geral' : 'Mostrar visão geral'}
-              </button>
-              <div className="hidden sm:block text-right">
-                <p className="text-xs text-gray-400">{t('dashboard.welcome')}</p>
-                <p className="font-semibold text-white">{user.name}</p>
-              </div>
-              <button
-                onClick={() => setShowLanguageSettings(true)}
-                className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
-                title={t('dashboard.languageSettings')}
-              >
-                <Globe size={18} className="text-gray-200" />
-              </button>
-              <button
-                data-testid="logout-button"
-                onClick={onLogout}
-                className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
-                title={t('dashboard.logout')}
-              >
-                <LogOut size={18} className="text-gray-200" />
-              </button>
-            </div>
-          </div>
-
-          <nav className="flex md:hidden gap-2 overflow-x-auto pb-2">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="chip bg-emerald-500/10 border-emerald-400/30 text-emerald-200 whitespace-nowrap"
-            >
-              <BookOpen size={14} />
-              Cursos
-            </button>
-            <button
-              onClick={() => navigate('/social')}
-              className="chip border-white/15 text-gray-200 whitespace-nowrap"
-            >
-              <MessageCircle size={14} />
-              Social
-            </button>
-            <button
-              onClick={() => navigate('/subscribe')}
-              className="chip border-white/15 text-gray-200 whitespace-nowrap"
-            >
-              <DollarSign size={14} />
-              Assinatura
-            </button>
-          </nav>
-        </div>
-      </header>
+      <UnifiedHeader
+        user={user}
+        onLogout={onLogout}
+        showInsights={showInsights}
+        setShowInsights={setShowInsights}
+        setShowLanguageSettings={setShowLanguageSettings}
+      />
 
       <main className="relative z-10 max-w-6xl mx-auto px-4 py-10 space-y-10">
         {/* Continue Watching Section */}

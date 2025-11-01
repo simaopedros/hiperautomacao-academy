@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { ArrowLeft, Check, Star, Zap, Crown, Shield } from 'lucide-react';
+import UnifiedHeader from '../components/UnifiedHeader';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -94,9 +96,22 @@ export default function SubscribePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      <div className="max-w-7xl mx-auto px-6 py-10">
-        <button onClick={() => navigate(-1)} className="text-emerald-400 hover:text-emerald-300 mb-6">← Voltar</button>
+    <div className="min-h-screen bg-[#02060f] text-white relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_60%)] pointer-events-none" />
+      <div className="absolute -top-24 -right-10 w-80 h-80 bg-emerald-500/20 blur-[140px] pointer-events-none" />
+      <div className="absolute -bottom-20 -left-8 w-72 h-72 bg-blue-500/15 blur-[130px] pointer-events-none" />
+
+      <UnifiedHeader
+        user={currentUser}
+        onLogout={() => {
+          localStorage.removeItem('token');
+          navigate('/login');
+        }}
+        showBackButton={true}
+        onBack={() => navigate('/dashboard')}
+      />
+
+      <div className="max-w-7xl mx-auto px-6 py-10 relative z-10">
         <h1 className="text-3xl font-bold gradient-text mb-2">Planos de Assinatura</h1>
         <p className="text-gray-400 mb-8">Assine para ter acesso completo aos cursos por um período determinado.</p>
 
