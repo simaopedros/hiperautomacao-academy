@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import '@/App.css';
+import '@/i18n'; // Inicializar i18n
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
@@ -22,6 +23,7 @@ import SupportSettings from '@/pages/SupportSettings';
 import SubscriptionPlansAdmin from '@/pages/SubscriptionPlansAdmin';
 import SubscribePage from '@/pages/SubscribePage';
 import AdminCategories from '@/pages/AdminCategories';
+import LanguageSelectionModal from '@/components/LanguageSelectionModal';
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -30,17 +32,39 @@ function App() {
     return token && userData ? JSON.parse(userData) : null;
   });
   const [loading] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+
+  // Verificar se usuário precisa selecionar idioma (apenas para estudantes)
+  const needsLanguageSelection = user && !user.preferred_language && user.role !== 'admin';
 
   const handleLogin = (token, userData) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
+    
+    // Verificar se precisa mostrar modal de idioma após login (apenas para estudantes)
+    if (!userData.preferred_language && userData.role !== 'admin') {
+      setShowLanguageModal(true);
+    }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    setShowLanguageModal(false);
+  };
+
+  const handleLanguageSelect = (language) => {
+    // Atualizar estado do usuário
+    const updatedUser = { ...user, preferred_language: language };
+    setUser(updatedUser);
+    
+    // Atualizar localStorage também
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    
+    setShowLanguageModal(false);
+    console.log('Modal fechado, idioma selecionado:', language);
   };
 
   if (loading) {
@@ -272,6 +296,12 @@ function App() {
           />
         </Routes>
       </BrowserRouter>
+      
+      {/* Modal de seleção de idioma */}
+      <LanguageSelectionModal
+        isOpen={showLanguageModal || needsLanguageSelection}
+        onLanguageSelect={handleLanguageSelect}
+      />
     </div>
   );
 }

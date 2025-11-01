@@ -132,6 +132,7 @@ class UserBase(BaseModel):
     name: str
     role: str = "student"  # admin or student
     has_full_access: bool = False  # Access to all courses
+    preferred_language: Optional[str] = None  # User's preferred language (pt, en, es, etc.) - None means show all courses
 
 class UserCreate(UserBase):
     password: Optional[str] = None  # Optional when inviting, but required for direct creation
@@ -144,6 +145,7 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     subscription_plan_id: Optional[str] = None
     subscription_valid_until: Optional[datetime] = None
+    preferred_language: Optional[str] = None  # User's preferred language (pt, en, es, etc.) - None means show all courses
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -192,6 +194,7 @@ class CourseBase(BaseModel):
     price_brl: Optional[float] = 0.0  # Price in BRL (R$)
     hotmart_product_id: Optional[str] = None  # Hotmart product ID
     hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL
+    language: Optional[str] = None  # Course language (pt, en, es, etc.) - None means available for all languages
 
 class CourseCreate(CourseBase):
     pass
@@ -206,6 +209,7 @@ class CourseUpdate(BaseModel):
     price_brl: Optional[float] = None
     hotmart_product_id: Optional[str] = None  # Hotmart product ID
     hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL
+    language: Optional[str] = None  # Course language (pt, en, es, etc.) - None means available for all languages
 
 class Course(CourseBase):
     model_config = ConfigDict(extra="ignore")
@@ -554,6 +558,25 @@ async def login(credentials: UserLogin):
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
+@api_router.put("/auth/language", response_model=User)
+async def update_user_language(request: dict, current_user: User = Depends(get_current_user)):
+    """Update user's preferred language"""
+    language = request.get('language')
+    
+    # Validate language code if provided
+    if language and language not in ['pt', 'en', 'es']:
+        raise HTTPException(status_code=400, detail="Invalid language code. Supported: pt, en, es")
+    
+    # Update user's preferred language
+    await db.users.update_one(
+        {"id": current_user.id},
+        {"$set": {"preferred_language": language}}
+    )
+    
+    # Return updated user
+    updated_user = await db.users.find_one({"id": current_user.id})
+    return User(**updated_user)
+
 # ==================== PASSWORD RECOVERY ====================
 
 @api_router.post("/auth/forgot-password")
@@ -662,6 +685,25 @@ async def reset_password(token: str, new_password: str):
 
 # ==================== ADMIN ROUTES - COURSES ====================
 
+async def convert_category_names_to_ids(category_names: List[str]) -> List[str]:
+    """
+    Função auxiliar para converter nomes de categorias em IDs (retrocompatibilidade)
+    """
+    if not category_names:
+        return []
+    
+    # Buscar categorias por nome
+    existing_categories = await db.categories.find({"name": {"$in": category_names}}).to_list(None)
+    category_name_to_id = {cat["name"]: cat["id"] for cat in existing_categories}
+    
+    # Converter nomes para IDs
+    category_ids = []
+    for name in category_names:
+        if name in category_name_to_id:
+            category_ids.append(category_name_to_id[name])
+    
+    return category_ids
+
 @api_router.post("/admin/courses", response_model=Course)
 async def create_course(course_data: CourseCreate, current_user: User = Depends(get_current_admin)):
     # Validation: ensure at least one category (new list or legacy field)
@@ -721,8 +763,40 @@ async def update_course(course_id: str, course_data: CourseUpdate, current_user:
     
     update_data = course_data.model_dump(exclude_unset=True)
 
-    # Validation: ensure categories after update (consider legacy field)
+    # RETROCOMPATIBILIDADE: Detectar se categories contém nomes em vez de IDs
     prospective_categories = update_data.get("categories")
+    if prospective_categories is not None and prospective_categories:
+        # Verificar se algum item em categories parece ser um nome (não é um UUID)
+        potential_names = []
+        valid_ids = []
+        
+        for item in prospective_categories:
+            # Se não parece ser um UUID (muito simples: se não tem hífens), trata como nome
+            if '-' not in str(item) or len(str(item)) < 30:
+                potential_names.append(str(item))
+            else:
+                valid_ids.append(item)
+        
+        # Se encontrou nomes, converter para IDs
+        if potential_names:
+            print(f"🔄 RETROCOMPATIBILIDADE: Convertendo nomes de categorias para IDs: {potential_names}")
+            converted_ids = await convert_category_names_to_ids(potential_names)
+            
+            if len(converted_ids) != len(potential_names):
+                # Alguns nomes não foram encontrados
+                all_categories = await db.categories.find({}).to_list(None)
+                available_names = [cat["name"] for cat in all_categories]
+                print(f"⚠️  Nomes de categorias não encontrados. Disponíveis: {available_names}")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Algumas categorias não foram encontradas: {potential_names}. Categorias disponíveis: {available_names}"
+                )
+            
+            # Combinar IDs convertidos com IDs válidos
+            update_data["categories"] = valid_ids + converted_ids
+            prospective_categories = update_data["categories"]
+
+    # Validation: ensure categories after update (consider legacy field)
     prospective_legacy = update_data.get("category")
     if prospective_categories is not None or prospective_legacy is not None:
         # If either field is being modified, ensure result has at least one category
@@ -731,7 +805,7 @@ async def update_course(course_id: str, course_data: CourseUpdate, current_user:
         if not final_categories and not final_legacy:
             raise HTTPException(status_code=400, detail="Course must have at least one category")
     
-    # Validate that all provided categories exist in the database
+    # Validate that all provided categories exist in the database (agora só IDs válidos)
     if prospective_categories is not None and prospective_categories:
         # Check if all category IDs exist
         existing_categories = await db.categories.find({"id": {"$in": prospective_categories}}).to_list(None)
@@ -1233,9 +1307,22 @@ async def remove_user_from_course(user_id: str, course_id: str, current_user: Us
 
 @api_router.get("/student/courses")
 async def get_published_courses(current_user: User = Depends(get_current_user)):
-    """Get all published courses with enrollment status"""
-    # Get all published courses
-    courses = await db.courses.find({"published": True}, {"_id": 0}).to_list(1000)
+    """Get all published courses with enrollment status, filtered by user's preferred language"""
+    
+    # Build course filter query
+    course_filter = {"published": True}
+    
+    # Apply language filter if user has a preferred language
+    if current_user.preferred_language:
+        # Show courses that match user's language OR have no language set (backward compatibility)
+        course_filter["$or"] = [
+            {"language": current_user.preferred_language},
+            {"language": {"$exists": False}},  # Courses without language field
+            {"language": None}  # Courses with language explicitly set to None
+        ]
+    
+    # Get filtered published courses
+    courses = await db.courses.find(course_filter, {"_id": 0}).to_list(1000)
     
     # Get user's enrollments from BOTH sources for backward compatibility
     # 1. From enrollments collection (new system)

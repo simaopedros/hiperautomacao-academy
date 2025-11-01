@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import useI18n from '@/hooks/useI18n';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -22,6 +23,7 @@ const API = `${BACKEND_URL}/api`;
 export default function LessonPlayer({ user, onLogout }) {
   const { lessonId } = useParams();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const [lesson, setLesson] = useState(null);
   const [courseData, setCourseData] = useState(null);
@@ -202,7 +204,7 @@ export default function LessonPlayer({ user, onLogout }) {
   };
 
   const handleDelete = async (commentId) => {
-    if (!window.confirm('Excluir este comentario?')) return;
+    if (!window.confirm(t('lesson.confirmDeleteComment'))) return;
     try {
       const token = localStorage.getItem('token');
       await axios.delete(`${API}/comments/${commentId}`, {
@@ -235,7 +237,7 @@ export default function LessonPlayer({ user, onLogout }) {
       if (newCompleted && nextLesson) {
         setTimeout(() => navigate(`/lesson/${nextLesson.id}`), 400);
       } else if (newCompleted && !nextLesson) {
-        alert('Parabens! Voce concluiu todas as aulas disponiveis!');
+        alert(t('lesson.congratulationsCompleted'));
       }
     } catch (error) {
       console.error('Error toggling completed:', error);
@@ -254,7 +256,7 @@ export default function LessonPlayer({ user, onLogout }) {
 
   const renderOutline = () => {
     if (!courseData?.modules?.length) {
-      return <p className="text-sm text-gray-500">Mapa ainda nao disponivel.</p>;
+      return <p className="text-sm text-gray-500">{t('lesson.mapNotAvailable')}</p>;
     }
 
     return courseData.modules.map((module) => (
@@ -263,7 +265,7 @@ export default function LessonPlayer({ user, onLogout }) {
           <div>
             <p className="text-sm font-semibold text-white">{module.title}</p>
             <span className="text-xs uppercase tracking-[0.3em] text-gray-500">
-              {(module.lessons || []).length} aulas
+              {(module.lessons || []).length} {t('lesson.lessons')}
             </span>
           </div>
         </div>
@@ -313,7 +315,7 @@ export default function LessonPlayer({ user, onLogout }) {
   if (!lesson) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#02060f] text-white">
-        <p className="text-gray-400">Aula nao encontrada.</p>
+        <p className="text-gray-400">{t('lesson.lessonNotFound')}</p>
       </div>
     );
   }
@@ -329,7 +331,7 @@ export default function LessonPlayer({ user, onLogout }) {
           <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-3">
               <span className="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-300">
-                Aula
+                {t('lesson.lesson')}
               </span>
               {moduleInfo && (
                 <div className="hidden items-center gap-2 text-xs text-gray-400 sm:flex">
@@ -349,7 +351,7 @@ export default function LessonPlayer({ user, onLogout }) {
                 className="hidden text-gray-300 hover:text-white sm:inline-flex"
               >
                 <ArrowLeft size={16} className="mr-1" />
-                Voltar
+                {t('lesson.back')}
               </Button>
               <Button
                 variant="outline"
@@ -364,7 +366,7 @@ export default function LessonPlayer({ user, onLogout }) {
                 onClick={() => setOutlineOpen((prev) => !prev)}
                 className="hidden border-white/10 text-white hover:bg-white/10 md:inline-flex"
               >
-                {outlineOpen ? 'Ocultar mapa' : 'Mapa do curso'}
+                {outlineOpen ? t('lesson.hideCourseMap') : t('lesson.courseMap')}
               </Button>
               <Button
                 onClick={() => (moduleInfo ? navigate(`/course/${moduleInfo.courseId}`) : navigate('/dashboard'))}
@@ -372,7 +374,7 @@ export default function LessonPlayer({ user, onLogout }) {
                 disabled={!moduleInfo}
               >
                 <BookOpen size={16} className="mr-2" />
-                {moduleInfo ? 'Ver curso' : 'Curso'}
+                {moduleInfo ? t('lesson.viewCourse') : t('lesson.course')}
               </Button>
             </div>
           </div>
@@ -395,10 +397,10 @@ export default function LessonPlayer({ user, onLogout }) {
               onClick={() => setOutlineOpen(false)}
               className="absolute right-4 top-4 rounded-full border border-white/20 bg-black/30 px-4 py-2 text-sm font-semibold text-gray-200 shadow focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
             >
-              Fechar
+              {t('lesson.close')}
             </button>
             <div className="px-6 pt-12">
-              <p className="text-[11px] uppercase tracking-[0.45em] text-gray-500">Mapa do curso</p>
+              <p className="text-[11px] uppercase tracking-[0.45em] text-gray-500">{t('lesson.courseMap')}</p>
               {moduleInfo && (
                 <p className="mt-1 text-lg font-semibold text-white">{moduleInfo.courseTitle}</p>
               )}
@@ -417,7 +419,7 @@ export default function LessonPlayer({ user, onLogout }) {
                 onClick={() => setOutlineOpen((prev) => !prev)}
                 className="flex-1 border-white/15 text-white hover:bg-white/10"
               >
-                {outlineOpen ? 'Fechar mapa' : 'Mapa do curso'}
+                {outlineOpen ? t('lesson.closeCourseMap') : t('lesson.courseMap')}
               </Button>
               <Button
                 variant="outline"
@@ -425,7 +427,7 @@ export default function LessonPlayer({ user, onLogout }) {
                 className="flex-1 border-white/15 text-white hover:bg-white/10"
                 disabled={!moduleInfo}
               >
-                Curso
+                {t('lesson.course')}
               </Button>
             </div>
 
@@ -457,7 +459,7 @@ export default function LessonPlayer({ user, onLogout }) {
                           className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-6 py-3 font-semibold text-white transition-colors hover:bg-emerald-600"
                         >
                           <Download size={20} />
-                          Baixar material
+                          {t('lesson.downloadMaterial')}
                         </a>
                       </div>
                     )}
@@ -479,7 +481,7 @@ export default function LessonPlayer({ user, onLogout }) {
                               : 'bg-emerald-500 hover:bg-emerald-600'
                           }`}
                         >
-                          {isCompleted ? 'Aula concluida - desmarcar?' : 'Marcar como concluida'}
+                          {isCompleted ? t('lesson.lessonCompletedUnmark') : t('lesson.markAsCompleted')}
                         </Button>
                         <Button
                           variant="outline"
@@ -487,7 +489,7 @@ export default function LessonPlayer({ user, onLogout }) {
                           disabled={!previousLesson}
                           onClick={() => previousLesson && navigate(`/lesson/${previousLesson.id}`)}
                         >
-                          {previousLesson ? `Anterior: ${previousLesson.title}` : 'Sem aula anterior'}
+                          {previousLesson ? `${t('lesson.previous')}: ${previousLesson.title}` : t('lesson.noPreviousLesson')}
                         </Button>
                         <Button
                           variant="outline"
@@ -495,7 +497,7 @@ export default function LessonPlayer({ user, onLogout }) {
                           disabled={!nextLesson}
                           onClick={() => nextLesson && navigate(`/lesson/${nextLesson.id}`)}
                         >
-                          {nextLesson ? `Proxima: ${nextLesson.title}` : 'Sem proxima aula'}
+                          {nextLesson ? `${t('lesson.next')}: ${nextLesson.title}` : t('lesson.noNextLesson')}
                         </Button>
                       </div>
                     </div>
@@ -507,9 +509,9 @@ export default function LessonPlayer({ user, onLogout }) {
                     <div className="mb-5 flex items-center justify-between gap-3">
                       <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
                         <Download size={20} className="text-emerald-300" />
-                        Recursos adicionais
+                        {t('lesson.additionalResources')}
                       </h2>
-                      <span className="text-xs text-gray-500">{lesson.links.length} itens</span>
+                      <span className="text-xs text-gray-500">{lesson.links.length} {t('lesson.items')}</span>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       {lesson.links.map((link, index) => (
@@ -539,21 +541,21 @@ export default function LessonPlayer({ user, onLogout }) {
                 <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_30px_120px_rgba(6,24,44,0.55)] sm:p-8">
                   <div className="mb-6 flex items-center gap-2">
                     <MessageCircle size={24} className="text-emerald-300" />
-                    <h2 className="text-2xl font-bold text-white">Discussao</h2>
+                    <h2 className="text-2xl font-bold text-white">{t('lesson.discussion')}</h2>
                   </div>
 
                   <form onSubmit={handleCommentSubmit} className="mb-6 space-y-3">
                     {replyTo && (
                       <div className="flex items-center justify-between rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-gray-300">
                         <span>
-                          Respondendo a <span className="text-emerald-300">{replyTo.user_name}</span>
+                          {t('lesson.replyingTo')} <span className="text-emerald-300">{replyTo.user_name}</span>
                         </span>
                         <button
                           type="button"
                           onClick={() => setReplyTo(null)}
                           className="text-red-300 hover:text-red-200 focus:outline-none focus:ring-2 focus:ring-red-400/40"
                         >
-                          Cancelar
+                          {t('lesson.cancel')}
                         </button>
                       </div>
                     )}
@@ -561,7 +563,7 @@ export default function LessonPlayer({ user, onLogout }) {
                       data-testid="comment-input"
                       value={newComment}
                       onChange={(event) => setNewComment(event.target.value)}
-                      placeholder="Compartilhe sua duvida ou contribuicao..."
+                      placeholder={t('lesson.commentPlaceholder')}
                       rows={3}
                       className="border border-white/10 bg-black/30 text-white focus-visible:ring-emerald-400"
                     />
@@ -572,7 +574,7 @@ export default function LessonPlayer({ user, onLogout }) {
                       disabled={!newComment.trim()}
                     >
                       <Send size={16} className="mr-2" />
-                      Enviar
+                      {t('lesson.send')}
                     </Button>
                   </form>
 

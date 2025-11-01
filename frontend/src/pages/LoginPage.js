@@ -9,11 +9,13 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import LeadCapture from '../components/LeadCapture';
+import useI18n from '../hooks/useI18n';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export default function LoginPage({ onLogin }) {
+  const { t } = useI18n();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -38,7 +40,7 @@ export default function LoginPage({ onLogin }) {
       });
       onLogin(response.data.access_token, response.data.user);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao processar requisição');
+      setError(err.response?.data?.detail || t('messages.error.requestProcessing'));
     } finally {
       setLoading(false);
     }
@@ -55,7 +57,7 @@ export default function LoginPage({ onLogin }) {
       });
       setForgotSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao processar requisição');
+      setError(err.response?.data?.detail || t('messages.error.requestProcessing'));
     } finally {
       setLoading(false);
     }
@@ -80,7 +82,7 @@ export default function LoginPage({ onLogin }) {
               className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
             >
               <ArrowLeft size={18} />
-              Voltar
+              {t('common.back')}
             </button>
 
             {forgotSuccess ? (
@@ -88,12 +90,11 @@ export default function LoginPage({ onLogin }) {
                 <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <Mail size={32} className="text-emerald-300" />
                 </div>
-                <h2 className="text-2xl font-semibold text-white mb-2">Email enviado</h2>
+                <h2 className="text-2xl font-semibold text-white mb-2">{t('auth.forgotPassword.emailSent')}</h2>
                 <p className="text-gray-300 mb-6">
-                  Se o email <span className="text-white font-semibold">{forgotEmail}</span> estiver cadastrado,
-                  você receberá instruções para redefinir sua senha.
+                  {t('auth.forgotPassword.emailSentMessage', { email: forgotEmail })}
                 </p>
-                <p className="text-sm text-gray-500">Verifique sua caixa de entrada, spam ou promoções.</p>
+                <p className="text-sm text-gray-500">{t('auth.forgotPassword.checkInbox')}</p>
               </div>
             ) : (
               <>
@@ -101,22 +102,22 @@ export default function LoginPage({ onLogin }) {
                   <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <Mail size={32} className="text-blue-300" />
                   </div>
-                  <h2 className="text-2xl font-semibold text-white mb-2">Recuperar senha</h2>
+                  <h2 className="text-2xl font-semibold text-white mb-2">{t('auth.forgotPassword.title')}</h2>
                   <p className="text-gray-300 text-sm">
-                    Digite seu email e enviaremos instruções seguras para redefinir sua senha
+                    {t('auth.forgotPassword.subtitle')}
                   </p>
                 </div>
 
                 <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div>
-                    <label htmlFor="forgot-email" className="block text-sm font-medium text-gray-200 mb-2">Email</label>
+                    <label htmlFor="forgot-email" className="block text-sm font-medium text-gray-200 mb-2">{t('auth.email')}</label>
                     <input
                       id="forgot-email"
                       type="email"
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
                       className="w-full bg-black/30 border border-white/10 text-white py-3 px-4 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
-                      placeholder="voce@email.com"
+                      placeholder={t('auth.emailPlaceholder')}
                       required
                     />
                   </div>
@@ -132,7 +133,7 @@ export default function LoginPage({ onLogin }) {
                     disabled={loading}
                     className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? 'Processando...' : 'Enviar instruções'}
+                    {loading ? t('common.loading') : t('auth.forgotPassword.sendInstructions')}
                   </button>
                 </form>
               </>
@@ -142,7 +143,7 @@ export default function LoginPage({ onLogin }) {
           <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl shadow-[0_25px_90px_rgba(0,0,0,0.55)]">
             <div className="text-center mb-8">
               <p className="text-xs uppercase tracking-[0.4em] text-emerald-200 mb-2">Hiperautomação Academy</p>
-              <h1 className="text-3xl font-semibold text-white mb-2">Acesse sua plataforma</h1>
+              <h1 className="text-3xl font-semibold text-white mb-2">{t('auth.accessPlatform')}</h1>
             </div>
 
             <div className="flex gap-2 mb-6">
@@ -159,7 +160,7 @@ export default function LoginPage({ onLogin }) {
                 }`}
               >
                 <LogIn className="inline-block w-4 h-4 mr-2" />
-                Entrar
+                {t('auth.login')}
               </button>
               <button
                 data-testid="register-tab"
@@ -174,14 +175,14 @@ export default function LoginPage({ onLogin }) {
                 }`}
               >
                 <UserPlus className="inline-block w-4 h-4 mr-2" />
-                Inscrever-se
+                {t('auth.register')}
               </button>
             </div>
 
             {isLogin ? (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label htmlFor="email-input" className="block text-sm font-medium text-gray-200 mb-2">Email</label>
+                  <label htmlFor="email-input" className="block text-sm font-medium text-gray-200 mb-2">{t('auth.email')}</label>
                   <input
                     id="email-input"
                     data-testid="email-input"
@@ -190,19 +191,19 @@ export default function LoginPage({ onLogin }) {
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full bg-black/30 border border-white/10 text-white py-3 px-4 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
                     required
-                    placeholder="seu@email.com"
+                    placeholder={t('auth.emailPlaceholder')}
                   />
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label htmlFor="password-input" className="block text-sm font-medium text-gray-200">Senha</label>
+                    <label htmlFor="password-input" className="block text-sm font-medium text-gray-200">{t('auth.password')}</label>
                     <button
                       type="button"
                       onClick={() => setShowForgotPassword(true)}
                       className="text-xs text-emerald-300 hover:text-emerald-200 transition-colors"
                     >
-                      Esqueceu a senha?
+                      {t('auth.forgotPassword.link')}
                     </button>
                   </div>
                   <div className="relative">
@@ -214,7 +215,7 @@ export default function LoginPage({ onLogin }) {
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       className="w-full bg-black/30 border border-white/10 text-white py-3 px-4 pr-12 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
                       required
-                      placeholder="********"
+                      placeholder={t('auth.passwordPlaceholder')}
                     />
                     <button
                       type="button"
@@ -238,7 +239,7 @@ export default function LoginPage({ onLogin }) {
                   disabled={loading}
                   className="w-full bg-gradient-to-r from-emerald-500 to-emerald-400 text-white py-3 px-6 rounded-xl font-semibold hover:from-emerald-600 hover:to-emerald-500 transition-all duration-200 shadow-[0_12px_30px_rgba(16,185,129,0.35)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Processando...' : 'Entrar'}
+                  {loading ? t('common.loading') : t('auth.login')}
                 </button>
               </form>
             ) : (

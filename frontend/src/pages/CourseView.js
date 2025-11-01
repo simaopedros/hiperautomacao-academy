@@ -3,11 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, Play, FileText, Download, CheckCircle, Circle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import useI18n from '@/hooks/useI18n';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export default function CourseView({ user, onLogout }) {
+  const { t } = useI18n();
   const { courseId } = useParams();
   const navigate = useNavigate();
   const [course, setCourse] = useState(null);
@@ -79,7 +81,7 @@ export default function CourseView({ user, onLogout }) {
       window.location.href = response.data.payment_url;
     } catch (error) {
       console.error('Error creating billing:', error);
-      alert(error.response?.data?.detail || 'Erro ao criar pagamento');
+      alert(error.response?.data?.detail || t('course.paymentError'));
     }
   };
 
@@ -124,9 +126,9 @@ export default function CourseView({ user, onLogout }) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-400 text-xl">Curso não encontrado</p>
+          <p className="text-gray-400 text-xl">{t('course.notFound')}</p>
           <Button onClick={() => navigate('/dashboard')} className="mt-4">
-            Voltar
+            {t('course.backToCourses')}
           </Button>
         </div>
       </div>
@@ -145,7 +147,7 @@ export default function CourseView({ user, onLogout }) {
               className="text-gray-400 hover:text-white"
             >
               <ArrowLeft size={20} className="mr-2" />
-              Voltar aos Cursos
+              {t('course.backToCourses')}
             </Button>
           </div>
         </header>
@@ -163,16 +165,16 @@ export default function CourseView({ user, onLogout }) {
             </div>
 
             <div className="space-y-4 mb-8">
-              <h2 className="text-xl font-bold text-white">Este curso requer matrícula</h2>
+              <h2 className="text-xl font-bold text-white">{t('course.enrollmentRequired')}</h2>
               <p className="text-gray-400">
-                Para acessar o conteúdo deste curso, você precisa se matricular fazendo a compra direta.
+                {t('course.enrollmentDescription')}
               </p>
             </div>
 
             <div className="grid md:grid-cols-1 gap-4">
               {courseInfo.price_brl > 0 && (
                 <div className="bg-[#1a1a1a] rounded-lg p-6 border-2 border-blue-500/30">
-                  <h3 className="text-lg font-semibold text-white mb-2">Compra Direta</h3>
+                  <h3 className="text-lg font-semibold text-white mb-2">{t('course.directPurchase')}</h3>
                   <div className="text-3xl font-bold text-blue-400 mb-4">
                     R$ {courseInfo.price_brl.toFixed(2)}
                   </div>
@@ -180,7 +182,7 @@ export default function CourseView({ user, onLogout }) {
                     onClick={handleBuyCourse}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold transition-colors"
                   >
-                    Comprar Curso
+                    {t('course.buyCourse')}
                   </button>
                 </div>
               )}
@@ -188,9 +190,9 @@ export default function CourseView({ user, onLogout }) {
 
             {(!courseInfo.price_brl || courseInfo.price_brl === 0) && (
               <div className="text-center">
-                <p className="text-gray-400 mb-4">Este curso não está disponível para compra no momento.</p>
+                <p className="text-gray-400 mb-4">{t('course.notAvailableForPurchase')}</p>
                 <Button onClick={() => navigate('/dashboard')}>
-                  Voltar aos Cursos
+                  {t('course.backToCourses')}
                 </Button>
               </div>
             )}
@@ -216,7 +218,7 @@ export default function CourseView({ user, onLogout }) {
             className="text-gray-400 hover:text-white"
           >
             <ArrowLeft size={20} className="mr-2" />
-            Voltar aos Cursos
+            {t('course.backToCourses')}
           </Button>
         </div>
       </header>
@@ -245,11 +247,11 @@ export default function CourseView({ user, onLogout }) {
 
       {/* Course Content */}
       <main className="max-w-7xl mx-auto px-6 py-12">
-        <h2 className="text-3xl font-bold text-white mb-8">Conteúdo do Curso</h2>
+        <h2 className="text-3xl font-bold text-white mb-8">{t('course.courseContent')}</h2>
 
         {course.modules && course.modules.length === 0 ? (
           <div className="text-center py-12 bg-[#1a1a1a] rounded-xl border border-[#252525]">
-            <p className="text-gray-400">Este curso ainda não possui conteúdo disponível.</p>
+            <p className="text-gray-400">{t('course.noContentAvailable')}</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -262,7 +264,7 @@ export default function CourseView({ user, onLogout }) {
               >
                 <div className="p-6 border-b border-[#252525]">
                   <h3 className="text-2xl font-bold text-white mb-2">
-                    Módulo {moduleIndex + 1}: {module.title}
+                    {t('course.module')} {moduleIndex + 1}: {module.title}
                   </h3>
                   {module.description && (
                     <p className="text-gray-400">{module.description}</p>

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './LanguageSwitcher';
 import {
   Users,
   Settings,
@@ -18,6 +20,7 @@ import {
 } from 'lucide-react';
 
 const AdminNavigation = ({ user, onLogout }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -290,8 +293,9 @@ const AdminNavigation = ({ user, onLogout }) => {
           </nav>
         </div>
         <div className="flex items-center gap-4">
+          <LanguageSwitcher />
           <div className="text-right">
-            <p className="text-sm text-gray-400">Administrador</p>
+            <p className="text-sm text-gray-400">{t('navigation.dashboard')}</p>
             <p className="font-semibold text-white">{user?.name || 'Admin'}</p>
           </div>
           <button
