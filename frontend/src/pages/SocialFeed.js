@@ -407,7 +407,7 @@ export default function SocialFeed({ user, onLogout }) {
                             : 'text-gray-400 hover:bg-white/5 hover:text-white'
                         }`}
                         aria-pressed={filter === key}
-                        aria-label={`Filtrar por ${label.toLowerCase()}`}
+                        aria-label={t('social.aria.filterBy', { type: label.toLowerCase() })}
                       >
                         <Icon className="w-4 h-4 mr-2" aria-hidden="true" />
                         {label}
@@ -469,7 +469,7 @@ export default function SocialFeed({ user, onLogout }) {
                   <div className="flex items-baseline gap-2">
                     <p 
                       className="text-3xl font-bold text-emerald-400 count-up"
-                      aria-label={t('social.aria.postsCount', { count: filteredFeed.length })}
+                      aria-label={`${filteredFeed.length} ${t('social.posts')}`}
                     >
                       {filteredFeed.length}
                     </p>
@@ -506,7 +506,7 @@ export default function SocialFeed({ user, onLogout }) {
             {/* Feed Header */}
             <header className="text-center lg:text-left">
               <h2 className="text-3xl lg:text-4xl font-bold text-white mb-2">
-                {t('social.communityFeed')}
+                {t('social.feedTitle')}
               </h2>
               <p className="text-gray-400 text-lg">
                 {t('social.communityDescription')}
@@ -514,7 +514,7 @@ export default function SocialFeed({ user, onLogout }) {
             </header>
 
             {loading ? (
-                <div className="space-y-6" aria-live="polite" aria-label={t('social.aria.loadingDiscussions')}>
+                <div className="space-y-6" aria-live="polite" aria-label={t('social.loading')}>
                   {[...Array(3)].map((_, i) => (
                     <Card key={i} className="bg-gradient-to-br from-[#1a1a1a] to-[#151515] border-[#252525]/50 shadow-xl shimmer-loading">
                       <CardContent className="p-6">
@@ -549,7 +549,7 @@ export default function SocialFeed({ user, onLogout }) {
                     </h3>
                     <p className="text-gray-400 mb-6 max-w-md mx-auto">
                       {searchTerm 
-                        ? t('social.noSearchResults', { searchTerm })
+                        ? t('social.noDiscussionsMessage', { searchTerm })
                         : t('social.beFirstToStart')
                       }
                     </p>
@@ -621,7 +621,7 @@ export default function SocialFeed({ user, onLogout }) {
                                   variant="ghost"
                                   size="icon"
                                   className="opacity-0 group-hover:opacity-100 transition-opacity rounded-full button-press"
-                                  aria-label={t('social.aria.moreOptions')}
+                                    aria-label={t('social.actions.moreOptions')}
                                 >
                                   <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
                                 </Button>
@@ -652,10 +652,10 @@ export default function SocialFeed({ user, onLogout }) {
                                       handleViewLesson(post.lesson_id);
                                     }}
                                     className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white font-medium px-4 py-2 rounded-lg transition-all duration-300 button-press ripple glow-on-hover"
-                                    aria-label={t('social.aria.accessLesson')}
+                                    aria-label={t('social.actions.accessLesson')}
                                   >
                                     <BookOpen className="w-4 h-4 mr-2" />
-                                    {t('social.accessLesson')}
+                                    {t('social.actions.accessLesson')}
                                   </Button>
                                 </div>
                               </div>
@@ -682,7 +682,7 @@ export default function SocialFeed({ user, onLogout }) {
                                   handleLike(post.id);
                                 }}
                                 className="text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 rounded-xl group/like button-press ripple"
-                                aria-label={t('social.aria.likePost', { count: post.likes })}
+                                aria-label={t('social.actions.likePost', { count: post.likes })}
                               >
                                 <Heart className="w-4 h-4 mr-2 group-hover/like:fill-current" aria-hidden="true" />
                                 <span className="font-medium count-up">{post.likes}</span>
@@ -692,7 +692,7 @@ export default function SocialFeed({ user, onLogout }) {
                                 variant="ghost"
                                 size="sm"
                                 className="text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all duration-300 rounded-xl button-press ripple"
-                                aria-label={t('social.aria.replyPost', { count: post.replies_count || 0 })}
+                                aria-label={t('social.actions.replyPost', { count: post.replies_count || 0 })}
                               >
                                 <MessageCircle className="w-4 h-4 mr-2" aria-hidden="true" />
                                 <span className="font-medium count-up">{post.replies_count || 0}</span>
@@ -707,10 +707,10 @@ export default function SocialFeed({ user, onLogout }) {
                                     handleViewLesson(post.lesson_id);
                                   }}
                                   className="text-gray-400 hover:text-purple-400 hover:bg-purple-500/10 transition-all duration-300 rounded-xl button-press ripple"
-                                  aria-label={t('social.aria.viewRelatedLesson')}
+                                  aria-label={t('social.actions.viewLesson')}
                                 >
                                   <BookOpen className="w-4 h-4 mr-2" aria-hidden="true" />
-                                  {t('social.viewLesson')}
+                                  {t('social.actions.viewLesson')}
                                 </Button>
                               )}
                             </div>
@@ -720,7 +720,7 @@ export default function SocialFeed({ user, onLogout }) {
                                 variant="ghost"
                                 size="icon"
                                 className="text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-all duration-300 rounded-full button-press"
-                                aria-label={t('social.aria.shareDiscussion')}
+                                aria-label={t('social.actions.sharePost')}
                               >
                                 <Share2 className="w-4 h-4" aria-hidden="true" />
                               </Button>
@@ -728,7 +728,7 @@ export default function SocialFeed({ user, onLogout }) {
                                 variant="ghost"
                                 size="icon"
                                 className="text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/10 transition-all duration-300 rounded-full button-press"
-                                aria-label={t('social.aria.saveDiscussion')}
+                                aria-label={t('social.actions.bookmarkPost')}
                               >
                                 <Bookmark className="w-4 h-4" aria-hidden="true" />
                               </Button>
@@ -750,7 +750,7 @@ export default function SocialFeed({ user, onLogout }) {
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
                     className="bg-[#1a1a1a] border-[#252525] text-white hover:bg-[#252525] disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label={t('social.aria.previousPage')}
+                    aria-label={t('social.pagination.previousPage')}
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
@@ -779,7 +779,7 @@ export default function SocialFeed({ user, onLogout }) {
                               ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white border-0"
                               : "bg-[#1a1a1a] border-[#252525] text-white hover:bg-[#252525]"
                           }`}
-                          aria-label={t('social.aria.goToPage', { page: pageNum })}
+                          aria-label={t('social.pagination.goToPage', { page: pageNum })}
                         >
                           {pageNum}
                         </Button>
@@ -793,7 +793,7 @@ export default function SocialFeed({ user, onLogout }) {
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
                     className="bg-[#1a1a1a] border-[#252525] text-white hover:bg-[#252525] disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label={t('social.aria.nextPage')}
+                    aria-label={t('social.pagination.nextPage')}
                   >
                     <ChevronRight className="w-4 h-4" />
                   </Button>
@@ -818,10 +818,10 @@ export default function SocialFeed({ user, onLogout }) {
               id="create-post-title"
               className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent"
             >
-              {t('social.newDiscussion')}
+              {t('social.createPost.title')}
             </DialogTitle>
             <p id="create-post-description" className="sr-only">
-              {t('social.createPostFormDescription')}
+              {t('social.createPost.description')}
             </p>
           </DialogHeader>
           <form onSubmit={handleCreatePost} className="space-y-6">
@@ -837,15 +837,15 @@ export default function SocialFeed({ user, onLogout }) {
                 id="post-content"
                 value={newPostContent}
                 onChange={(e) => setNewPostContent(e.target.value)}
-                placeholder={t('social.shareIdeasPlaceholder')}
+                placeholder={t('social.createPost.shareIdeasPlaceholder')}
                 rows={4}
                 className="bg-[#111111] border-[#2a2a2a] text-white flex-1 min-h-[120px] rounded-xl resize-none focus:ring-2 focus:ring-emerald-500/50"
                 required
-                aria-label={t('social.aria.discussionContent')}
+                aria-label={t('social.createPost.contentLabel')}
                 aria-describedby="content-help"
               />
               <p id="content-help" className="sr-only">
-                {t('social.writeContentHelp')}
+                {t('social.createPost.writeContentHelp')}
               </p>
             </div>
             <div className="flex justify-end gap-3">
@@ -854,18 +854,18 @@ export default function SocialFeed({ user, onLogout }) {
                 variant="outline"
                 onClick={() => setShowCreatePost(false)}
                 className="border-[#2a2a2a] hover:bg-[#252525] rounded-xl"
-                aria-label={t('social.aria.cancelCreation')}
+                aria-label={t('social.createPost.cancelCreation')}
               >
-                {t('social.cancel')}
+                {t('social.createPost.cancel')}
               </Button>
               <Button
                 type="submit"
                 className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 rounded-xl shadow-lg"
                 disabled={!newPostContent.trim()}
-                aria-label={t('social.aria.publishDiscussion')}
+                aria-label={t('social.createPost.publishDiscussion')}
               >
                 <Send className="w-4 h-4 mr-2" aria-hidden="true" />
-                {t('social.publish')}
+                {t('social.createPost.publish')}
               </Button>
             </div>
           </form>
@@ -879,7 +879,7 @@ export default function SocialFeed({ user, onLogout }) {
             <>
               <DialogHeader>
                 <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-                  {t('social.detailedDiscussion')}
+                  {t('social.postDetail.title')}
                 </DialogTitle>
               </DialogHeader>
 
@@ -916,7 +916,7 @@ export default function SocialFeed({ user, onLogout }) {
                     </Button>
                     <div className="flex items-center gap-2 text-gray-400">
                       <MessageCircle className="w-4 h-4" />
-                      <span>{t('social.repliesCount', { count: postReplies.length })}</span>
+                      <span>{t('social.postDetail.replies', { count: postReplies.length })}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -933,7 +933,7 @@ export default function SocialFeed({ user, onLogout }) {
                       <Textarea
                         value={replyContent}
                         onChange={(e) => setReplyContent(e.target.value)}
-                        placeholder={t('social.writeReplyPlaceholder')}
+                        placeholder={t('social.postDetail.writeReplyPlaceholder')}
                         rows={3}
                         className="bg-[#0a0a0a] border-[#2a2a2a] text-white flex-1 rounded-xl"
                       />
@@ -945,7 +945,7 @@ export default function SocialFeed({ user, onLogout }) {
                         disabled={!replyContent.trim()}
                       >
                         <Send className="w-4 h-4 mr-2" />
-                        {t('social.reply')}
+                        {t('social.postDetail.reply')}
                       </Button>
                     </div>
                   </form>
@@ -956,13 +956,13 @@ export default function SocialFeed({ user, onLogout }) {
               <div className="space-y-4">
                 <h3 className="font-semibold text-white text-lg flex items-center gap-2">
                   <MessageCircle className="w-5 h-5 text-emerald-400" />
-                  {t('social.replies')} ({postReplies.length})
+                  {t('social.postDetail.replies')} ({postReplies.length})
                 </h3>
                 {postReplies.length === 0 ? (
                   <Card className="bg-[#111111] border-[#252525]">
                     <CardContent className="text-center py-12">
                       <MessageCircle className="w-12 h-12 mx-auto text-gray-600 mb-4" />
-                      <p className="text-gray-400">{t('social.noRepliesYet')}</p>
+                      <p className="text-gray-400">{t('social.postDetail.noReplies')}</p>
                     </CardContent>
                   </Card>
                 ) : (

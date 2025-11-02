@@ -796,6 +796,360 @@ async def reset_password(token: str, new_password: str):
     
     return {"message": "Senha redefinida com sucesso!"}
 
+# ==================== USER ROUTES ====================
+
+@api_router.get("/user/subscription-status")
+async def get_user_subscription_status(current_user: User = Depends(get_current_user)):
+    """Get current user's subscription status"""
+    try:
+        # Get user's current subscription data
+        user_data = await db.users.find_one({"id": current_user.id}, {"_id": 0})
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        subscription_plan_id = user_data.get("subscription_plan_id")
+        subscription_valid_until = user_data.get("subscription_valid_until")
+        
+        # If no subscription
+        if not subscription_plan_id:
+            return {
+                "has_subscription": False,
+                "subscription_plan": None,
+                "valid_until": None,
+                "is_active": False,
+                "days_remaining": 0
+            }
+        
+        # Get subscription plan details
+        plan = await db.subscription_plans.find_one({"id": subscription_plan_id}, {"_id": 0})
+        if not plan:
+            return {
+                "has_subscription": False,
+                "subscription_plan": None,
+                "valid_until": None,
+                "is_active": False,
+                "days_remaining": 0
+            }
+        
+        # Check if subscription is still valid
+        is_active = False
+        days_remaining = 0
+        
+        if subscription_valid_until:
+            try:
+                if isinstance(subscription_valid_until, str):
+                    valid_until_date = datetime.fromisoformat(subscription_valid_until.replace('Z', '+00:00'))
+                else:
+                    valid_until_date = subscription_valid_until
+                
+                now = datetime.now(timezone.utc)
+                is_active = valid_until_date > now
+                
+                if is_active:
+                    days_remaining = (valid_until_date - now).days
+                
+            except Exception as e:
+                logger.error(f"Error parsing subscription date: {e}")
+        
+        return {
+            "has_subscription": True,
+            "subscription_plan": {
+                "id": plan["id"],
+                "name": plan["name"],
+                "description": plan.get("description", ""),
+                "price_brl": plan.get("price_brl", 0),
+                "duration_days": plan.get("duration_days", 0),
+                "access_scope": plan.get("access_scope", "full"),
+                "course_ids": plan.get("course_ids", [])
+            },
+            "valid_until": subscription_valid_until,
+            "is_active": is_active,
+            "days_remaining": max(0, days_remaining)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting subscription status for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving subscription status")
+
+@api_router.get("/user/preferences")
+async def get_user_preferences(current_user: User = Depends(get_current_user)):
+    """Get current user's preferences"""
+    try:
+        user_data = await db.users.find_one({"id": current_user.id}, {"_id": 0})
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Return user preferences with defaults
+        return {
+            "email_notifications": user_data.get("email_notifications", True),
+            "course_reminders": user_data.get("course_reminders", True),
+            "social_notifications": user_data.get("social_notifications", True),
+            "marketing_emails": user_data.get("marketing_emails", False)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting preferences for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving user preferences")
+
+@api_router.put("/user/preferences")
+async def update_user_preferences(
+    preferences: dict,
+    current_user: User = Depends(get_current_user)
+):
+    """Update current user's preferences"""
+    try:
+        # Validate preferences keys
+        valid_keys = {"email_notifications", "course_reminders", "social_notifications", "marketing_emails"}
+        update_data = {k: v for k, v in preferences.items() if k in valid_keys and isinstance(v, bool)}
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No valid preferences provided")
+        
+        # Update user preferences
+        await db.users.update_one(
+            {"id": current_user.id},
+            {"$set": update_data}
+        )
+        
+        logger.info(f"Updated preferences for user {current_user.email}: {update_data}")
+        return {"message": "Preferences updated successfully", "preferences": update_data}
+        
+    except Exception as e:
+        logger.error(f"Error updating preferences for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error updating user preferences")
+
+@api_router.put("/user/profile")
+async def update_user_profile(
+    profile_data: dict,
+    current_user: User = Depends(get_current_user)
+):
+    """Update current user's profile"""
+    try:
+        # Validate and prepare update data
+        valid_keys = {"name", "preferred_language", "avatar_url"}
+        update_data = {k: v for k, v in profile_data.items() if k in valid_keys and v is not None}
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No valid profile data provided")
+        
+        # Update user profile
+        result = await db.users.update_one(
+            {"id": current_user.id},
+            {"$set": update_data}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get updated user data
+        updated_user = await db.users.find_one({"id": current_user.id}, {"_id": 0})
+        
+        logger.info(f"Updated profile for user {current_user.email}: {update_data}")
+        return updated_user
+        
+    except Exception as e:
+        logger.error(f"Error updating profile for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error updating user profile")
+
+@api_router.put("/user/password")
+async def update_user_password(
+    password_data: dict,
+    current_user: User = Depends(get_current_user)
+):
+    """Update current user's password"""
+    try:
+        current_password = password_data.get("current_password")
+        new_password = password_data.get("new_password")
+        
+        if not current_password or not new_password:
+            raise HTTPException(status_code=400, detail="Current password and new password are required")
+        
+        # Get user data
+        user_data = await db.users.find_one({"id": current_user.id})
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Verify current password
+        if not verify_password(current_password, user_data["password_hash"]):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+        
+        # Hash new password
+        new_password_hash = get_password_hash(new_password)
+        
+        # Update password
+        await db.users.update_one(
+            {"id": current_user.id},
+            {"$set": {"password_hash": new_password_hash}}
+        )
+        
+        logger.info(f"Password updated for user {current_user.email}")
+        return {"message": "Password updated successfully"}
+        
+    except Exception as e:
+        logger.error(f"Error updating password for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error updating password")
+
+# ==================== SUBSCRIPTION MANAGEMENT ENDPOINTS ====================
+
+@api_router.get("/user/subscriptions")
+async def get_user_subscriptions(current_user: User = Depends(get_current_user)):
+    """Get current user's active subscriptions"""
+    try:
+        # Get user data
+        user_data = await db.users.find_one({"id": current_user.id}, {"_id": 0})
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        subscriptions = []
+        
+        # Check if user has an active subscription
+        if user_data.get("subscription_plan_id") and user_data.get("subscription_valid_until"):
+            plan = await db.subscription_plans.find_one(
+                {"id": user_data["subscription_plan_id"]}, 
+                {"_id": 0}
+            )
+            
+            if plan:
+                # Parse subscription date
+                subscription_valid_until = user_data["subscription_valid_until"]
+                if isinstance(subscription_valid_until, str):
+                    try:
+                        subscription_valid_until = datetime.fromisoformat(subscription_valid_until.replace('Z', '+00:00'))
+                    except ValueError:
+                        subscription_valid_until = datetime.fromisoformat(subscription_valid_until)
+                
+                is_active = subscription_valid_until > datetime.now(timezone.utc)
+                days_remaining = (subscription_valid_until - datetime.now(timezone.utc)).days
+                
+                subscription_info = {
+                    "id": plan["id"],
+                    "name": plan["name"],
+                    "description": plan.get("description", ""),
+                    "price_brl": plan.get("price_brl", 0),
+                    "duration_days": plan.get("duration_days", 0),
+                    "access_scope": plan.get("access_scope", "full"),
+                    "course_ids": plan.get("course_ids", []),
+                    "valid_until": subscription_valid_until.isoformat(),
+                    "is_active": is_active,
+                    "days_remaining": max(0, days_remaining),
+                    "stripe_price_id": plan.get("stripe_price_id"),
+                    "can_cancel": bool(plan.get("stripe_price_id"))  # Only Stripe subscriptions can be cancelled
+                }
+                subscriptions.append(subscription_info)
+        
+        return {"subscriptions": subscriptions}
+        
+    except Exception as e:
+        logger.error(f"Error getting subscriptions for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving subscriptions")
+
+@api_router.post("/user/subscriptions/{subscription_id}/cancel")
+async def cancel_user_subscription(
+    subscription_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Cancel a user's Stripe subscription"""
+    try:
+        # Verify user has this subscription
+        user_data = await db.users.find_one({"id": current_user.id}, {"_id": 0})
+        if not user_data or user_data.get("subscription_plan_id") != subscription_id:
+            raise HTTPException(status_code=404, detail="Subscription not found")
+        
+        # Get subscription plan
+        plan = await db.subscription_plans.find_one({"id": subscription_id}, {"_id": 0})
+        if not plan:
+            raise HTTPException(status_code=404, detail="Subscription plan not found")
+        
+        # Only Stripe subscriptions can be cancelled through API
+        if not plan.get("stripe_price_id"):
+            raise HTTPException(status_code=400, detail="This subscription cannot be cancelled through the API")
+        
+        # Initialize Stripe
+        stripe_key = await ensure_stripe_config()
+        if not stripe_key:
+            raise HTTPException(status_code=500, detail="Stripe not configured")
+        
+        # Find active Stripe subscription for this user
+        try:
+            # Search for subscriptions by customer email
+            customers = stripe.Customer.list(email=current_user.email, limit=1)
+            if not customers.data:
+                raise HTTPException(status_code=404, detail="No Stripe customer found")
+            
+            customer = customers.data[0]
+            subscriptions = stripe.Subscription.list(customer=customer.id, status='active')
+            
+            # Find subscription with matching price ID
+            target_subscription = None
+            for sub in subscriptions.data:
+                for item in sub['items']['data']:
+                    if item['price']['id'] == plan['stripe_price_id']:
+                        target_subscription = sub
+                        break
+                if target_subscription:
+                    break
+            
+            if not target_subscription:
+                raise HTTPException(status_code=404, detail="Active Stripe subscription not found")
+            
+            # Cancel the subscription at period end
+            cancelled_subscription = stripe.Subscription.modify(
+                target_subscription.id,
+                cancel_at_period_end=True
+            )
+            
+            # Update user record to reflect cancellation
+            await db.users.update_one(
+                {"id": current_user.id},
+                {"$set": {"subscription_cancelled": True, "subscription_cancel_at_period_end": True}}
+            )
+            
+            logger.info(f"Subscription {subscription_id} cancelled for user {current_user.id}")
+            
+            return {
+                "message": "Subscription cancelled successfully",
+                "cancelled_at_period_end": True,
+                "period_end": datetime.fromtimestamp(cancelled_subscription.current_period_end, timezone.utc).isoformat()
+            }
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe error cancelling subscription: {e}")
+            raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+        
+    except Exception as e:
+        logger.error(f"Error cancelling subscription for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error cancelling subscription")
+
+@api_router.get("/billing/{billing_id}/check-status")
+async def check_billing_status(
+    billing_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Check the status of a billing/payment"""
+    try:
+        # Find billing record
+        billing = await db.billings.find_one({"billing_id": billing_id}, {"_id": 0})
+        if not billing:
+            raise HTTPException(status_code=404, detail="Billing not found")
+        
+        # Verify billing belongs to current user
+        if billing.get("user_id") != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        return {
+            "billing_id": billing["billing_id"],
+            "status": billing.get("status", "pending"),
+            "amount_brl": billing.get("amount_brl", 0),
+            "created_at": billing.get("created_at"),
+            "paid_at": billing.get("paid_at"),
+            "course_id": billing.get("course_id"),
+            "subscription_plan_id": billing.get("subscription_plan_id")
+        }
+        
+    except Exception as e:
+        logger.error(f"Error checking billing status {billing_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error checking billing status")
+
 # ==================== ADMIN ROUTES - COURSES ====================
 
 async def convert_category_names_to_ids(category_names: List[str]) -> List[str]:
@@ -2862,14 +3216,27 @@ async def debug_user(email: str, current_user: User = Depends(get_current_admin)
         if course:
             courses.append(course)
     
+    # Get subscription plan details if exists
+    subscription_plan = None
+    if user.get("subscription_plan_id"):
+        plan = await db.subscription_plans.find_one({"id": user["subscription_plan_id"]}, {"_id": 0})
+        if plan:
+            subscription_plan = plan
+    
     return {
         "user": {
+            "id": user.get("id"),
             "email": user.get("email"),
             "name": user.get("name"),
             "has_purchased": user.get("has_purchased"),
+            "has_full_access": user.get("has_full_access"),
+            "subscription_plan_id": user.get("subscription_plan_id"),
+            "subscription_valid_until": user.get("subscription_valid_until"),
             "enrolled_courses_count": len(enrolled_course_ids),
-            "enrolled_course_ids": enrolled_course_ids
+            "enrolled_course_ids": enrolled_course_ids,
+            "password_hash_exists": bool(user.get("password_hash"))
         },
+        "subscription_plan": subscription_plan,
         "courses": courses
     }
 
@@ -2933,6 +3300,8 @@ async def update_gateway_config(
 
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
+    logger.info("🔔 Received Stripe webhook request")
+    
     webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET') or STRIPE_WEBHOOK_SECRET
     if not webhook_secret:
         # Try reading from payment_settings in DB as a fallback
@@ -2949,15 +3318,23 @@ async def stripe_webhook(request: Request):
 
     payload = await request.body()
     sig_header = request.headers.get("Stripe-Signature")
+    
+    logger.info(f"📝 Webhook payload size: {len(payload)} bytes")
+    logger.info(f"🔐 Signature header present: {bool(sig_header)}")
+    logger.info(f"🔑 Using webhook secret: {webhook_secret[:10]}...")
+    
     try:
         event = stripe.Webhook.construct_event(
             payload=payload,
             sig_header=sig_header,
             secret=webhook_secret,
         )
-    except ValueError:
+        logger.info(f"✅ Webhook signature verified successfully")
+    except ValueError as e:
+        logger.error(f"❌ Invalid payload: {e}")
         raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.error.SignatureVerificationError:
+    except stripe.error.SignatureVerificationError as e:
+        logger.error(f"❌ Invalid signature: {e}")
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     event_type = event.get("type")
@@ -4016,6 +4393,8 @@ async def get_sales_page_url():
 
 # Include the router in the main app
 
+
+
 @app.on_event("startup")
 async def startup_event():
     """Run migrations on startup"""
@@ -4038,13 +4417,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

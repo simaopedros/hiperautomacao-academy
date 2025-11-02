@@ -264,6 +264,7 @@
     "postsCount": "posts",
     "totalFiltered": "Total filtered",
     "page": "Page",
+    "pageOf": "Page {{current}} of {{total}}",
     "loading": "Loading discussions",
     "noDiscussionsFound": "No discussions found",
     "noDiscussionsMessage": "We couldn't find discussions with \"{{searchTerm}}\". Try other search terms.",
@@ -338,7 +339,8 @@
       "sortBy": "Sort by {{type}}",
       "communityFeed": "Community discussions feed",
       "userAvatar": "User avatar {{name}}",
-      "interactionType": "Interaction type: {{type}}"
+      "interactionType": "Interaction type: {{type}}",
+      "discussionActions": "Discussion actions"
     }
   },
   "moderation": {

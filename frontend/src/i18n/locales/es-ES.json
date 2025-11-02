@@ -261,6 +261,7 @@
     "postsCount": "publicaciones",
     "totalFiltered": "Total filtrado",
     "page": "Página",
+    "pageOf": "Página {{current}} de {{total}}",
     "loading": "Cargando discusiones",
     "noDiscussionsFound": "No se encontraron discusiones",
     "noDiscussionsMessage": "No encontramos discusiones con \"{{searchTerm}}\". Prueba otros términos de búsqueda.",
@@ -335,7 +336,8 @@
       "sortBy": "Ordenar por {{type}}",
       "communityFeed": "Feed de discusiones de la comunidad",
       "userAvatar": "Avatar del usuario {{name}}",
-      "interactionType": "Tipo de interacción: {{type}}"
+      "interactionType": "Tipo de interacción: {{type}}",
+      "discussionActions": "Acciones de la discusión"
     }
   },
   "moderation": {

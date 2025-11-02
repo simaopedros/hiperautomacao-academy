@@ -261,6 +261,7 @@
     "postsCount": "posts",
     "totalFiltered": "Total filtrado",
     "page": "Página",
+    "pageOf": "Página {{current}} de {{total}}",
     "loading": "Carregando discussões",
     "noDiscussionsFound": "Nenhuma discussão encontrada",
     "noDiscussionsMessage": "Não encontramos discussões com \"{{searchTerm}}\". Tente outros termos de busca.",
@@ -335,7 +336,8 @@
       "sortBy": "Ordenar por {{type}}",
       "communityFeed": "Feed de discussões da comunidade",
       "userAvatar": "Avatar do usuário {{name}}",
-      "interactionType": "Tipo de interação: {{type}}"
+      "interactionType": "Tipo de interação: {{type}}",
+      "discussionActions": "Ações da discussão"
     }
   },
   "moderation": {
