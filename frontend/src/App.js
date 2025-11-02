@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import '@/App.css';
+import '@/i18n'; // Inicializar i18n
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
@@ -15,6 +16,7 @@ import PaymentCancelled from '@/pages/PaymentCancelled';
 import SubscriptionSuccess from '@/pages/SubscriptionSuccess';
 import AdminFinance from '@/pages/AdminFinance';
 import PaymentSettings from '@/pages/PaymentSettings';
+import ProfileSettings from '@/pages/ProfileSettings';
 
 import GamificationSettings from '@/pages/GamificationSettings';
 import GatewaySettings from '@/pages/GatewaySettings';
@@ -22,6 +24,7 @@ import SupportSettings from '@/pages/SupportSettings';
 import SubscriptionPlansAdmin from '@/pages/SubscriptionPlansAdmin';
 import SubscribePage from '@/pages/SubscribePage';
 import AdminCategories from '@/pages/AdminCategories';
+import LanguageSelectionModal from '@/components/LanguageSelectionModal';
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -30,17 +33,48 @@ function App() {
     return token && userData ? JSON.parse(userData) : null;
   });
   const [loading] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+
+  // Verificar se usuário precisa selecionar idioma (apenas para estudantes)
+  const needsLanguageSelection = user && !user.preferred_language && user.role !== 'admin';
 
   const handleLogin = (token, userData) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
+    
+    // Verificar se precisa mostrar modal de idioma após login (apenas para estudantes)
+    if (!userData.preferred_language && userData.role !== 'admin') {
+      setShowLanguageModal(true);
+    }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    setShowLanguageModal(false);
+  };
+
+  const handleLanguageSelect = (language) => {
+    // Atualizar estado do usuário
+    const updatedUser = { ...user, preferred_language: language };
+    setUser(updatedUser);
+    
+    // Atualizar localStorage também
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    
+    setShowLanguageModal(false);
+    console.log('Modal fechado, idioma selecionado:', language);
+  };
+
+  const updateUser = (updatedUserData) => {
+    // Atualizar estado do usuário
+    const newUser = { ...user, ...updatedUserData };
+    setUser(newUser);
+    
+    // Atualizar localStorage também
+    localStorage.setItem('user', JSON.stringify(newUser));
   };
 
   if (loading) {
@@ -123,7 +157,7 @@ function App() {
             path="/dashboard"
             element={
               user ? (
-                <StudentDashboard user={user} onLogout={handleLogout} />
+                <StudentDashboard user={user} onLogout={handleLogout} updateUser={updateUser} />
               ) : (
                 <Navigate to="/login" replace />
               )
@@ -154,6 +188,16 @@ function App() {
             element={
               user ? (
                 <SocialFeed user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              user ? (
+                <ProfileSettings user={user} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/login" replace />
               )
@@ -272,6 +316,12 @@ function App() {
           />
         </Routes>
       </BrowserRouter>
+      
+      {/* Modal de seleção de idioma */}
+      <LanguageSelectionModal
+        isOpen={showLanguageModal || needsLanguageSelection}
+        onLanguageSelect={handleLanguageSelect}
+      />
     </div>
   );
 }

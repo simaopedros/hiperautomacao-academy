@@ -3,14 +3,18 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from replication.replicator import ReplicationManager, wrap_database
+from replication.config_store import load_config, save_config
+from replication.audit_logger import AUDIT_LOG_FILE
 import os
 import logging
+import json
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
-import jwt
+from jose import jwt
 from passlib.context import CryptContext
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -46,7 +50,12 @@ executor = ThreadPoolExecutor(max_workers=5)
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# Primary database (unwrapped)
+_primary_db = client[os.environ['DB_NAME']]
+
+# Replication manager and wrapped database
+replication_manager = ReplicationManager()
+db = wrap_database(_primary_db, replication_manager)
 
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -131,6 +140,7 @@ class UserBase(BaseModel):
     name: str
     role: str = "student"  # admin or student
     has_full_access: bool = False  # Access to all courses
+    preferred_language: Optional[str] = None  # User's preferred language (pt, en, es, etc.) - None means show all courses
 
 class UserCreate(UserBase):
     password: Optional[str] = None  # Optional when inviting, but required for direct creation
@@ -143,6 +153,7 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
     subscription_plan_id: Optional[str] = None
     subscription_valid_until: Optional[datetime] = None
+    preferred_language: Optional[str] = None  # User's preferred language (pt, en, es, etc.) - None means show all courses
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -191,6 +202,7 @@ class CourseBase(BaseModel):
     price_brl: Optional[float] = 0.0  # Price in BRL (R$)
     hotmart_product_id: Optional[str] = None  # Hotmart product ID
     hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL
+    language: Optional[str] = None  # Course language (pt, en, es, etc.) - None means available for all languages
 
 class CourseCreate(CourseBase):
     pass
@@ -205,6 +217,7 @@ class CourseUpdate(BaseModel):
     price_brl: Optional[float] = None
     hotmart_product_id: Optional[str] = None  # Hotmart product ID
     hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL
+    language: Optional[str] = None  # Course language (pt, en, es, etc.) - None means available for all languages
 
 class Course(CourseBase):
     model_config = ConfigDict(extra="ignore")
@@ -428,6 +441,22 @@ class FeatureFlag(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: Optional[str] = None
 
+# Lead Capture Models
+class LeadCaptureRequest(BaseModel):
+    name: str
+    email: str
+    whatsapp: str
+
+class BrevoConfig(BaseModel):
+    api_key: str
+    list_id: Optional[int] = None
+    sales_page_url: Optional[str] = None
+
+class BrevoListResponse(BaseModel):
+    id: int
+    name: str
+    folder_id: Optional[int] = None
+
 # ==================== AUTH HELPERS ====================
 
 def verify_password(plain_password, hashed_password):
@@ -537,6 +566,138 @@ async def login(credentials: UserLogin):
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
+@api_router.put("/auth/language", response_model=User)
+async def update_user_language(request: dict, current_user: User = Depends(get_current_user)):
+    """Update user's preferred language"""
+    language = request.get('language')
+    
+    # Validate language code if provided
+    if language and language not in ['pt', 'en', 'es']:
+        raise HTTPException(status_code=400, detail="Invalid language code. Supported: pt, en, es")
+    
+    # Update user's preferred language
+    await db.users.update_one(
+        {"id": current_user.id},
+        {"$set": {"preferred_language": language}}
+    )
+    
+    # Return updated user
+    updated_user = await db.users.find_one({"id": current_user.id})
+    return User(**updated_user)
+
+# ==================== USER PROFILE ROUTES ====================
+
+@api_router.put("/user/profile", response_model=User)
+async def update_user_profile(profile_data: UserUpdate, current_user: User = Depends(get_current_user)):
+    """Update user profile information"""
+    # Get only the fields that are not None
+    update_fields = {}
+    
+    if profile_data.name is not None:
+        update_fields["name"] = profile_data.name
+    
+    if profile_data.email is not None:
+        # Check if email is already taken by another user
+        existing_user = await db.users.find_one({"email": profile_data.email, "id": {"$ne": current_user.id}})
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already in use by another user")
+        update_fields["email"] = profile_data.email
+    
+    if profile_data.preferred_language is not None:
+        # Validate language code
+        if profile_data.preferred_language not in ['pt', 'en', 'es', 'pt-BR', 'en-US', 'es-ES']:
+            raise HTTPException(status_code=400, detail="Invalid language code")
+        update_fields["preferred_language"] = profile_data.preferred_language
+    
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    # Update user in database
+    await db.users.update_one(
+        {"id": current_user.id},
+        {"$set": update_fields}
+    )
+    
+    # Return updated user
+    updated_user = await db.users.find_one({"id": current_user.id})
+    return User(**updated_user)
+
+@api_router.put("/user/password")
+async def update_user_password(password_data: dict, current_user: User = Depends(get_current_user)):
+    """Update user password"""
+    current_password = password_data.get('current_password')
+    new_password = password_data.get('new_password')
+    
+    if not current_password or not new_password:
+        raise HTTPException(status_code=400, detail="Current password and new password are required")
+    
+    # Get current user from database to verify password
+    user_data = await db.users.find_one({"id": current_user.id})
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verify current password
+    if not verify_password(current_password, user_data['password_hash']):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Validate new password length
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters long")
+    
+    # Update password
+    new_password_hash = get_password_hash(new_password)
+    await db.users.update_one(
+        {"id": current_user.id},
+        {"$set": {"password_hash": new_password_hash}}
+    )
+    
+    return {"message": "Password updated successfully"}
+
+@api_router.put("/user/preferences")
+async def update_user_preferences(preferences: dict, current_user: User = Depends(get_current_user)):
+    """Update user preferences"""
+    # For now, we'll store preferences in the user document
+    # In the future, this could be moved to a separate preferences collection
+    
+    allowed_preferences = [
+        'email_notifications',
+        'course_reminders', 
+        'social_notifications',
+        'marketing_emails'
+    ]
+    
+    # Filter only allowed preferences
+    filtered_preferences = {k: v for k, v in preferences.items() if k in allowed_preferences}
+    
+    if not filtered_preferences:
+        raise HTTPException(status_code=400, detail="No valid preferences provided")
+    
+    # Update user preferences
+    await db.users.update_one(
+        {"id": current_user.id},
+        {"$set": {"preferences": filtered_preferences}}
+    )
+    
+    return {"message": "Preferences updated successfully", "preferences": filtered_preferences}
+
+@api_router.get("/user/preferences")
+async def get_user_preferences(current_user: User = Depends(get_current_user)):
+    """Get user preferences"""
+    user_data = await db.users.find_one({"id": current_user.id})
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Return default preferences if none exist
+    default_preferences = {
+        'email_notifications': True,
+        'course_reminders': True,
+        'social_notifications': True,
+        'marketing_emails': False
+    }
+    
+    preferences = user_data.get('preferences', default_preferences)
+    return preferences
+
 # ==================== PASSWORD RECOVERY ====================
 
 @api_router.post("/auth/forgot-password")
@@ -643,7 +804,393 @@ async def reset_password(token: str, new_password: str):
     
     return {"message": "Senha redefinida com sucesso!"}
 
+# ==================== USER ROUTES ====================
+
+@api_router.get("/user/subscription-status")
+async def get_user_subscription_status(current_user: User = Depends(get_current_user)):
+    """Get current user's subscription status"""
+    try:
+        # Get user's current subscription data
+        user_data = await db.users.find_one({"id": current_user.id}, {"_id": 0})
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        subscription_plan_id = user_data.get("subscription_plan_id")
+        subscription_valid_until = user_data.get("subscription_valid_until")
+        has_full_access = user_data.get("has_full_access", False)
+        
+        # If no subscription
+        if not subscription_plan_id:
+            return {
+                "has_subscription": False,
+                "subscription_plan": None,
+                "valid_until": None,
+                "is_active": False,
+                "days_remaining": 0,
+                # Extra fields for frontend compatibility
+                "has_full_access": has_full_access,
+                "subscription_plan_id": subscription_plan_id,
+                "subscription_valid_until": subscription_valid_until
+            }
+        
+        # Get subscription plan details
+        plan = await db.subscription_plans.find_one({"id": subscription_plan_id}, {"_id": 0})
+        if not plan:
+            return {
+                "has_subscription": False,
+                "subscription_plan": None,
+                "valid_until": None,
+                "is_active": False,
+                "days_remaining": 0,
+                # Extra fields for frontend compatibility
+                "has_full_access": has_full_access,
+                "subscription_plan_id": subscription_plan_id,
+                "subscription_valid_until": subscription_valid_until
+            }
+        
+        # Check if subscription is still valid
+        is_active = False
+        days_remaining = 0
+        
+        if subscription_valid_until:
+            try:
+                if isinstance(subscription_valid_until, str):
+                    valid_until_date = datetime.fromisoformat(subscription_valid_until.replace('Z', '+00:00'))
+                else:
+                    valid_until_date = subscription_valid_until
+                
+                now = datetime.now(timezone.utc)
+                is_active = valid_until_date > now
+                
+                if is_active:
+                    days_remaining = (valid_until_date - now).days
+                
+            except Exception as e:
+                logger.error(f"Error parsing subscription date: {e}")
+        
+        return {
+            "has_subscription": True,
+            "subscription_plan": {
+                "id": plan["id"],
+                "name": plan["name"],
+                "description": plan.get("description", ""),
+                "price_brl": plan.get("price_brl", 0),
+                "duration_days": plan.get("duration_days", 0),
+                "access_scope": plan.get("access_scope", "full"),
+                "course_ids": plan.get("course_ids", [])
+            },
+            "valid_until": subscription_valid_until,
+            "is_active": is_active,
+            "days_remaining": max(0, days_remaining),
+            # Extra fields for frontend compatibility
+            "has_full_access": has_full_access,
+            "subscription_plan_id": subscription_plan_id,
+            "subscription_valid_until": subscription_valid_until
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting subscription status for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving subscription status")
+
+@api_router.get("/user/preferences")
+async def get_user_preferences(current_user: User = Depends(get_current_user)):
+    """Get current user's preferences"""
+    try:
+        user_data = await db.users.find_one({"id": current_user.id}, {"_id": 0})
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Return user preferences with defaults
+        return {
+            "email_notifications": user_data.get("email_notifications", True),
+            "course_reminders": user_data.get("course_reminders", True),
+            "social_notifications": user_data.get("social_notifications", True),
+            "marketing_emails": user_data.get("marketing_emails", False)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting preferences for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving user preferences")
+
+@api_router.put("/user/preferences")
+async def update_user_preferences(
+    preferences: dict,
+    current_user: User = Depends(get_current_user)
+):
+    """Update current user's preferences"""
+    try:
+        # Validate preferences keys
+        valid_keys = {"email_notifications", "course_reminders", "social_notifications", "marketing_emails"}
+        update_data = {k: v for k, v in preferences.items() if k in valid_keys and isinstance(v, bool)}
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No valid preferences provided")
+        
+        # Update user preferences
+        await db.users.update_one(
+            {"id": current_user.id},
+            {"$set": update_data}
+        )
+        
+        logger.info(f"Updated preferences for user {current_user.email}: {update_data}")
+        return {"message": "Preferences updated successfully", "preferences": update_data}
+        
+    except Exception as e:
+        logger.error(f"Error updating preferences for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error updating user preferences")
+
+@api_router.put("/user/profile")
+async def update_user_profile(
+    profile_data: dict,
+    current_user: User = Depends(get_current_user)
+):
+    """Update current user's profile"""
+    try:
+        # Validate and prepare update data
+        valid_keys = {"name", "preferred_language", "avatar_url"}
+        update_data = {k: v for k, v in profile_data.items() if k in valid_keys and v is not None}
+        
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No valid profile data provided")
+        
+        # Update user profile
+        result = await db.users.update_one(
+            {"id": current_user.id},
+            {"$set": update_data}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Get updated user data
+        updated_user = await db.users.find_one({"id": current_user.id}, {"_id": 0})
+        
+        logger.info(f"Updated profile for user {current_user.email}: {update_data}")
+        return updated_user
+        
+    except Exception as e:
+        logger.error(f"Error updating profile for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error updating user profile")
+
+@api_router.put("/user/password")
+async def update_user_password(
+    password_data: dict,
+    current_user: User = Depends(get_current_user)
+):
+    """Update current user's password"""
+    try:
+        current_password = password_data.get("current_password")
+        new_password = password_data.get("new_password")
+        
+        if not current_password or not new_password:
+            raise HTTPException(status_code=400, detail="Current password and new password are required")
+        
+        # Get user data
+        user_data = await db.users.find_one({"id": current_user.id})
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Verify current password
+        if not verify_password(current_password, user_data["password_hash"]):
+            raise HTTPException(status_code=400, detail="Current password is incorrect")
+        
+        # Hash new password
+        new_password_hash = get_password_hash(new_password)
+        
+        # Update password
+        await db.users.update_one(
+            {"id": current_user.id},
+            {"$set": {"password_hash": new_password_hash}}
+        )
+        
+        logger.info(f"Password updated for user {current_user.email}")
+        return {"message": "Password updated successfully"}
+        
+    except Exception as e:
+        logger.error(f"Error updating password for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error updating password")
+
+# ==================== SUBSCRIPTION MANAGEMENT ENDPOINTS ====================
+
+@api_router.get("/user/subscriptions")
+async def get_user_subscriptions(current_user: User = Depends(get_current_user)):
+    """Get current user's active subscriptions"""
+    try:
+        # Get user data
+        user_data = await db.users.find_one({"id": current_user.id}, {"_id": 0})
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        subscriptions = []
+        
+        # Check if user has an active subscription
+        if user_data.get("subscription_plan_id") and user_data.get("subscription_valid_until"):
+            plan = await db.subscription_plans.find_one(
+                {"id": user_data["subscription_plan_id"]}, 
+                {"_id": 0}
+            )
+            
+            if plan:
+                # Parse subscription date
+                subscription_valid_until = user_data["subscription_valid_until"]
+                if isinstance(subscription_valid_until, str):
+                    try:
+                        subscription_valid_until = datetime.fromisoformat(subscription_valid_until.replace('Z', '+00:00'))
+                    except ValueError:
+                        subscription_valid_until = datetime.fromisoformat(subscription_valid_until)
+                
+                is_active = subscription_valid_until > datetime.now(timezone.utc)
+                days_remaining = (subscription_valid_until - datetime.now(timezone.utc)).days
+                
+                subscription_info = {
+                    "id": plan["id"],
+                    "name": plan["name"],
+                    "description": plan.get("description", ""),
+                    "price_brl": plan.get("price_brl", 0),
+                    "duration_days": plan.get("duration_days", 0),
+                    "access_scope": plan.get("access_scope", "full"),
+                    "course_ids": plan.get("course_ids", []),
+                    "valid_until": subscription_valid_until.isoformat(),
+                    "is_active": is_active,
+                    "days_remaining": max(0, days_remaining),
+                    "stripe_price_id": plan.get("stripe_price_id"),
+                    "can_cancel": bool(plan.get("stripe_price_id"))  # Only Stripe subscriptions can be cancelled
+                }
+                subscriptions.append(subscription_info)
+        
+        return {"subscriptions": subscriptions}
+        
+    except Exception as e:
+        logger.error(f"Error getting subscriptions for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error retrieving subscriptions")
+
+@api_router.post("/user/subscriptions/{subscription_id}/cancel")
+async def cancel_user_subscription(
+    subscription_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Cancel a user's Stripe subscription"""
+    try:
+        # Verify user has this subscription
+        user_data = await db.users.find_one({"id": current_user.id}, {"_id": 0})
+        if not user_data or user_data.get("subscription_plan_id") != subscription_id:
+            raise HTTPException(status_code=404, detail="Subscription not found")
+        
+        # Get subscription plan
+        plan = await db.subscription_plans.find_one({"id": subscription_id}, {"_id": 0})
+        if not plan:
+            raise HTTPException(status_code=404, detail="Subscription plan not found")
+        
+        # Only Stripe subscriptions can be cancelled through API
+        if not plan.get("stripe_price_id"):
+            raise HTTPException(status_code=400, detail="This subscription cannot be cancelled through the API")
+        
+        # Initialize Stripe
+        stripe_key = await ensure_stripe_config()
+        if not stripe_key:
+            raise HTTPException(status_code=500, detail="Stripe not configured")
+        
+        # Find active Stripe subscription for this user
+        try:
+            # Search for subscriptions by customer email
+            customers = stripe.Customer.list(email=current_user.email, limit=1)
+            if not customers.data:
+                raise HTTPException(status_code=404, detail="No Stripe customer found")
+            
+            customer = customers.data[0]
+            subscriptions = stripe.Subscription.list(customer=customer.id, status='active')
+            
+            # Find subscription with matching price ID
+            target_subscription = None
+            for sub in subscriptions.data:
+                for item in sub['items']['data']:
+                    if item['price']['id'] == plan['stripe_price_id']:
+                        target_subscription = sub
+                        break
+                if target_subscription:
+                    break
+            
+            if not target_subscription:
+                raise HTTPException(status_code=404, detail="Active Stripe subscription not found")
+            
+            # Cancel the subscription at period end
+            cancelled_subscription = stripe.Subscription.modify(
+                target_subscription.id,
+                cancel_at_period_end=True
+            )
+            
+            # Update user record to reflect cancellation
+            await db.users.update_one(
+                {"id": current_user.id},
+                {"$set": {"subscription_cancelled": True, "subscription_cancel_at_period_end": True}}
+            )
+            
+            logger.info(f"Subscription {subscription_id} cancelled for user {current_user.id}")
+            
+            return {
+                "message": "Subscription cancelled successfully",
+                "cancelled_at_period_end": True,
+                "period_end": datetime.fromtimestamp(cancelled_subscription.current_period_end, timezone.utc).isoformat()
+            }
+            
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe error cancelling subscription: {e}")
+            raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+        
+    except Exception as e:
+        logger.error(f"Error cancelling subscription for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Error cancelling subscription")
+
+@api_router.get("/billing/{billing_id}/check-status")
+async def check_billing_status(
+    billing_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Check the status of a billing/payment"""
+    try:
+        # Find billing record
+        billing = await db.billings.find_one({"billing_id": billing_id}, {"_id": 0})
+        if not billing:
+            raise HTTPException(status_code=404, detail="Billing not found")
+        
+        # Verify billing belongs to current user
+        if billing.get("user_id") != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        return {
+            "billing_id": billing["billing_id"],
+            "status": billing.get("status", "pending"),
+            "amount_brl": billing.get("amount_brl", 0),
+            "created_at": billing.get("created_at"),
+            "paid_at": billing.get("paid_at"),
+            "course_id": billing.get("course_id"),
+            "subscription_plan_id": billing.get("subscription_plan_id")
+        }
+        
+    except Exception as e:
+        logger.error(f"Error checking billing status {billing_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error checking billing status")
+
 # ==================== ADMIN ROUTES - COURSES ====================
+
+async def convert_category_names_to_ids(category_names: List[str]) -> List[str]:
+    """
+    Função auxiliar para converter nomes de categorias em IDs (retrocompatibilidade)
+    """
+    if not category_names:
+        return []
+    
+    # Buscar categorias por nome
+    existing_categories = await db.categories.find({"name": {"$in": category_names}}).to_list(None)
+    category_name_to_id = {cat["name"]: cat["id"] for cat in existing_categories}
+    
+    # Converter nomes para IDs
+    category_ids = []
+    for name in category_names:
+        if name in category_name_to_id:
+            category_ids.append(category_name_to_id[name])
+    
+    return category_ids
 
 @api_router.post("/admin/courses", response_model=Course)
 async def create_course(course_data: CourseCreate, current_user: User = Depends(get_current_admin)):
@@ -704,8 +1251,40 @@ async def update_course(course_id: str, course_data: CourseUpdate, current_user:
     
     update_data = course_data.model_dump(exclude_unset=True)
 
-    # Validation: ensure categories after update (consider legacy field)
+    # RETROCOMPATIBILIDADE: Detectar se categories contém nomes em vez de IDs
     prospective_categories = update_data.get("categories")
+    if prospective_categories is not None and prospective_categories:
+        # Verificar se algum item em categories parece ser um nome (não é um UUID)
+        potential_names = []
+        valid_ids = []
+        
+        for item in prospective_categories:
+            # Se não parece ser um UUID (muito simples: se não tem hífens), trata como nome
+            if '-' not in str(item) or len(str(item)) < 30:
+                potential_names.append(str(item))
+            else:
+                valid_ids.append(item)
+        
+        # Se encontrou nomes, converter para IDs
+        if potential_names:
+            print(f"🔄 RETROCOMPATIBILIDADE: Convertendo nomes de categorias para IDs: {potential_names}")
+            converted_ids = await convert_category_names_to_ids(potential_names)
+            
+            if len(converted_ids) != len(potential_names):
+                # Alguns nomes não foram encontrados
+                all_categories = await db.categories.find({}).to_list(None)
+                available_names = [cat["name"] for cat in all_categories]
+                print(f"⚠️  Nomes de categorias não encontrados. Disponíveis: {available_names}")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Algumas categorias não foram encontradas: {potential_names}. Categorias disponíveis: {available_names}"
+                )
+            
+            # Combinar IDs convertidos com IDs válidos
+            update_data["categories"] = valid_ids + converted_ids
+            prospective_categories = update_data["categories"]
+
+    # Validation: ensure categories after update (consider legacy field)
     prospective_legacy = update_data.get("category")
     if prospective_categories is not None or prospective_legacy is not None:
         # If either field is being modified, ensure result has at least one category
@@ -714,7 +1293,7 @@ async def update_course(course_id: str, course_data: CourseUpdate, current_user:
         if not final_categories and not final_legacy:
             raise HTTPException(status_code=400, detail="Course must have at least one category")
     
-    # Validate that all provided categories exist in the database
+    # Validate that all provided categories exist in the database (agora só IDs válidos)
     if prospective_categories is not None and prospective_categories:
         # Check if all category IDs exist
         existing_categories = await db.categories.find({"id": {"$in": prospective_categories}}).to_list(None)
@@ -862,7 +1441,55 @@ async def create_lesson(lesson_data: LessonCreate, current_user: User = Depends(
     lesson_dict['created_at'] = lesson_dict['created_at'].isoformat()
     
     await db.lessons.insert_one(lesson_dict)
+    
+    # Create automatic social post for the new lesson
+    await create_lesson_social_post(lesson, current_user)
+    
     return lesson
+
+async def create_lesson_social_post(lesson: Lesson, admin_user: User):
+    """Create an automatic social post when a new lesson is published"""
+    try:
+        # Get module and course information
+        module = await db.modules.find_one({"id": lesson.module_id}, {"_id": 0})
+        if not module:
+            return
+            
+        course = await db.courses.find_one({"id": module["course_id"]}, {"_id": 0})
+        if not course:
+            return
+        
+        # Create social post content
+        post_content = f"🎓 Nova aula disponível!\n\n📚 **{lesson.title}**\n\n"
+        
+        if lesson.type == "video":
+            post_content += "🎥 Aula em vídeo"
+        elif lesson.type == "text":
+            post_content += "📖 Conteúdo textual"
+        elif lesson.type == "file":
+            post_content += "📁 Material para download"
+        
+        post_content += f"\n\n🏷️ Curso: {course['title']}"
+        post_content += f"\n📂 Módulo: {module['title']}"
+        
+        # Create the social post
+        social_post = Comment(
+            content=post_content,
+            lesson_id=lesson.id,
+            user_id=admin_user.id,
+            user_name=admin_user.name,
+            user_avatar=admin_user.avatar,
+            parent_id=None  # This makes it a top-level post
+        )
+        
+        post_dict = social_post.model_dump()
+        post_dict['created_at'] = post_dict['created_at'].isoformat()
+        
+        await db.comments.insert_one(post_dict)
+        
+    except Exception as e:
+        # Log error but don't fail lesson creation
+        logger.error(f"Failed to create social post for lesson {lesson.id}: {str(e)}")
 
 @api_router.get("/admin/lessons/{module_id}", response_model=List[Lesson])
 async def get_module_lessons(module_id: str, current_user: User = Depends(get_current_admin)):
@@ -907,6 +1534,13 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
     for user in users:
         if isinstance(user['created_at'], str):
             user['created_at'] = datetime.fromisoformat(user['created_at'])
+        
+        # Skip users without 'id' field (legacy users)
+        if 'id' not in user:
+            # Generate a temporary ID for legacy users or skip them
+            user['id'] = f"legacy-{user.get('email', 'unknown')}"
+            user['enrolled_courses'] = []
+            continue
         
         # Get enrolled courses from enrollments collection
         enrollments = await db.enrollments.find({"user_id": user['id']}).to_list(1000)
@@ -1216,9 +1850,22 @@ async def remove_user_from_course(user_id: str, course_id: str, current_user: Us
 
 @api_router.get("/student/courses")
 async def get_published_courses(current_user: User = Depends(get_current_user)):
-    """Get all published courses with enrollment status"""
-    # Get all published courses
-    courses = await db.courses.find({"published": True}, {"_id": 0}).to_list(1000)
+    """Get all published courses with enrollment status, filtered by user's preferred language"""
+    
+    # Build course filter query
+    course_filter = {"published": True}
+    
+    # Apply language filter if user has a preferred language
+    if current_user.preferred_language:
+        # Show courses that match user's language OR have no language set (backward compatibility)
+        course_filter["$or"] = [
+            {"language": current_user.preferred_language},
+            {"language": {"$exists": False}},  # Courses without language field
+            {"language": None}  # Courses with language explicitly set to None
+        ]
+    
+    # Get filtered published courses
+    courses = await db.courses.find(course_filter, {"_id": 0}).to_list(1000)
     
     # Get user's enrollments from BOTH sources for backward compatibility
     # 1. From enrollments collection (new system)
@@ -2590,14 +3237,27 @@ async def debug_user(email: str, current_user: User = Depends(get_current_admin)
         if course:
             courses.append(course)
     
+    # Get subscription plan details if exists
+    subscription_plan = None
+    if user.get("subscription_plan_id"):
+        plan = await db.subscription_plans.find_one({"id": user["subscription_plan_id"]}, {"_id": 0})
+        if plan:
+            subscription_plan = plan
+    
     return {
         "user": {
+            "id": user.get("id"),
             "email": user.get("email"),
             "name": user.get("name"),
             "has_purchased": user.get("has_purchased"),
+            "has_full_access": user.get("has_full_access"),
+            "subscription_plan_id": user.get("subscription_plan_id"),
+            "subscription_valid_until": user.get("subscription_valid_until"),
             "enrolled_courses_count": len(enrolled_course_ids),
-            "enrolled_course_ids": enrolled_course_ids
+            "enrolled_course_ids": enrolled_course_ids,
+            "password_hash_exists": bool(user.get("password_hash"))
         },
+        "subscription_plan": subscription_plan,
         "courses": courses
     }
 
@@ -2661,6 +3321,8 @@ async def update_gateway_config(
 
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
+    logger.info("🔔 Received Stripe webhook request")
+    
     webhook_secret = os.environ.get('STRIPE_WEBHOOK_SECRET') or STRIPE_WEBHOOK_SECRET
     if not webhook_secret:
         # Try reading from payment_settings in DB as a fallback
@@ -2677,15 +3339,23 @@ async def stripe_webhook(request: Request):
 
     payload = await request.body()
     sig_header = request.headers.get("Stripe-Signature")
+    
+    logger.info(f"📝 Webhook payload size: {len(payload)} bytes")
+    logger.info(f"🔐 Signature header present: {bool(sig_header)}")
+    logger.info(f"🔑 Using webhook secret: {webhook_secret[:10]}...")
+    
     try:
         event = stripe.Webhook.construct_event(
             payload=payload,
             sig_header=sig_header,
             secret=webhook_secret,
         )
-    except ValueError:
+        logger.info(f"✅ Webhook signature verified successfully")
+    except ValueError as e:
+        logger.error(f"❌ Invalid payload: {e}")
         raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.error.SignatureVerificationError:
+    except stripe.error.SignatureVerificationError as e:
+        logger.error(f"❌ Invalid signature: {e}")
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     event_type = event.get("type")
@@ -3427,12 +4097,485 @@ async def update_course_pricing(
     
     return {"message": "Course pricing updated successfully", "updates": update_data}
 
+# ==================== LEAD CAPTURE ENDPOINTS ====================
+
+@api_router.post("/leads/capture")
+async def capture_lead(lead_data: LeadCaptureRequest):
+    """Capture lead and send to Brevo"""
+    try:
+        # Get Brevo configuration
+        brevo_config = await db.brevo_config.find_one({})
+        if not brevo_config or not brevo_config.get("api_key"):
+            raise HTTPException(status_code=500, detail="Brevo configuration not found")
+        
+        # Send to Brevo
+        import requests
+        
+        # Normalizar número de WhatsApp para o formato aceito pelo Brevo
+        def normalize_whatsapp(whatsapp_number):
+            """Normaliza número de WhatsApp para formato internacional"""
+            if not whatsapp_number:
+                return None
+            
+            # Remove todos os caracteres não numéricos
+            clean_number = ''.join(filter(str.isdigit, whatsapp_number))
+            
+            # Verificar se o número tem um tamanho válido
+            if len(clean_number) < 10 or len(clean_number) > 15:
+                logger.warning(f"WhatsApp number invalid length: {whatsapp_number} (cleaned: {clean_number})")
+                return None
+            
+            # Se não começar com código do país, adiciona +55 (Brasil)
+            if len(clean_number) == 11 and clean_number.startswith(('11', '12', '13', '14', '15', '16', '17', '18', '19', '21', '22', '24', '27', '28', '31', '32', '33', '34', '35', '37', '38', '41', '42', '43', '44', '45', '46', '47', '48', '49', '51', '53', '54', '55', '61', '62', '63', '64', '65', '66', '67', '68', '69', '71', '73', '74', '75', '77', '79', '81', '82', '83', '84', '85', '86', '87', '88', '89', '91', '92', '93', '94', '95', '96', '97', '98', '99')):
+                return f"+55{clean_number}"
+            elif len(clean_number) == 13 and clean_number.startswith('55'):
+                return f"+{clean_number}"
+            elif clean_number.startswith('55') and len(clean_number) > 11:
+                return f"+{clean_number}"
+            
+            # Se já tem código do país, mantém
+            return f"+{clean_number}" if not whatsapp_number.startswith('+') else whatsapp_number
+
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "api-key": brevo_config["api_key"]
+        }
+        
+        # Função para tentar enviar para Brevo
+        def try_send_to_brevo(contact_data, attempt_description):
+            logger.info(f"Sending to Brevo ({attempt_description}): {json.dumps(contact_data, indent=2)}")
+            
+            response = requests.post(
+                "https://api.brevo.com/v3/contacts",
+                json=contact_data,
+                headers=headers
+            )
+            
+            return response
+        
+        # Primeira tentativa: com WhatsApp (se válido)
+        normalized_whatsapp = normalize_whatsapp(lead_data.whatsapp)
+        
+        if normalized_whatsapp:
+            # Tentar com WhatsApp
+            contact_data = {
+                "email": lead_data.email,
+                "attributes": {
+                    "NOME": lead_data.name,
+                    "WHATSAPP": normalized_whatsapp
+                },
+                "listIds": [brevo_config.get("list_id")] if brevo_config.get("list_id") else []
+            }
+            
+            response = try_send_to_brevo(contact_data, "with WhatsApp")
+        else:
+            # WhatsApp inválido, tentar direto sem WhatsApp
+            logger.info("WhatsApp number invalid, sending without WhatsApp field")
+            contact_data = {
+                "email": lead_data.email,
+                "attributes": {
+                    "NOME": lead_data.name
+                },
+                "listIds": [brevo_config.get("list_id")] if brevo_config.get("list_id") else []
+            }
+            
+            response = try_send_to_brevo(contact_data, "without WhatsApp (invalid number)")
+        
+        brevo_success = False
+        brevo_error = None
+        
+        if response.status_code not in [200, 201, 204]:
+            logger.error(f"Brevo API error: {response.status_code} - {response.text}")
+            
+            # Tratamento específico para erro de IP não autorizado
+            if response.status_code == 401:
+                try:
+                    error_data = response.json()
+                    if "unrecognised IP address" in error_data.get("message", ""):
+                        raise HTTPException(
+                            status_code=400, 
+                            detail="IP não autorizado no Brevo. Configure seu IP em: https://app.brevo.com/security/authorised_ips"
+                        )
+                except:
+                    pass
+                raise HTTPException(status_code=401, detail="API key do Brevo inválida ou não autorizada")
+            
+            # Tratamento específico para erro de parâmetro inválido
+            if response.status_code == 400:
+                try:
+                    error_data = response.json()
+                    error_message = error_data.get("message", "")
+                    error_code = error_data.get("code", "")
+                    
+                    if "Invalid WhatsApp number" in error_message:
+                        # Tentar novamente sem WhatsApp
+                        logger.info("WhatsApp number invalid, trying without WhatsApp field")
+                        contact_data_no_whatsapp = {
+                            "email": lead_data.email,
+                            "attributes": {
+                                "NOME": lead_data.name
+                            },
+                            "listIds": [brevo_config.get("list_id")] if brevo_config.get("list_id") else []
+                        }
+                        
+                        response_retry = try_send_to_brevo(contact_data_no_whatsapp, "without WhatsApp")
+                        
+                        if response_retry.status_code in [200, 201, 204]:
+                            brevo_success = True
+                            logger.info("Lead successfully sent to Brevo without WhatsApp")
+                        else:
+                            brevo_error = f"Erro na API do Brevo: {response_retry.status_code}"
+                            logger.error(f"Failed to send even without WhatsApp: {response_retry.text}")
+                    
+                    elif error_code == "duplicate_parameter":
+                        duplicate_fields = error_data.get("metadata", {}).get("duplicate_identifiers", [])
+                        if "WHATSAPP" in duplicate_fields:
+                            raise HTTPException(
+                                status_code=409, 
+                                detail="Este número de WhatsApp já está cadastrado em nossa base de dados"
+                            )
+                        elif "email" in duplicate_fields or any("email" in field.lower() for field in duplicate_fields):
+                            raise HTTPException(
+                                status_code=409, 
+                                detail="Este email já está cadastrado em nossa base de dados"
+                            )
+                        else:
+                            raise HTTPException(
+                                status_code=409, 
+                                detail="Dados duplicados: já existe um contato com essas informações"
+                            )
+                    elif "invalid_parameter" in error_code:
+                        brevo_error = f"Parâmetro inválido: {error_message}"
+                        logger.error(f"Invalid parameter error: {error_message}")
+                    else:
+                        brevo_error = f"Erro na API do Brevo: {response.status_code}"
+                        
+                except HTTPException:
+                    # Re-raise HTTPException to preserve status codes
+                    raise
+                except Exception as e:
+                    logger.error(f"Error parsing Brevo response: {str(e)}")
+                    brevo_error = f"Erro na API do Brevo: {response.status_code}"
+            else:
+                brevo_error = f"Erro na API do Brevo: {response.status_code}"
+        else:
+            brevo_success = True
+        
+        # Store lead locally sempre, independente do resultado do Brevo
+        lead_doc = {
+            "name": lead_data.name,
+            "email": lead_data.email,
+            "whatsapp": lead_data.whatsapp,
+            "created_at": datetime.now(timezone.utc),
+            "sent_to_brevo": brevo_success,
+            "error": brevo_error if not brevo_success else None
+        }
+        
+        await db.leads.insert_one(lead_doc)
+        
+        if brevo_success:
+            logger.info(f"Lead captured and sent to Brevo: {lead_data.email}")
+            return {"message": "Lead captured successfully"}
+        else:
+            logger.warning(f"Lead captured locally but failed to send to Brevo: {lead_data.email} - Error: {brevo_error}")
+            return {"message": "Lead captured successfully (saved locally, Brevo integration had issues)"}
+        
+    except HTTPException as he:
+        # Re-raise HTTPExceptions (like IP authorization errors and duplicates)
+        logger.error(f"HTTP Error capturing lead: {he.detail}")
+        # Store lead locally even if there's an HTTP error
+        lead_doc = {
+            "name": lead_data.name,
+            "email": lead_data.email,
+            "whatsapp": lead_data.whatsapp,
+            "created_at": datetime.now(timezone.utc),
+            "sent_to_brevo": False,
+            "error": he.detail
+        }
+        
+        await db.leads.insert_one(lead_doc)
+        raise he
+        
+    except Exception as e:
+        logger.error(f"Error capturing lead: {str(e)}")
+        # Store lead locally even if Brevo fails
+        lead_doc = {
+            "name": lead_data.name,
+            "email": lead_data.email,
+            "whatsapp": lead_data.whatsapp,
+            "created_at": datetime.now(timezone.utc),
+            "sent_to_brevo": False,
+            "error": str(e)
+        }
+        
+        await db.leads.insert_one(lead_doc)
+        raise HTTPException(status_code=500, detail="Error processing lead capture")
+
+@api_router.get("/admin/brevo-config")
+async def get_brevo_config(current_user: User = Depends(get_current_admin)):
+    """Get Brevo configuration (admin only)"""
+    config = await db.brevo_config.find_one({})
+    if not config:
+        return {"api_key": "", "list_id": None, "sales_page_url": ""}
+    
+    # Return masked API key for display, but include a flag to indicate if it exists
+    return {
+        "api_key": config.get("api_key", "")[:10] + "..." if config.get("api_key") else "",
+        "api_key_configured": bool(config.get("api_key")),
+        "list_id": config.get("list_id"),
+        "sales_page_url": config.get("sales_page_url", "")
+    }
+
+@api_router.post("/admin/brevo-config")
+async def update_brevo_config(
+    config: BrevoConfig,
+    current_user: User = Depends(get_current_admin)
+):
+    """Update Brevo configuration (admin only)"""
+    config_data = {
+        "api_key": config.api_key,
+        "list_id": config.list_id,
+        "sales_page_url": config.sales_page_url,
+        "updated_at": datetime.now(timezone.utc),
+        "updated_by": current_user.email
+    }
+    
+    await db.brevo_config.replace_one({}, config_data, upsert=True)
+    
+    logger.info(f"Admin {current_user.email} updated Brevo configuration")
+    return {"message": "Brevo configuration updated successfully"}
+
+@api_router.get("/admin/brevo-lists")
+async def get_brevo_lists(current_user: User = Depends(get_current_admin)):
+    """Get Brevo lists (admin only)"""
+    try:
+        brevo_config = await db.brevo_config.find_one({})
+        if not brevo_config or not brevo_config.get("api_key"):
+            raise HTTPException(status_code=400, detail="Brevo API key not configured")
+        
+        import requests
+        
+        headers = {
+            "accept": "application/json",
+            "api-key": brevo_config["api_key"]
+        }
+        
+        response = requests.get(
+            "https://api.brevo.com/v3/contacts/lists",
+            headers=headers
+        )
+        
+        if response.status_code != 200:
+            logger.error(f"Brevo API error: {response.status_code} - {response.text}")
+            
+            # Tratamento específico para erro de IP não autorizado
+            if response.status_code == 401:
+                try:
+                    error_data = response.json()
+                    if "unrecognised IP address" in error_data.get("message", ""):
+                        raise HTTPException(
+                            status_code=400, 
+                            detail="IP não autorizado no Brevo. Adicione seu IP na lista de IPs autorizados em: https://app.brevo.com/security/authorised_ips"
+                        )
+                except:
+                    pass
+                raise HTTPException(status_code=401, detail="API key do Brevo inválida ou não autorizada")
+            
+            raise HTTPException(status_code=500, detail=f"Erro na API do Brevo: {response.status_code}")
+        
+        data = response.json()
+        lists = []
+        
+        for lst in data.get("lists", []):
+            lists.append({
+                "id": lst["id"],
+                "name": lst["name"],
+                "folder_id": lst.get("folderId"),
+                "totalSubscribers": lst.get("totalSubscribers", 0)
+            })
+        
+        return {"lists": lists}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching Brevo lists: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching Brevo lists: {str(e)}")
+
+@api_router.get("/leads/sales-page-url")
+async def get_sales_page_url():
+    """Get sales page URL for lead redirection"""
+    config = await db.brevo_config.find_one({})
+    if not config or not config.get("sales_page_url"):
+        return {"url": "https://exemplo.com/vendas"}  # URL padrão
+    
+    return {"url": config["sales_page_url"]}
+
 # Include the router in the main app
+
+
 
 @app.on_event("startup")
 async def startup_event():
-    """Run migrations on startup"""
-    pass
+    """Initialize background services (replication manager) without changing DB schema."""
+    try:
+        await replication_manager.start()
+        logger.info("Replication manager started. Enabled=%s", replication_manager.enabled)
+    except Exception as exc:
+        logger.exception("Failed to start replication manager: %s", exc)
+
+    # No migrations here to preserve current DB structure
+
+##############################
+# Admin Replication Endpoints
+##############################
+
+class ReplicationConfigPayload(BaseModel):
+    mongo_url: str
+    db_name: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    replication_enabled: bool = False
+
+
+@api_router.get("/admin/replication/status")
+async def get_replication_status(current_user: User = Depends(get_current_admin)):
+    cfg = load_config()
+    return {
+        "replication_enabled": replication_manager.enabled,
+        "configured": bool(cfg.get("mongo_url") and cfg.get("db_name")),
+        "queue_size": replication_manager.queue.qsize(),
+        "stats": {
+            "enqueued": replication_manager.stats.total_enqueued,
+            "processed": replication_manager.stats.total_processed,
+            "errors": replication_manager.stats.total_errors,
+            "last_error": replication_manager.stats.last_error,
+        },
+    }
+
+
+@api_router.post("/admin/replication/config")
+async def set_replication_config(payload: ReplicationConfigPayload, current_user: User = Depends(get_current_admin)):
+    config_dict = payload.model_dump()
+    # Persist encrypted config
+    save_config(config_dict)
+    # Apply live configuration (do not fail save on configure errors)
+    try:
+        await replication_manager.configure(config_dict)
+        return {"message": "Configuração de replicação salva", "replication_enabled": replication_manager.enabled}
+    except Exception as exc:
+        logger.exception("Erro ao aplicar configuração de replicação: %s", exc)
+        # Mesmo com erro na aplicação da configuração em tempo real, manter salvamento bem-sucedido
+        return {
+            "message": f"Configuração salva, mas não foi possível aplicar agora: {exc}",
+            "replication_enabled": False
+        }
+
+
+@api_router.post("/admin/replication/test")
+async def test_replication_connection(payload: ReplicationConfigPayload, current_user: User = Depends(get_current_admin)):
+    # Try connecting using provided config without persisting
+    try:
+        if not payload.mongo_url or not payload.db_name:
+            raise HTTPException(status_code=400, detail="mongo_url e db_name são obrigatórios")
+        tmp_client = AsyncIOMotorClient(payload.mongo_url)
+        tmp_db = tmp_client[payload.db_name]
+        # Simple command to test connectivity
+        await tmp_db.command("ping")
+        tmp_client.close()
+        return {"ok": True, "message": "Conexão bem-sucedida"}
+    except Exception as exc:
+        return {"ok": False, "message": str(exc)}
+
+# --- Full backup endpoint: copy all collections from primary to configured secondary ---
+@api_router.post("/admin/replication/backup")
+async def backup_full_database(current_user: User = Depends(get_current_admin)):
+    """Copy all documents from the primary database to the configured replication database.
+    Drops and recreates collections on the secondary to avoid duplicate _id conflicts.
+    """
+    try:
+        # Ensure replication is enabled and configured
+        if not replication_manager.enabled or replication_manager.secondary_db is None:
+            raise HTTPException(status_code=400, detail="Replicação desabilitada ou não configurada")
+
+        secondary_db = replication_manager.secondary_db
+
+        # List all collections on primary
+        coll_names = await _primary_db.list_collection_names()
+        # Exclude system collections
+        coll_names = [n for n in coll_names if not n.startswith("system.")]
+
+        replication_manager.audit.info(f"backup_start collections={len(coll_names)}")
+
+        summary = {}
+        total_docs = 0
+
+        for name in coll_names:
+            copied = 0
+            try:
+                # Drop target collection to ensure a clean copy
+                try:
+                    await secondary_db[name].drop()
+                except Exception:
+                    pass  # ignore if not exists
+
+                # Stream documents in batches to the secondary
+                batch = []
+                cursor = _primary_db[name].find({}, projection=None)
+                async for doc in cursor:
+                    batch.append(doc)
+                    if len(batch) >= 1000:
+                        await secondary_db[name].insert_many(batch, ordered=False)
+                        copied += len(batch)
+                        batch = []
+                if batch:
+                    await secondary_db[name].insert_many(batch, ordered=False)
+                    copied += len(batch)
+
+                summary[name] = copied
+                total_docs += copied
+                replication_manager.audit.info(f"backup_collection name={name} copied={copied}")
+            except Exception as coll_err:
+                # Record per-collection error but continue
+                summary[name] = {"error": str(coll_err)}
+                replication_manager.audit.error(f"backup_collection_error name={name} error={coll_err}")
+
+        replication_manager.audit.info(f"backup_done collections={len(coll_names)} total_docs={total_docs}")
+        return {
+            "ok": True,
+            "message": f"Backup concluído: {len(coll_names)} coleções, {total_docs} documentos",
+            "collections": summary,
+            "total_docs": total_docs,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Full backup failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Falha no backup: {str(e)}")
+
+
+@api_router.post("/admin/replication/toggle")
+async def toggle_replication(enable: bool, current_user: User = Depends(get_current_admin)):
+    cfg = load_config()
+    cfg["replication_enabled"] = bool(enable)
+    save_config(cfg)
+    await replication_manager.configure(cfg)
+    return {"replication_enabled": replication_manager.enabled}
+
+
+@api_router.get("/admin/replication/logs")
+async def get_replication_logs(limit: int = 200, current_user: User = Depends(get_current_admin)):
+    # Return last N lines from audit log file
+    try:
+        if not AUDIT_LOG_FILE.exists():
+            return {"logs": []}
+        with AUDIT_LOG_FILE.open("r", encoding="utf-8") as f:
+            lines = f.readlines()
+        tail = lines[-limit:] if limit > 0 else lines
+        return {"logs": [line.strip() for line in tail]}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Erro ao ler logs: {exc}")
 
 
 app.include_router(api_router)
@@ -3451,13 +4594,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

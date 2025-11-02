@@ -1,0 +1,596 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "save": "Guardar",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "create": "Crear",
+    "update": "Actualizar",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "clear": "Limpiar",
+    "close": "Cerrar",
+    "open": "Abrir",
+    "yes": "Sí",
+    "no": "No",
+    "back": "Volver",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "submit": "Enviar",
+    "reset": "Restablecer",
+    "language": "Idioma",
+    "selectLanguage": "Seleccionar Idioma",
+    "add": "Añadir",
+    "view": "Ver",
+    "download": "Descargar",
+    "upload": "Subir",
+    "select": "Seleccionar",
+    "warning": "Advertencia",
+    "info": "Información",
+    "returningToDashboard": "Regresando al panel...",
+    "checkingPaymentStatus": "Verificando estado del pago..."
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "register": "Registrarse",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "emailPlaceholder": "tu@email.com",
+    "passwordPlaceholder": "********",
+    "accessPlatform": "Accede a tu plataforma",
+    "forgotPassword": {
+      "title": "Recuperar contraseña",
+      "subtitle": "Ingresa tu correo electrónico y te enviaremos instrucciones seguras para restablecer tu contraseña",
+      "link": "¿Olvidaste la contraseña?",
+      "emailSent": "Correo enviado",
+      "emailSentMessage": "Si el correo {{email}} está registrado, recibirás instrucciones para restablecer tu contraseña.",
+      "checkInbox": "Revisa tu bandeja de entrada, spam o promociones.",
+      "sendInstructions": "Enviar instrucciones"
+    }
+  },
+  "navigation": {
+    "dashboard": "Panel",
+    "courses": "Cursos",
+    "students": "Estudiantes",
+    "categories": "Categorías",
+    "finance": "Finanzas",
+    "settings": "Configuraciones",
+    "profile": "Perfil",
+    "help": "Ayuda",
+    "support": "Soporte",
+    "socialFeed": "Feed Social",
+    "subscriptions": "Suscripciones",
+    "payments": "Pagos",
+    "gamification": "Gamificación"
+  },
+  "dashboard": {
+    "welcome": "Bienvenido",
+    "overview": "Resumen",
+    "statistics": "Estadísticas",
+    "recentActivity": "Actividad Reciente",
+    "quickActions": "Acciones Rápidas",
+    "totalStudents": "Total de Estudiantes",
+    "totalCourses": "Total de Cursos",
+    "totalRevenue": "Ingresos Totales",
+    "activeSubscriptions": "Suscripciones Activas",
+    "myCourses": "Mis cursos",
+    "social": "Social",
+    "subscription": "Suscripción",
+    "hideOverview": "Ocultar resumen",
+    "showOverview": "Mostrar resumen",
+    "languageSettings": "Configuraciones de idioma",
+    "logout": "Cerrar sesión",
+    "continue": "Continuar",
+    "continueDescription": "Retoma donde lo dejaste",
+    "quickAccessLastLessons": "Acceso rápido a tus últimas clases y progreso de aprendizaje.",
+    "loadingLastLessons": "Cargando tus últimas clases...",
+    "noCourseStarted": "Aún no has iniciado ningún curso. Comienza uno para que aparezca aquí.",
+    "continueLesson": "Continuar clase",
+    "watchNow": "Ver ahora",
+    "yourJourney": "Tu viaje",
+    "journeyDescription": "Continúa evolucionando con nuevos cursos y desafíos prácticos.",
+    "journeySubDescription": "Accede a contenidos actualizados, participa en la comunidad y disfruta de experiencias premium.",
+    "activeCourses": "Cursos activos",
+    "waitingForYou": "esperándote",
+    "catalog": "Catálogo",
+    "newCoursesMonthly": "Nuevos cursos llegan cada mes",
+    "shortcuts": "Atajos",
+    "community": "Comunidad",
+    "profileSettings": "Configuraciones del perfil",
+    "overviewHidden": "Resumen oculto",
+    "informationHidden": "Información oculta",
+    "showOverviewDescription": "Vuelve a mostrar tus indicadores y atajos para seguir cursos activos y accesos rápidos.",
+    "availableCourses": "Cursos disponibles",
+    "availableCoursesDescription": "Explora contenidos y utiliza formas de pago integradas para desbloquear nuevas rutas.",
+    "allCategories": "Todas",
+    "filterByCategory": "Filtrar por categoría",
+    "categoriesAvailable": "categorías disponibles",
+    "coursesWithoutCategories": "Algunos cursos no tienen categorías definidas",
+    "loadingCourses": "Cargando cursos...",
+    "noCoursesAvailable": "No hay cursos disponibles en este momento",
+    "noCategory": "Sin Categoría",
+    "courses": "cursos",
+    "enrolled": "Matriculado",
+    "access": "Acceder",
+    "buy": "Comprar",
+    "selectLanguageDescription": "Selecciona tu idioma preferido para filtrar los cursos disponibles:",
+    "allLanguages": "Todos los idiomas",
+    "allLanguagesDescription": "Ver cursos en cualquier idioma",
+    "portuguese": "Português",
+    "portugueseCourses": "Cursos em português",
+    "englishCourses": "Courses in English",
+    "spanishCourses": "Cursos en español",
+    "updatingLanguage": "Actualizando idioma..."
+  },
+  "courses": {
+    "title": "Cursos",
+    "createCourse": "Crear Curso",
+    "editCourse": "Editar Curso",
+    "deleteCourse": "Eliminar Curso",
+    "courseName": "Nombre del Curso",
+    "courseDescription": "Descripción del Curso",
+    "courseCategory": "Categoría del Curso",
+    "coursePrice": "Precio del Curso",
+    "courseDuration": "Duración del Curso",
+    "courseLevel": "Nivel del Curso",
+    "courseStatus": "Estado del Curso",
+    "published": "Publicado",
+    "draft": "Borrador",
+    "archived": "Archivado",
+    "lessons": "Clases",
+    "addLesson": "Añadir Clase",
+    "lessonTitle": "Título de la Clase",
+    "lessonContent": "Contenido de la Clase",
+    "lessonVideo": "Video de la Clase",
+    "lessonDuration": "Duración de la Clase"
+  },
+  "students": {
+    "title": "Estudiantes",
+    "addStudent": "Añadir Estudiante",
+    "editStudent": "Editar Estudiante",
+    "deleteStudent": "Eliminar Estudiante",
+    "studentName": "Nombre del Estudiante",
+    "studentEmail": "Correo del Estudiante",
+    "studentPhone": "Teléfono del Estudiante",
+    "enrollmentDate": "Fecha de Matrícula",
+    "lastAccess": "Último Acceso",
+    "coursesEnrolled": "Cursos Matriculados",
+    "progress": "Progreso",
+    "status": "Estado",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "suspended": "Suspendido"
+  },
+  "categories": {
+    "title": "Categorías",
+    "createCategory": "Crear Categoría",
+    "editCategory": "Editar Categoría",
+    "deleteCategory": "Eliminar Categoría",
+    "categoryName": "Nombre de la Categoría",
+    "categoryDescription": "Descripción de la Categoría",
+    "categoryColor": "Color de la Categoría",
+    "categoryIcon": "Icono de la Categoría",
+    "coursesCount": "Número de Cursos"
+  },
+  "finance": {
+    "title": "Finanzas",
+    "revenue": "Ingresos",
+    "expenses": "Gastos",
+    "profit": "Ganancia",
+    "transactions": "Transacciones",
+    "reports": "Reportes",
+    "monthlyRevenue": "Ingresos Mensuales",
+    "yearlyRevenue": "Ingresos Anuales",
+    "paymentMethods": "Métodos de Pago",
+    "subscriptionPlans": "Planes de Suscripción"
+  },
+  "settings": {
+    "title": "Configuraciones",
+    "general": "General",
+    "security": "Seguridad",
+    "notifications": "Notificaciones",
+    "integrations": "Integraciones",
+    "appearance": "Apariencia",
+    "language": "Idioma",
+    "timezone": "Zona Horaria",
+    "currency": "Moneda",
+    "theme": "Tema",
+    "lightMode": "Modo Claro",
+    "darkMode": "Modo Oscuro",
+    "systemMode": "Modo del Sistema"
+  },
+  "subscription": {
+    "title": "Suscripción",
+    "confirming": "Confirmando tu suscripción...",
+    "plans": "Planes",
+    "currentPlan": "Plan Actual",
+    "upgradePlan": "Actualizar Plan",
+    "cancelSubscription": "Cancelar Suscripción",
+    "renewSubscription": "Renovar Suscripción",
+    "billingHistory": "Historial de Facturación",
+    "nextBilling": "Próxima Facturación",
+    "paymentMethod": "Método de Pago",
+    "updatePayment": "Actualizar Pago"
+  },
+  "gamification": {
+    "title": "Gamificación",
+    "points": "Puntos",
+    "badges": "Medallas",
+    "leaderboard": "Ranking",
+    "achievements": "Logros",
+    "level": "Nivel",
+    "experience": "Experiencia",
+    "rewards": "Recompensas",
+    "challenges": "Desafíos"
+  },
+  "social": {
+    "title": "Feed Social",
+    "post": "Publicar",
+    "comment": "Comentar",
+    "like": "Me gusta",
+    "share": "Compartir",
+    "follow": "Seguir",
+    "unfollow": "Dejar de seguir",
+    "followers": "Seguidores",
+    "following": "Siguiendo",
+    "posts": "Publicaciones",
+    "activity": "Actividad",
+    "feedTitle": "Feed de la Comunidad",
+    "feedSubtitle": "Conéctate, aprende y crece junto con nuestra comunidad",
+    "communityDescription": "Participa en discusiones, comparte conocimiento y conéctate con otros estudiantes.",
+    "newDiscussion": "Nueva Discusión",
+    "searchDiscussions": "Buscar Discusiones",
+    "searchPlaceholder": "Busca por temas, autores o contenido...",
+    "clearSearch": "Limpiar búsqueda",
+    "noResults": "Sin resultados para \"{{searchTerm}}\"",
+    "resultsFound": "{{count}} resultado{{count, plural, one {} other {s}}} encontrado{{count, plural, one {} other {s}}}",
+    "filters": "Filtros",
+    "filterAll": "Todo",
+    "filterDiscussions": "Discusiones",
+    "filterLessons": "Lecciones",
+    "sortBy": "Ordenar por",
+    "sortRecent": "Más Recientes",
+    "sortPopular": "Más Populares",
+    "sortOldest": "Más Antiguas",
+    "activeCommunity": "Comunidad Activa",
+    "ongoingDiscussions": "Discusiones en curso",
+    "postsCount": "publicaciones",
+    "totalFiltered": "Total filtrado",
+    "page": "Página",
+    "pageOf": "Página {{current}} de {{total}}",
+    "loading": "Cargando discusiones",
+    "noDiscussionsFound": "No se encontraron discusiones",
+    "noDiscussionsMessage": "No encontramos discusiones con \"{{searchTerm}}\". Prueba otros términos de búsqueda.",
+    "beFirstMessage": "¡Sé el primero en iniciar una conversación interesante!",
+    "beFirstToStart": "¡Sé el primero en comenzar una discusión!",
+    "createFirstDiscussion": "Crear Primera Discusión",
+    "interactionTypes": {
+      "newLesson": "Nueva Lección",
+      "lessonComment": "Comentario en Lección",
+      "discussion": "Discusión",
+      "reply": "Respuesta"
+    },
+    "timeAgo": {
+      "now": "ahora mismo",
+      "minutesAgo": "hace {{count}} min",
+      "hoursAgo": "hace {{count}}h",
+      "daysAgo": "hace {{count}}d"
+    },
+    "actions": {
+      "moreOptions": "Más opciones para esta discusión",
+      "likePost": "Me gusta la discusión, {{count}} me gusta",
+      "replyPost": "Responder discusión, {{count}} respuestas",
+      "viewLesson": "Ver lección relacionada",
+      "sharePost": "Compartir discusión",
+      "bookmarkPost": "Guardar discusión en favoritos",
+      "accessLesson": "Acceder a la lección"
+    },
+    "pagination": {
+      "previousPage": "Página anterior",
+      "nextPage": "Página siguiente",
+      "goToPage": "Ir a la página {{page}}"
+    },
+    "createPost": {
+      "title": "Nueva Discusión",
+      "description": "Formulario para crear una nueva discusión en la comunidad",
+      "placeholder": "Comparte tus ideas, dudas o conocimiento con la comunidad...",
+      "contentLabel": "Contenido de la discusión",
+      "contentHelp": "Escribe el contenido de tu discusión para compartir con la comunidad",
+      "writeContentHelp": "Escribe el contenido de tu discusión aquí",
+      "shareIdeasPlaceholder": "Comparte tus ideas, dudas o experiencias...",
+      "cancel": "Cancelar",
+      "publish": "Publicar",
+      "cancelCreation": "Cancelar creación de discusión",
+      "publishDiscussion": "Publicar nueva discusión"
+    },
+    "postDetail": {
+      "title": "Discusión Detallada",
+      "replies": "Respuestas ({{count}})",
+      "noReplies": "Aún no hay respuestas. ¡Sé el primero!",
+      "replyPlaceholder": "Escribe tu respuesta...",
+      "writeReplyPlaceholder": "Escribe tu respuesta aquí...",
+      "reply": "Responder"
+    },
+    "lessonPost": {
+      "newLessonAvailable": "Nueva Lección Disponible",
+      "defaultTitle": "Nueva Lección Disponible",
+      "defaultDescription": "Haz clic para acceder al contenido de la lección.",
+      "accessLesson": "Acceder a la Lección"
+    },
+    "errors": {
+      "enrollmentRequired": "Necesitas estar inscrito en este curso para acceder a esta lección",
+      "lessonNotFound": "Lección no encontrada",
+      "accessError": "Error al acceder a la lección. Inténtalo de nuevo."
+    },
+    "aria": {
+      "mainContent": "Contenido principal de la comunidad",
+      "sidebar": "Barra lateral con acciones y filtros",
+      "createDiscussion": "Crear nueva discusión en la comunidad",
+      "searchField": "Campo de búsqueda para filtrar discusiones",
+      "filterDiscussions": "Filtrar discusiones por tipo",
+      "filterBy": "Filtrar por {{type}}",
+      "sortBy": "Ordenar por {{type}}",
+      "communityFeed": "Feed de discusiones de la comunidad",
+      "userAvatar": "Avatar del usuario {{name}}",
+      "interactionType": "Tipo de interacción: {{type}}",
+      "discussionActions": "Acciones de la discusión"
+    }
+  },
+  "moderation": {
+    "title": "Moderación de la Comunidad",
+    "description": "Gestiona discusiones y comentarios de la plataforma",
+    "stats": {
+      "totalPosts": "Total de Publicaciones",
+      "comments": "Comentarios",
+      "activeUsers": "Usuarios Activos",
+      "postsToday": "Publicaciones Hoy"
+    },
+    "search": {
+      "placeholder": "Buscar por contenido o usuario..."
+    },
+    "filters": {
+      "all": "Todos",
+      "discussions": "Discusiones",
+      "lessons": "Lecciones"
+    },
+    "post": {
+      "discussion": "Discusión",
+      "lesson": "Lección",
+      "replies": "respuestas",
+      "likes": "me gusta",
+      "viewDetails": "Ver Detalles",
+      "deletePost": "Eliminar Publicación",
+      "noPostsFound": "No se encontraron publicaciones"
+    },
+    "postDetail": {
+      "title": "Detalles de la Publicación",
+      "replies": "Respuestas ({{count}})",
+      "noReplies": "Sin respuestas"
+    },
+    "confirmations": {
+      "deletePost": "¿Estás seguro de que quieres eliminar esta publicación y todas sus respuestas?",
+      "deleteComment": "¿Estás seguro de que quieres eliminar este comentario?"
+    },
+    "errors": {
+      "deletePost": "Error al eliminar la publicación",
+      "deleteComment": "Error al eliminar el comentario"
+    },
+    "defaultUser": "Usuario"
+  },
+  "messages": {
+    "success": {
+      "saved": "¡Guardado con éxito!",
+      "deleted": "¡Eliminado con éxito!",
+      "updated": "¡Actualizado con éxito!",
+      "created": "¡Creado con éxito!",
+      "sent": "¡Enviado con éxito!"
+    },
+    "error": {
+      "general": "Ocurrió un error inesperado",
+      "network": "Error de conexión",
+      "notFound": "No encontrado",
+      "unauthorized": "No autorizado",
+      "forbidden": "Acceso denegado",
+      "validation": "Error de validación",
+      "requestProcessing": "Error al procesar la solicitud"
+    },
+    "confirmation": {
+      "delete": "¿Estás seguro de que quieres eliminar?",
+      "save": "¿Estás seguro de que quieres guardar?",
+      "cancel": "¿Estás seguro de que quieres cancelar?"
+    }
+  },
+  "validation": {
+    "required": "Este campo es obligatorio",
+    "email": "Ingresa un correo electrónico válido",
+    "minLength": "Debe tener al menos {{count}} caracteres",
+    "maxLength": "Debe tener como máximo {{count}} caracteres",
+    "numeric": "Debe ser un número",
+    "positive": "Debe ser un número positivo",
+    "url": "Ingresa una URL válida",
+    "phone": "Ingresa un teléfono válido"
+  },
+  "profile": {
+    "header": {
+      "title": "Configuraciones del Perfil",
+      "subtitle": "Administra tu información personal y preferencias de la cuenta"
+    },
+    "role": {
+      "admin": "Administrador",
+      "student": "Estudiante"
+    },
+    "tabs": {
+      "profile": "Perfil",
+      "security": "Seguridad",
+      "subscription": "Suscripciones",
+      "preferences": "Preferencias",
+      "account": "Cuenta"
+    },
+    "personal": {
+      "title": "Información Personal",
+      "subtitle": "Actualiza tu información básica y preferencias de idioma"
+    },
+    "fields": {
+      "name": "Nombre Completo",
+      "namePlaceholder": "Tu nombre completo",
+      "email": "Correo electrónico",
+      "emailPlaceholder": "tu@email.com"
+    },
+    "preferredLanguage": "Idioma Preferido",
+    "languageDescription": "Selecciona el idioma de la interfaz del sistema",
+    "actions": {
+      "saveLoading": "Guardando...",
+      "save": "Guardar Cambios"
+    },
+    "security": {
+      "title": "Seguridad de la Cuenta",
+      "subtitle": "Mantén tu cuenta segura cambiando tu contraseña regularmente",
+      "currentPassword": "Contraseña Actual",
+      "currentPasswordPlaceholder": "Ingresa tu contraseña actual",
+      "newPassword": "Nueva Contraseña",
+      "newPasswordPlaceholder": "Ingresa la nueva contraseña",
+      "confirmPassword": "Confirmar Nueva Contraseña",
+      "confirmPasswordPlaceholder": "Confirma la nueva contraseña",
+      "tipsTitle": "Consejos para una contraseña segura:",
+      "tip1": "• Usa al menos 8 caracteres",
+      "tip2": "• Combina letras mayúsculas y minúsculas",
+      "tip3": "• Incluye números y símbolos especiales",
+      "tip4": "• Evita información personal obvia",
+      "actions": {
+        "saveLoading": "Cambiando...",
+        "save": "Cambiar Contraseña"
+      }
+    },
+    "subscription": {
+      "status": {
+        "title": "Estado de la Suscripción",
+        "subtitle": "Información sobre tu suscripción actual",
+        "fullAccessActive": "Acceso Total Activo",
+        "limitedAccess": "Acceso Limitado",
+        "validUntil": "Válida hasta:",
+        "plan": "Plan:",
+        "activeBadge": "Activo",
+        "limitedBadge": "Limitado",
+        "loading": "Cargando información de la suscripción...",
+        "lifetimeMessage": "¡Felicidades! Tienes acceso vitalicio a la plataforma."
+      },
+      "plans": {
+        "title": "Planes Disponibles",
+        "subtitle": "Elige el plan que mejor se adapte a tus necesidades",
+        "recommended": "RECOMENDADO",
+        "accessForDays": "Acceso por {{days}} días",
+        "subscribeLoading": "Procesando...",
+        "subscribeCta": "Suscribirse Ahora",
+        "noneAvailable": "No hay planes disponibles en este momento"
+      }
+    },
+    "preferences": {
+      "title": "Notificaciones y Preferencias",
+      "subtitle": "Configura cómo y cuándo deseas recibir notificaciones",
+      "email": {
+        "title": "Notificaciones por Correo",
+        "description": "Recibe actualizaciones importantes por correo"
+      },
+      "course": {
+        "title": "Recordatorios de Curso",
+        "description": "Recibe recordatorios sobre cursos en curso"
+      },
+      "social": {
+        "title": "Notificaciones Sociales",
+        "description": "Recibe notificaciones sobre actividades de la comunidad"
+      },
+      "marketing": {
+        "title": "Correos de Marketing",
+        "description": "Recibe novedades y promociones especiales"
+      },
+      "actions": {
+        "saveLoading": "Guardando...",
+        "save": "Guardar Preferencias"
+      }
+    },
+    "account": {
+      "title": "Configuraciones de la Cuenta",
+      "subtitle": "Administra configuraciones avanzadas de tu cuenta",
+      "dangerZone": {
+        "title": "Zona de Peligro",
+        "description": "Las acciones a continuación son irreversibles. Procede con cuidado.",
+        "deleteLoading": "Eliminando...",
+        "deleteCta": "Eliminar Cuenta Permanentemente"
+      },
+      "info": {
+        "title": "Información de la Cuenta",
+        "memberSince": "Miembro desde:",
+        "lastLogin": "Último inicio de sesión:",
+        "accountId": "ID de la cuenta:"
+      }
+    },
+    "notifications": {
+      "social": {
+        "title": "Notificaciones Sociales",
+        "description": "Recibe notificaciones sobre actividades de la comunidad"
+      }
+    }
+  },
+  "languageSelection": {
+    "title": "Selecciona tu idioma preferido",
+    "subtitle": "Elige el idioma que te gustaría usar en la plataforma",
+    "portuguese": "Português (Brasil)",
+    "english": "English (United States)",
+    "spanish": "Español (España)",
+    "confirm": "Confirmar Selección",
+    "skip": "Omitir por ahora"
+  },
+  "payment": {
+    "pending": "⏳ Pago pendiente. Haz clic en \"Verificar Pago\" en el panel para confirmar.",
+    "verifyButton": "Usa el botón \"Verificar Pago\" en el panel para confirmar.",
+    "success": "¡Pago completado con éxito!",
+    "cancelled": "Pago cancelado",
+    "error": "Error en el pago"
+  },
+  "course": {
+    "paymentError": "Error al crear el pago",
+    "notFound": "Curso no encontrado",
+    "backToCourses": "Volver a los Cursos",
+    "enrollmentRequired": "Este curso requiere matrícula",
+    "enrollmentDescription": "Para acceder al contenido de este curso, necesitas matricularte haciendo la compra directa.",
+    "directPurchase": "Compra Directa",
+    "buyCourse": "Comprar Curso",
+    "notAvailableForPurchase": "Este curso no está disponible para compra en este momento.",
+    "courseContent": "Contenido del Curso",
+    "noContentAvailable": "Este curso aún no tiene contenido disponible.",
+    "module": "Módulo"
+  },
+  "lesson": {
+    "confirmDeleteComment": "¿Eliminar este comentario?",
+    "congratulationsCompleted": "¡Felicidades! ¡Has completado todas las clases disponibles!",
+    "mapNotAvailable": "Mapa aún no disponible.",
+    "lessons": "clases",
+    "lessonNotFound": "Clase no encontrada.",
+    "lesson": "Clase",
+    "back": "Volver",
+    "hideCourseMap": "Ocultar mapa",
+    "courseMap": "Mapa del curso",
+    "viewCourse": "Ver curso",
+    "course": "Curso",
+    "close": "Cerrar",
+    "closeCourseMap": "Cerrar mapa",
+    "downloadMaterial": "Descargar material",
+    "lessonCompletedUnmark": "Clase completada - ¿desmarcar?",
+    "markAsCompleted": "Marcar como completada",
+    "previous": "Anterior: ",
+    "noPreviousLesson": "Sin clase anterior",
+    "next": "Siguiente: ",
+    "noNextLesson": "Sin siguiente clase",
+    "additionalResources": "Recursos adicionales",
+    "items": "elementos",
+    "discussion": "Discusión",
+    "replyingTo": "Respondiendo a",
+    "cancel": "Cancelar",
+    "commentPlaceholder": "Comparte tu duda o contribución...",
+    "send": "Enviar"
+  }
+}

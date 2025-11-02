@@ -1,13 +1,16 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useI18n } from '../hooks/useI18n';
+import LottieAnimation from '@/components/animations/LottieAnimation';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 function PaymentSuccess() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [checking, setChecking] = useState(true);
-  const [message, setMessage] = useState('Verificando pagamento...');
+  const [message, setMessage] = useState(t('payment.verifyButton'));
 
   const checkPaymentStatus = useCallback(async () => {
     try {
@@ -15,12 +18,12 @@ function PaymentSuccess() {
       const billingId = localStorage.getItem('last_billing_id');
       
       if (!billingId) {
-        setMessage('Retornando ao dashboard...');
+        setMessage(t('common.returningToDashboard'));
         setChecking(false);
         return;
       }
 
-      setMessage('Verificando status do pagamento...');
+      setMessage(t('common.checkingPaymentStatus'));
 
       // Check payment status
       const response = await axios.get(
@@ -33,15 +36,15 @@ function PaymentSuccess() {
         setChecking(false);
         localStorage.removeItem('last_billing_id');
       } else {
-        setMessage('⏳ Pagamento pendente. Clique em "Verificar Pagamento" no dashboard para confirmar.');
+        setMessage(t('payment.pending'));
         setChecking(false);
       }
     } catch (error) {
       console.error('Error in checkPaymentStatus:', error);
-      setMessage('Use o botão "Verificar Pagamento" no dashboard para confirmar.');
+      setMessage(t('payment.verifyButton'));
       setChecking(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     checkPaymentStatus(); // eslint-disable-line react-hooks/set-state-in-effect
@@ -62,13 +65,9 @@ function PaymentSuccess() {
         {/* Success Icon */}
         <div className="mb-6">
           {checking ? (
-            <div className="mx-auto w-20 h-20 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            <LottieAnimation src="/lottie/checking.json" loop autoplay className="w-24 h-24 mx-auto" />
           ) : (
-            <div className="mx-auto w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center">
-              <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
+            <LottieAnimation src="/lottie/success.json" loop={false} autoplay className="w-24 h-24 mx-auto" />
           )}
         </div>
 

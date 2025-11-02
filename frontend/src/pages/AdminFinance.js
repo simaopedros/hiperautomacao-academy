@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, Users, DollarSign, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import AdminNavigation from '../components/AdminNavigation';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
@@ -81,28 +82,18 @@ export default function AdminFinance({ user, onLogout }) {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      {/* Header */}
-      <header className="bg-[#111111] border-b border-[#252525] sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/admin')}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <ArrowLeft size={24} />
-              </button>
-              <h1 className="text-2xl font-bold text-white">Gestão Financeira</h1>
-            </div>
-            {/* Removed credit-related buttons */}
-          </div>
-        </div>
-      </header>
+      <AdminNavigation user={user} onLogout={onLogout} />
 
-      {/* Tabs */}
-      <div className="bg-[#111111] border-b border-[#252525]">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex gap-6">
+      <main className="max-w-7xl mx-auto px-6 py-12">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Gestão Financeira</h1>
+          <p className="text-gray-400">Relatórios e controle de pagamentos</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="bg-[#111111] border border-[#252525] rounded-lg mb-8">
+          <div className="px-6">
+            <div className="flex gap-6">
             <button
               onClick={() => setActiveTab('overview')}
               className={`px-4 py-3 font-medium border-b-2 transition-colors ${
@@ -126,9 +117,10 @@ export default function AdminFinance({ user, onLogout }) {
           </div>
         </div>
       </div>
+      </main>
 
       {/* Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Overview Tab */}
         {activeTab === 'overview' && statistics && (
           <div>
@@ -248,7 +240,7 @@ export default function AdminFinance({ user, onLogout }) {
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

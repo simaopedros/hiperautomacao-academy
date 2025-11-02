@@ -1,6 +1,9 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { ArrowLeft, Check, Star, Zap, Crown, Shield } from 'lucide-react';
+import UnifiedHeader from '../components/UnifiedHeader';
+import LottieAnimation from '@/components/animations/LottieAnimation';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -94,14 +97,33 @@ export default function SubscribePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      <div className="max-w-7xl mx-auto px-6 py-10">
-        <button onClick={() => navigate(-1)} className="text-emerald-400 hover:text-emerald-300 mb-6">← Voltar</button>
+    <div className="min-h-screen bg-[#02060f] text-white relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_60%)] pointer-events-none" />
+      <div className="absolute -top-24 -right-10 w-80 h-80 bg-emerald-500/20 blur-[140px] pointer-events-none" />
+      <div className="absolute -bottom-20 -left-8 w-72 h-72 bg-blue-500/15 blur-[130px] pointer-events-none" />
+
+      <UnifiedHeader
+        user={currentUser}
+        onLogout={() => {
+          localStorage.removeItem('token');
+          navigate('/login');
+        }}
+        showBackButton={false}
+      />
+
+      <div className="max-w-7xl mx-auto px-6 py-10 relative z-10">
         <h1 className="text-3xl font-bold gradient-text mb-2">Planos de Assinatura</h1>
         <p className="text-gray-400 mb-8">Assine para ter acesso completo aos cursos por um período determinado.</p>
 
+        {/* Animação de introdução divertida (opcional) */}
+        <div className="mb-8 flex items-center justify-center">
+          <LottieAnimation src="/lottie/subscribe-intro.json" loop autoplay className="w-64 h-64" />
+        </div>
+
         {loading ? (
-          <div className="text-emerald-400">Carregando planos...</div>
+          <div className="flex items-center justify-center py-12">
+            <LottieAnimation src="/lottie/loading.json" loop autoplay className="w-36 h-36" />
+          </div>
         ) : plans.length === 0 ? (
           <div className="text-gray-400">Nenhum plano disponível no momento.</div>
         ) : (
@@ -161,6 +183,19 @@ export default function SubscribePage() {
           </div>
         )}
       </div>
+
+      {/* Overlay de processamento de cobrança */}
+      {creatingBilling && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#0f172a] border border-emerald-700/40 rounded-xl p-8 text-center w-[90%] max-w-md">
+            <div className="mb-4">
+              <LottieAnimation src="/lottie/processing.json" loop autoplay className="w-48 h-48 mx-auto" />
+            </div>
+            <h2 className="text-2xl font-semibold text-white mb-2">Gerando cobrança…</h2>
+            <p className="text-emerald-200">Você será redirecionado para o pagamento em instantes.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

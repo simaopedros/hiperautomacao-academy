@@ -6,11 +6,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import AdminNavigation from '../components/AdminNavigation';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-export default function AdminCategories() {
+export default function AdminCategories({ user, onLogout }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
@@ -80,9 +81,14 @@ export default function AdminCategories() {
 
   return (
     <div className="min-h-screen bg-[#0f0f0f] text-white">
-      <header className="border-b border-[#2a2a2a] bg-[#121212] sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Categorias</h1>
+      <AdminNavigation user={user} onLogout={onLogout} />
+      
+      <main className="max-w-6xl mx-auto px-6 py-12">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Categorias</h1>
+            <p className="text-gray-400">Gerencie as categorias dos cursos</p>
+          </div>
           <Dialog open={showDialog} onOpenChange={setShowDialog}>
             <DialogTrigger asChild>
               <Button onClick={openCreate} className="bg-emerald-600 hover:bg-emerald-500">Nova Categoria</Button>
@@ -122,9 +128,7 @@ export default function AdminCategories() {
             </DialogContent>
           </Dialog>
         </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-6 py-6">
+        
         {loading ? (
           <p className="text-gray-400">Carregando...</p>
         ) : (

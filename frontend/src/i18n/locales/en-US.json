@@ -1,0 +1,589 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "create": "Create",
+    "update": "Update",
+    "search": "Search",
+    "filter": "Filter",
+    "clear": "Clear",
+    "close": "Close",
+    "open": "Open",
+    "yes": "Yes",
+    "no": "No",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "reset": "Reset",
+    "language": "Language",
+    "selectLanguage": "Select Language",
+    "returningToDashboard": "Returning to dashboard...",
+    "checkingPaymentStatus": "Checking payment status..."
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Sign Up",
+    "email": "Email",
+    "password": "Password",
+    "emailPlaceholder": "your@email.com",
+    "passwordPlaceholder": "********",
+    "accessPlatform": "Access your platform",
+    "forgotPassword": {
+      "title": "Recover password",
+      "subtitle": "Enter your email and we'll send secure instructions to reset your password",
+      "link": "Forgot password?",
+      "emailSent": "Email sent",
+      "emailSentMessage": "If the email {{email}} is registered, you will receive instructions to reset your password.",
+      "checkInbox": "Check your inbox, spam or promotions folder.",
+      "sendInstructions": "Send instructions"
+    }
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "courses": "Courses",
+    "students": "Students",
+    "categories": "Categories",
+    "finance": "Finance",
+    "settings": "Settings",
+    "profile": "Profile",
+    "help": "Help",
+    "support": "Support",
+    "socialFeed": "Social Feed",
+    "subscriptions": "Subscriptions",
+    "payments": "Payments",
+    "gamification": "Gamification"
+  },
+  "dashboard": {
+    "welcome": "Welcome",
+    "overview": "Overview",
+    "statistics": "Statistics",
+    "recentActivity": "Recent Activity",
+    "quickActions": "Quick Actions",
+    "totalStudents": "Total Students",
+    "totalCourses": "Total Courses",
+    "totalRevenue": "Total Revenue",
+    "activeSubscriptions": "Active Subscriptions",
+    "myCourses": "My courses",
+    "social": "Social",
+    "subscription": "Subscription",
+    "hideOverview": "Hide overview",
+    "showOverview": "Show overview",
+    "languageSettings": "Language settings",
+    "logout": "Logout",
+    "continue": "Continue",
+    "continueDescription": "Pick up where you left off",
+    "quickAccessLastLessons": "Quick access to your latest lessons and learning progress.",
+    "loadingLastLessons": "Loading your latest lessons...",
+    "noCourseStarted": "You haven't started any course yet. Start one to appear here.",
+    "continueLesson": "Continue lesson",
+    "watchNow": "Watch now",
+    "yourJourney": "Your journey",
+    "journeyDescription": "Keep evolving with new courses and practical challenges.",
+    "journeySubDescription": "Access updated content, participate in the community and enjoy premium experiences.",
+    "activeCourses": "Active courses",
+    "waitingForYou": "waiting for you",
+    "catalog": "Catalog",
+    "newCoursesMonthly": "New courses arrive every month",
+    "shortcuts": "Shortcuts",
+    "community": "Community",
+    "profileSettings": "Profile settings",
+    "overviewHidden": "Overview hidden",
+    "informationHidden": "Information hidden",
+    "showOverviewDescription": "Show your indicators and shortcuts to track active courses and quick access.",
+    "availableCourses": "Available courses",
+    "availableCoursesDescription": "Explore content and use integrated payment methods to unlock new paths.",
+    "allCategories": "All",
+    "filterByCategory": "Filter by category",
+    "categoriesAvailable": "categories available",
+    "coursesWithoutCategories": "Some courses don't have defined categories",
+    "loadingCourses": "Loading courses...",
+    "noCoursesAvailable": "No courses available at the moment",
+    "noCategory": "No Category",
+    "courses": "courses",
+    "enrolled": "Enrolled",
+    "access": "Access",
+    "buy": "Buy",
+    "selectLanguageDescription": "Select your preferred language to filter available courses:",
+    "allLanguages": "All languages",
+    "allLanguagesDescription": "View courses in any language",
+    "portuguese": "Portuguese",
+    "portugueseCourses": "Courses in Portuguese",
+    "englishCourses": "Courses in English",
+    "spanishCourses": "Cursos en español",
+    "updatingLanguage": "Updating language..."
+  },
+  "courses": {
+    "title": "Courses",
+    "createCourse": "Create Course",
+    "editCourse": "Edit Course",
+    "deleteCourse": "Delete Course",
+    "courseName": "Course Name",
+    "courseDescription": "Course Description",
+    "courseCategory": "Course Category",
+    "coursePrice": "Course Price",
+    "courseDuration": "Course Duration",
+    "courseLevel": "Course Level",
+    "courseStatus": "Course Status",
+    "published": "Published",
+    "draft": "Draft",
+    "archived": "Archived",
+    "lessons": "Lessons",
+    "addLesson": "Add Lesson",
+    "lessonTitle": "Lesson Title",
+    "lessonContent": "Lesson Content",
+    "lessonVideo": "Lesson Video",
+    "lessonDuration": "Lesson Duration"
+  },
+  "students": {
+    "title": "Students",
+    "addStudent": "Add Student",
+    "editStudent": "Edit Student",
+    "deleteStudent": "Delete Student",
+    "studentName": "Student Name",
+    "studentEmail": "Student Email",
+    "studentPhone": "Student Phone",
+    "enrollmentDate": "Enrollment Date",
+    "lastAccess": "Last Access",
+    "coursesEnrolled": "Courses Enrolled",
+    "progress": "Progress",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "suspended": "Suspended"
+  },
+  "categories": {
+    "title": "Categories",
+    "createCategory": "Create Category",
+    "editCategory": "Edit Category",
+    "deleteCategory": "Delete Category",
+    "categoryName": "Category Name",
+    "categoryDescription": "Category Description",
+    "categoryColor": "Category Color",
+    "categoryIcon": "Category Icon",
+    "coursesCount": "Courses Count"
+  },
+  "finance": {
+    "title": "Finance",
+    "revenue": "Revenue",
+    "expenses": "Expenses",
+    "profit": "Profit",
+    "transactions": "Transactions",
+    "reports": "Reports",
+    "monthlyRevenue": "Monthly Revenue",
+    "yearlyRevenue": "Yearly Revenue",
+    "paymentMethods": "Payment Methods",
+    "subscriptionPlans": "Subscription Plans"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "security": "Security",
+    "notifications": "Notifications",
+    "integrations": "Integrations",
+    "appearance": "Appearance",
+    "language": "Language",
+    "timezone": "Timezone",
+    "currency": "Currency",
+    "theme": "Theme",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode",
+    "systemMode": "System Mode"
+  },
+  "profile": {
+    "header": {
+      "title": "Profile Settings",
+      "subtitle": "Manage your personal information and account preferences"
+    },
+    "role": {
+      "admin": "Administrator",
+      "student": "Student"
+    },
+    "tabs": {
+      "profile": "Profile",
+      "security": "Security",
+      "subscription": "Subscriptions",
+      "preferences": "Preferences",
+      "account": "Account"
+    },
+    "personal": {
+      "title": "Personal Information",
+      "subtitle": "Update your basic information and language preferences"
+    },
+    "fields": {
+      "name": "Full Name",
+      "namePlaceholder": "Your full name",
+      "email": "Email",
+      "emailPlaceholder": "your@email.com"
+    },
+    "preferredLanguage": "Preferred Language",
+    "languageDescription": "Select the system interface language",
+    "actions": {
+      "saveLoading": "Saving...",
+      "save": "Save Changes"
+    },
+    "security": {
+      "title": "Account Security",
+      "subtitle": "Keep your account secure by changing your password regularly",
+      "currentPassword": "Current Password",
+      "currentPasswordPlaceholder": "Enter your current password",
+      "newPassword": "New Password",
+      "newPasswordPlaceholder": "Enter the new password",
+      "confirmPassword": "Confirm New Password",
+      "confirmPasswordPlaceholder": "Confirm the new password",
+      "tipsTitle": "Tips for a strong password:",
+      "tip1": "• Use at least 8 characters",
+      "tip2": "• Mix uppercase and lowercase letters",
+      "tip3": "• Include numbers and special symbols",
+      "tip4": "• Avoid obvious personal information",
+      "actions": {
+        "saveLoading": "Changing...",
+        "save": "Change Password"
+      }
+    },
+    "subscription": {
+      "status": {
+        "title": "Subscription Status",
+        "subtitle": "Information about your current subscription",
+        "fullAccessActive": "Full Access Active",
+        "limitedAccess": "Limited Access",
+        "validUntil": "Valid until:",
+        "plan": "Plan:",
+        "activeBadge": "Active",
+        "limitedBadge": "Limited",
+        "loading": "Loading subscription information...",
+        "lifetimeMessage": "Congratulations! You have lifetime access to the platform."
+      },
+      "plans": {
+        "title": "Available Plans",
+        "subtitle": "Choose the plan that best fits your needs",
+        "recommended": "RECOMMENDED",
+        "accessForDays": "Access for {{days}} days",
+        "subscribeLoading": "Processing...",
+        "subscribeCta": "Subscribe Now",
+        "noneAvailable": "No plans available at the moment"
+      }
+    },
+    "preferences": {
+      "title": "Notifications and Preferences",
+      "subtitle": "Configure how and when you want to receive notifications",
+      "email": {
+        "title": "Email Notifications",
+        "description": "Receive important updates by email"
+      },
+      "course": {
+        "title": "Course Reminders",
+        "description": "Receive reminders about ongoing courses"
+      },
+      "social": {
+        "title": "Social Notifications",
+        "description": "Receive notifications about community activities"
+      },
+      "marketing": {
+        "title": "Marketing Emails",
+        "description": "Receive news and special promotions"
+      },
+      "actions": {
+        "saveLoading": "Saving...",
+        "save": "Save Preferences"
+      }
+    },
+    "account": {
+      "title": "Account Settings",
+      "subtitle": "Manage advanced settings for your account",
+      "dangerZone": {
+        "title": "Danger Zone",
+        "description": "The actions below are irreversible. Proceed with caution.",
+        "deleteLoading": "Deleting...",
+        "deleteCta": "Delete Account Permanently"
+      },
+      "info": {
+        "title": "Account Information",
+        "memberSince": "Member since:",
+        "lastLogin": "Last login:",
+        "accountId": "Account ID:"
+      }
+    },
+    "notifications": {
+      "social": {
+        "title": "Social Notifications",
+        "description": "Receive notifications about community activities"
+      }
+    }
+  },
+  "subscription": {
+    "title": "Subscription",
+    "confirming": "Confirming your subscription...",
+    "plans": "Plans",
+    "currentPlan": "Current Plan",
+    "upgradePlan": "Upgrade Plan",
+    "cancelSubscription": "Cancel Subscription",
+    "renewSubscription": "Renew Subscription",
+    "billingHistory": "Billing History",
+    "nextBilling": "Next Billing",
+    "paymentMethod": "Payment Method",
+    "updatePayment": "Update Payment"
+  },
+  "gamification": {
+    "title": "Gamification",
+    "points": "Points",
+    "badges": "Badges",
+    "leaderboard": "Leaderboard",
+    "achievements": "Achievements",
+    "level": "Level",
+    "experience": "Experience",
+    "rewards": "Rewards",
+    "challenges": "Challenges"
+  },
+  "social": {
+    "title": "Social Feed",
+    "post": "Post",
+    "comment": "Comment",
+    "like": "Like",
+    "share": "Share",
+    "follow": "Follow",
+    "unfollow": "Unfollow",
+    "followers": "Followers",
+    "following": "Following",
+    "posts": "Posts",
+    "activity": "Activity",
+    "feedTitle": "Community Feed",
+    "feedSubtitle": "Connect, learn and grow together with our community",
+    "communityDescription": "Join discussions, share knowledge and connect with other students.",
+    "newDiscussion": "New Discussion",
+    "searchDiscussions": "Search Discussions",
+    "searchPlaceholder": "Search for topics, authors or content...",
+    "clearSearch": "Clear search",
+    "noResults": "No results for \"{{searchTerm}}\"",
+    "resultsFound": "{{count}} result{{count, plural, one {} other {s}}} found",
+    "filters": "Filters",
+    "filterAll": "All",
+    "filterDiscussions": "Discussions",
+    "filterLessons": "Lessons",
+    "sortBy": "Sort by",
+    "sortRecent": "Most Recent",
+    "sortPopular": "Most Popular",
+    "sortOldest": "Oldest",
+    "activeCommunity": "Active Community",
+    "ongoingDiscussions": "Ongoing discussions",
+    "postsCount": "posts",
+    "totalFiltered": "Total filtered",
+    "page": "Page",
+    "pageOf": "Page {{current}} of {{total}}",
+    "loading": "Loading discussions",
+    "noDiscussionsFound": "No discussions found",
+    "noDiscussionsMessage": "We couldn't find discussions with \"{{searchTerm}}\". Try other search terms.",
+    "beFirstMessage": "Be the first to start an interesting conversation!",
+    "beFirstToStart": "Be the first to start a discussion!",
+    "createFirstDiscussion": "Create First Discussion",
+    "interactionTypes": {
+      "newLesson": "New Lesson",
+      "lessonComment": "Lesson Comment",
+      "discussion": "Discussion",
+      "reply": "Reply"
+    },
+    "timeAgo": {
+      "now": "just now",
+      "minutesAgo": "{{count}} min ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
+    },
+    "actions": {
+      "moreOptions": "More options for this discussion",
+      "likePost": "Like discussion, {{count}} likes",
+      "replyPost": "Reply to discussion, {{count}} replies",
+      "viewLesson": "View related lesson",
+      "sharePost": "Share discussion",
+      "bookmarkPost": "Bookmark discussion",
+      "accessLesson": "Access lesson"
+    },
+    "pagination": {
+      "previousPage": "Previous page",
+      "nextPage": "Next page",
+      "goToPage": "Go to page {{page}}"
+    },
+    "createPost": {
+      "title": "New Discussion",
+      "description": "Form to create a new community discussion",
+      "placeholder": "Share your ideas, questions or knowledge with the community...",
+      "contentLabel": "Discussion content",
+      "contentHelp": "Write the content of your discussion to share with the community",
+      "writeContentHelp": "Write your discussion content here",
+      "shareIdeasPlaceholder": "Share your ideas, questions or experiences...",
+      "cancel": "Cancel",
+      "publish": "Publish",
+      "cancelCreation": "Cancel discussion creation",
+      "publishDiscussion": "Publish new discussion"
+    },
+    "postDetail": {
+      "title": "Detailed Discussion",
+      "replies": "Replies ({{count}})",
+      "noReplies": "No replies yet. Be the first!",
+      "replyPlaceholder": "Write your reply...",
+      "writeReplyPlaceholder": "Type your reply here...",
+      "reply": "Reply"
+    },
+    "lessonPost": {
+      "newLessonAvailable": "New Lesson Available",
+      "defaultTitle": "New Lesson Available",
+      "defaultDescription": "Click to access the lesson content.",
+      "accessLesson": "Access Lesson"
+    },
+    "errors": {
+      "enrollmentRequired": "You need to be enrolled in this course to access this lesson",
+      "lessonNotFound": "Lesson not found",
+      "accessError": "Error accessing the lesson. Please try again."
+    },
+    "aria": {
+      "mainContent": "Main community content",
+      "sidebar": "Sidebar with actions and filters",
+      "createDiscussion": "Create new community discussion",
+      "searchField": "Search field to filter discussions",
+      "filterDiscussions": "Filter discussions by type",
+      "filterBy": "Filter by {{type}}",
+      "sortBy": "Sort by {{type}}",
+      "communityFeed": "Community discussions feed",
+      "userAvatar": "User avatar {{name}}",
+      "interactionType": "Interaction type: {{type}}",
+      "discussionActions": "Discussion actions"
+    }
+  },
+  "moderation": {
+    "title": "Community Moderation",
+    "description": "Manage platform discussions and comments",
+    "stats": {
+      "totalPosts": "Total Posts",
+      "comments": "Comments",
+      "activeUsers": "Active Users",
+      "postsToday": "Posts Today"
+    },
+    "search": {
+      "placeholder": "Search by content or user..."
+    },
+    "filters": {
+      "all": "All",
+      "discussions": "Discussions",
+      "lessons": "Lessons"
+    },
+    "post": {
+      "discussion": "Discussion",
+      "lesson": "Lesson",
+      "replies": "replies",
+      "likes": "likes",
+      "viewDetails": "View Details",
+      "deletePost": "Delete Post",
+      "noPostsFound": "No posts found"
+    },
+    "postDetail": {
+      "title": "Post Details",
+      "replies": "Replies ({{count}})",
+      "noReplies": "No replies"
+    },
+    "confirmations": {
+      "deletePost": "Are you sure you want to delete this post and all its replies?",
+      "deleteComment": "Are you sure you want to delete this comment?"
+    },
+    "errors": {
+      "deletePost": "Error deleting post",
+      "deleteComment": "Error deleting comment"
+    },
+    "defaultUser": "User"
+  },
+  "messages": {
+    "success": {
+      "saved": "Saved successfully!",
+      "deleted": "Deleted successfully!",
+      "updated": "Updated successfully!",
+      "created": "Created successfully!",
+      "sent": "Sent successfully!"
+    },
+    "error": {
+      "general": "An unexpected error occurred",
+      "network": "Connection error",
+      "notFound": "Not found",
+      "unauthorized": "Unauthorized",
+      "forbidden": "Access denied",
+      "validation": "Validation error",
+      "requestProcessing": "Error processing request"
+    },
+    "confirmation": {
+      "delete": "Are you sure you want to delete?",
+      "save": "Are you sure you want to save?",
+      "cancel": "Are you sure you want to cancel?"
+    }
+  },
+  "validation": {
+    "required": "This field is required",
+    "email": "Enter a valid email",
+    "minLength": "Must be at least {{count}} characters",
+    "maxLength": "Must be at most {{count}} characters",
+    "numeric": "Must be a number",
+    "positive": "Must be a positive number",
+    "url": "Enter a valid URL",
+    "phone": "Enter a valid phone number"
+  },
+  "languageSelection": {
+    "title": "Select your preferred language",
+    "subtitle": "Choose the language you would like to use on the platform",
+    "portuguese": "Português (Brasil)",
+    "english": "English (United States)",
+    "spanish": "Español (España)",
+    "confirm": "Confirm Selection",
+    "skip": "Skip for now"
+  },
+  "payment": {
+    "pending": "⏳ Payment pending. Click \"Check Payment\" on the dashboard to confirm.",
+    "verifyButton": "Use the \"Check Payment\" button on the dashboard to confirm.",
+    "success": "Payment completed successfully!",
+    "cancelled": "Payment cancelled",
+    "error": "Payment error"
+  },
+  "course": {
+    "paymentError": "Error creating payment",
+    "notFound": "Course not found",
+    "backToCourses": "Back to Courses",
+    "enrollmentRequired": "This course requires enrollment",
+    "enrollmentDescription": "To access the content of this course, you need to enroll by making a direct purchase.",
+    "directPurchase": "Direct Purchase",
+    "buyCourse": "Buy Course",
+    "notAvailableForPurchase": "This course is not available for purchase at the moment.",
+    "courseContent": "Course Content",
+    "noContentAvailable": "This course does not yet have available content.",
+    "module": "Module"
+  },
+  "lesson": {
+    "confirmDeleteComment": "Delete this comment?",
+    "congratulationsCompleted": "Congratulations! You have completed all available lessons!",
+    "mapNotAvailable": "Map not yet available.",
+    "lessons": "lessons",
+    "lessonNotFound": "Lesson not found.",
+    "lesson": "Lesson",
+    "back": "Back",
+    "hideCourseMap": "Hide map",
+    "courseMap": "Course map",
+    "viewCourse": "View course",
+    "course": "Course",
+    "close": "Close",
+    "closeCourseMap": "Close map",
+    "downloadMaterial": "Download material",
+    "lessonCompletedUnmark": "Lesson completed - unmark?",
+    "markAsCompleted": "Mark as completed",
+    "previous": "Previous: ",
+    "noPreviousLesson": "No previous lesson",
+    "next": "Next: ",
+    "noNextLesson": "No next lesson",
+    "additionalResources": "Additional resources",
+    "items": "items",
+    "discussion": "Discussion",
+    "replyingTo": "Replying to",
+    "cancel": "Cancel",
+    "commentPlaceholder": "Share your question or contribution...",
+    "send": "Send"
+  }
+}
