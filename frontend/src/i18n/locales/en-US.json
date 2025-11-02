@@ -537,6 +537,12 @@
     "confirm": "Confirm Selection",
     "skip": "Skip for now"
   },
+  "languageNotice": {
+    "title": "Language not set",
+    "message": "Set your preferred language in profile settings to filter courses in your language.",
+    "cta": "Go to Profile",
+    "close": "Close notice"
+  },
   "payment": {
     "pending": "⏳ Payment pending. Click \"Check Payment\" on the dashboard to confirm.",
     "verifyButton": "Use the \"Check Payment\" button on the dashboard to confirm.",
