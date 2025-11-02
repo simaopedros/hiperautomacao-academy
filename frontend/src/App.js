@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import '@/App.css';
 import '@/i18n'; // Inicializar i18n
@@ -36,21 +36,19 @@ function App() {
   });
   const [loading] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
-  const [languageNoticeDismissed, setLanguageNoticeDismissed] = useState(true);
+  const [dismissTrigger, setDismissTrigger] = useState(0);
 
   // Verificar se usuário precisa selecionar idioma (apenas para estudantes)
   const needsLanguageSelection = user && !user.preferred_language && user.role !== 'admin';
 
-  // Carregar estado de aviso fechado por usuário
-  useEffect(() => {
-    if (user && needsLanguageSelection) {
-      const key = `languageNoticeDismissed_${user.id}`;
-      const dismissed = localStorage.getItem(key) === 'true';
-      setLanguageNoticeDismissed(dismissed);
-    } else {
-      setLanguageNoticeDismissed(true);
+  // Computar estado de aviso fechado por usuário usando useMemo
+  const languageNoticeDismissed = useMemo(() => {
+    if (!user || !needsLanguageSelection) {
+      return true;
     }
-  }, [user, needsLanguageSelection]);
+    const key = `languageNoticeDismissed_${user.id}`;
+    return localStorage.getItem(key) === 'true';
+  }, [user?.id, needsLanguageSelection, dismissTrigger]);
 
   const handleLogin = (token, userData) => {
     localStorage.setItem('token', token);
@@ -78,10 +76,11 @@ function App() {
   };
 
   const dismissLanguageNotice = () => {
-    setLanguageNoticeDismissed(true);
     if (user) {
       const key = `languageNoticeDismissed_${user.id}`;
       localStorage.setItem(key, 'true');
+      // Trigger re-computation of languageNoticeDismissed
+      setDismissTrigger(prev => prev + 1);
     }
   };
 
