@@ -3,6 +3,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from replication.replicator import ReplicationManager, wrap_database
+from replication.config_store import load_config, save_config
+from replication.audit_logger import AUDIT_LOG_FILE
 import os
 import logging
 import json
@@ -47,7 +50,12 @@ executor = ThreadPoolExecutor(max_workers=5)
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# Primary database (unwrapped)
+_primary_db = client[os.environ['DB_NAME']]
+
+# Replication manager and wrapped database
+replication_manager = ReplicationManager()
+db = wrap_database(_primary_db, replication_manager)
 
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -4397,8 +4405,164 @@ async def get_sales_page_url():
 
 @app.on_event("startup")
 async def startup_event():
-    """Run migrations on startup"""
-    pass
+    """Initialize background services (replication manager) without changing DB schema."""
+    try:
+        await replication_manager.start()
+        logger.info("Replication manager started. Enabled=%s", replication_manager.enabled)
+    except Exception as exc:
+        logger.exception("Failed to start replication manager: %s", exc)
+
+    # No migrations here to preserve current DB structure
+
+##############################
+# Admin Replication Endpoints
+##############################
+
+class ReplicationConfigPayload(BaseModel):
+    mongo_url: str
+    db_name: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    replication_enabled: bool = False
+
+
+@api_router.get("/admin/replication/status")
+async def get_replication_status(current_user: User = Depends(get_current_admin)):
+    cfg = load_config()
+    return {
+        "replication_enabled": replication_manager.enabled,
+        "configured": bool(cfg.get("mongo_url") and cfg.get("db_name")),
+        "queue_size": replication_manager.queue.qsize(),
+        "stats": {
+            "enqueued": replication_manager.stats.total_enqueued,
+            "processed": replication_manager.stats.total_processed,
+            "errors": replication_manager.stats.total_errors,
+            "last_error": replication_manager.stats.last_error,
+        },
+    }
+
+
+@api_router.post("/admin/replication/config")
+async def set_replication_config(payload: ReplicationConfigPayload, current_user: User = Depends(get_current_admin)):
+    config_dict = payload.model_dump()
+    # Persist encrypted config
+    save_config(config_dict)
+    # Apply live configuration (do not fail save on configure errors)
+    try:
+        await replication_manager.configure(config_dict)
+        return {"message": "Configuração de replicação salva", "replication_enabled": replication_manager.enabled}
+    except Exception as exc:
+        logger.exception("Erro ao aplicar configuração de replicação: %s", exc)
+        # Mesmo com erro na aplicação da configuração em tempo real, manter salvamento bem-sucedido
+        return {
+            "message": f"Configuração salva, mas não foi possível aplicar agora: {exc}",
+            "replication_enabled": False
+        }
+
+
+@api_router.post("/admin/replication/test")
+async def test_replication_connection(payload: ReplicationConfigPayload, current_user: User = Depends(get_current_admin)):
+    # Try connecting using provided config without persisting
+    try:
+        if not payload.mongo_url or not payload.db_name:
+            raise HTTPException(status_code=400, detail="mongo_url e db_name são obrigatórios")
+        tmp_client = AsyncIOMotorClient(payload.mongo_url)
+        tmp_db = tmp_client[payload.db_name]
+        # Simple command to test connectivity
+        await tmp_db.command("ping")
+        tmp_client.close()
+        return {"ok": True, "message": "Conexão bem-sucedida"}
+    except Exception as exc:
+        return {"ok": False, "message": str(exc)}
+
+# --- Full backup endpoint: copy all collections from primary to configured secondary ---
+@api_router.post("/admin/replication/backup")
+async def backup_full_database(current_user: User = Depends(get_current_admin)):
+    """Copy all documents from the primary database to the configured replication database.
+    Drops and recreates collections on the secondary to avoid duplicate _id conflicts.
+    """
+    try:
+        # Ensure replication is enabled and configured
+        if not replication_manager.enabled or replication_manager.secondary_db is None:
+            raise HTTPException(status_code=400, detail="Replicação desabilitada ou não configurada")
+
+        secondary_db = replication_manager.secondary_db
+
+        # List all collections on primary
+        coll_names = await _primary_db.list_collection_names()
+        # Exclude system collections
+        coll_names = [n for n in coll_names if not n.startswith("system.")]
+
+        replication_manager.audit.info(f"backup_start collections={len(coll_names)}")
+
+        summary = {}
+        total_docs = 0
+
+        for name in coll_names:
+            copied = 0
+            try:
+                # Drop target collection to ensure a clean copy
+                try:
+                    await secondary_db[name].drop()
+                except Exception:
+                    pass  # ignore if not exists
+
+                # Stream documents in batches to the secondary
+                batch = []
+                cursor = _primary_db[name].find({}, projection=None)
+                async for doc in cursor:
+                    batch.append(doc)
+                    if len(batch) >= 1000:
+                        await secondary_db[name].insert_many(batch, ordered=False)
+                        copied += len(batch)
+                        batch = []
+                if batch:
+                    await secondary_db[name].insert_many(batch, ordered=False)
+                    copied += len(batch)
+
+                summary[name] = copied
+                total_docs += copied
+                replication_manager.audit.info(f"backup_collection name={name} copied={copied}")
+            except Exception as coll_err:
+                # Record per-collection error but continue
+                summary[name] = {"error": str(coll_err)}
+                replication_manager.audit.error(f"backup_collection_error name={name} error={coll_err}")
+
+        replication_manager.audit.info(f"backup_done collections={len(coll_names)} total_docs={total_docs}")
+        return {
+            "ok": True,
+            "message": f"Backup concluído: {len(coll_names)} coleções, {total_docs} documentos",
+            "collections": summary,
+            "total_docs": total_docs,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Full backup failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Falha no backup: {str(e)}")
+
+
+@api_router.post("/admin/replication/toggle")
+async def toggle_replication(enable: bool, current_user: User = Depends(get_current_admin)):
+    cfg = load_config()
+    cfg["replication_enabled"] = bool(enable)
+    save_config(cfg)
+    await replication_manager.configure(cfg)
+    return {"replication_enabled": replication_manager.enabled}
+
+
+@api_router.get("/admin/replication/logs")
+async def get_replication_logs(limit: int = 200, current_user: User = Depends(get_current_admin)):
+    # Return last N lines from audit log file
+    try:
+        if not AUDIT_LOG_FILE.exists():
+            return {"logs": []}
+        with AUDIT_LOG_FILE.open("r", encoding="utf-8") as f:
+            lines = f.readlines()
+        tail = lines[-limit:] if limit > 0 else lines
+        return {"logs": [line.strip() for line in tail]}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Erro ao ler logs: {exc}")
 
 
 app.include_router(api_router)

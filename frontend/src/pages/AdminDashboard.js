@@ -33,6 +33,7 @@ import UserManagement from './UserManagement';
 import CommunityModeration from './CommunityModeration';
 import EmailSettings from './EmailSettings';
 import LeadSettings from './LeadSettings';
+import ReplicationSettings from './ReplicationSettings';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -800,6 +801,7 @@ export default function AdminDashboard({ user, onLogout }) {
       <Route path="community" element={<CommunityModeration user={user} onLogout={onLogout} />} />
       <Route path="email-settings" element={<EmailSettings user={user} onLogout={onLogout} />} />
       <Route path="lead-settings" element={<LeadSettings user={user} onLogout={onLogout} />} />
+      <Route path="replication" element={<ReplicationSettings user={user} onLogout={onLogout} />} />
     </Routes>
   );
 }

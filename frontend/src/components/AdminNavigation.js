@@ -15,7 +15,8 @@ import {
   GraduationCap,
   UserCheck,
   HeadphonesIcon,
-  BarChart3
+  BarChart3,
+  Database
 } from 'lucide-react';
 
 const AdminNavigation = ({ user, onLogout }) => {
@@ -256,10 +257,21 @@ const AdminNavigation = ({ user, onLogout }) => {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate('/admin/email-settings');
+                      navigate('/admin/replication');
                       setShowConfigMenu(false);
                     }}
                     className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-t-lg"
+                  >
+                    <Database size={16} />
+                    Replicação MongoDB
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate('/admin/email-settings');
+                      setShowConfigMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
                   >
                     <Mail size={16} />
                     Configurar Email
