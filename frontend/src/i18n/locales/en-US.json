@@ -257,7 +257,8 @@
         "plan": "Plan:",
         "activeBadge": "Active",
         "limitedBadge": "Limited",
-        "loading": "Loading subscription information..."
+        "loading": "Loading subscription information...",
+        "lifetimeMessage": "Congratulations! You have lifetime access to the platform."
       },
       "plans": {
         "title": "Available Plans",

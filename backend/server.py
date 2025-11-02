@@ -817,6 +817,7 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
         
         subscription_plan_id = user_data.get("subscription_plan_id")
         subscription_valid_until = user_data.get("subscription_valid_until")
+        has_full_access = user_data.get("has_full_access", False)
         
         # If no subscription
         if not subscription_plan_id:
@@ -825,7 +826,11 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
                 "subscription_plan": None,
                 "valid_until": None,
                 "is_active": False,
-                "days_remaining": 0
+                "days_remaining": 0,
+                # Extra fields for frontend compatibility
+                "has_full_access": has_full_access,
+                "subscription_plan_id": subscription_plan_id,
+                "subscription_valid_until": subscription_valid_until
             }
         
         # Get subscription plan details
@@ -836,7 +841,11 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
                 "subscription_plan": None,
                 "valid_until": None,
                 "is_active": False,
-                "days_remaining": 0
+                "days_remaining": 0,
+                # Extra fields for frontend compatibility
+                "has_full_access": has_full_access,
+                "subscription_plan_id": subscription_plan_id,
+                "subscription_valid_until": subscription_valid_until
             }
         
         # Check if subscription is still valid
@@ -872,7 +881,11 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
             },
             "valid_until": subscription_valid_until,
             "is_active": is_active,
-            "days_remaining": max(0, days_remaining)
+            "days_remaining": max(0, days_remaining),
+            # Extra fields for frontend compatibility
+            "has_full_access": has_full_access,
+            "subscription_plan_id": subscription_plan_id,
+            "subscription_valid_until": subscription_valid_until
         }
         
     except Exception as e:

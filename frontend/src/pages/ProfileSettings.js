@@ -611,6 +611,13 @@ export default function ProfileSettings({ user, onLogout }) {
                           </div>
                         </div>
                       </div>
+                      {subscriptionData.has_full_access && (
+                        <div className="bg-emerald-500/10 border border-emerald-400/20 rounded-xl p-4">
+                          <p className="text-emerald-200">
+                            {t('profile.subscription.status.lifetimeMessage', 'Parabéns! Você tem acesso vitalício à plataforma.')}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="text-center py-12">
@@ -622,6 +629,7 @@ export default function ProfileSettings({ user, onLogout }) {
               </div>
 
               {/* Planos Disponíveis */}
+              {!(subscriptionData?.has_full_access) && (
               <div className="glass-panel rounded-3xl border border-white/10 shadow-[0_25px_90px_rgba(0,0,0,0.35)]">
                 <div className="bg-gradient-to-r from-white/5 to-white/10 p-6 border-b border-white/10 rounded-t-3xl">
                   <h2 className="text-2xl font-bold text-white flex items-center gap-3">
@@ -688,6 +696,7 @@ export default function ProfileSettings({ user, onLogout }) {
                   )}
                 </div>
               </div>
+              )}
             </div>
           </TabsContent>
 

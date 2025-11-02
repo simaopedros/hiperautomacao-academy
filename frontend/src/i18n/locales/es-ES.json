@@ -475,7 +475,8 @@
         "plan": "Plan:",
         "activeBadge": "Activo",
         "limitedBadge": "Limitado",
-        "loading": "Cargando información de la suscripción..."
+        "loading": "Cargando información de la suscripción...",
+        "lifetimeMessage": "¡Felicidades! Tienes acceso vitalicio a la plataforma."
       },
       "plans": {
         "title": "Planes Disponibles",
