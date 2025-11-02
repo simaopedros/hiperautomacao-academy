@@ -197,8 +197,118 @@
     "systemMode": "System Mode"
   },
   "profile": {
+    "header": {
+      "title": "Profile Settings",
+      "subtitle": "Manage your personal information and account preferences"
+    },
+    "role": {
+      "admin": "Administrator",
+      "student": "Student"
+    },
+    "tabs": {
+      "profile": "Profile",
+      "security": "Security",
+      "subscription": "Subscriptions",
+      "preferences": "Preferences",
+      "account": "Account"
+    },
+    "personal": {
+      "title": "Personal Information",
+      "subtitle": "Update your basic information and language preferences"
+    },
+    "fields": {
+      "name": "Full Name",
+      "namePlaceholder": "Your full name",
+      "email": "Email",
+      "emailPlaceholder": "your@email.com"
+    },
     "preferredLanguage": "Preferred Language",
     "languageDescription": "Select the system interface language",
+    "actions": {
+      "saveLoading": "Saving...",
+      "save": "Save Changes"
+    },
+    "security": {
+      "title": "Account Security",
+      "subtitle": "Keep your account secure by changing your password regularly",
+      "currentPassword": "Current Password",
+      "currentPasswordPlaceholder": "Enter your current password",
+      "newPassword": "New Password",
+      "newPasswordPlaceholder": "Enter the new password",
+      "confirmPassword": "Confirm New Password",
+      "confirmPasswordPlaceholder": "Confirm the new password",
+      "tipsTitle": "Tips for a strong password:",
+      "tip1": "• Use at least 8 characters",
+      "tip2": "• Mix uppercase and lowercase letters",
+      "tip3": "• Include numbers and special symbols",
+      "tip4": "• Avoid obvious personal information",
+      "actions": {
+        "saveLoading": "Changing...",
+        "save": "Change Password"
+      }
+    },
+    "subscription": {
+      "status": {
+        "title": "Subscription Status",
+        "subtitle": "Information about your current subscription",
+        "fullAccessActive": "Full Access Active",
+        "limitedAccess": "Limited Access",
+        "validUntil": "Valid until:",
+        "plan": "Plan:",
+        "activeBadge": "Active",
+        "limitedBadge": "Limited",
+        "loading": "Loading subscription information..."
+      },
+      "plans": {
+        "title": "Available Plans",
+        "subtitle": "Choose the plan that best fits your needs",
+        "recommended": "RECOMMENDED",
+        "accessForDays": "Access for {{days}} days",
+        "subscribeLoading": "Processing...",
+        "subscribeCta": "Subscribe Now",
+        "noneAvailable": "No plans available at the moment"
+      }
+    },
+    "preferences": {
+      "title": "Notifications and Preferences",
+      "subtitle": "Configure how and when you want to receive notifications",
+      "email": {
+        "title": "Email Notifications",
+        "description": "Receive important updates by email"
+      },
+      "course": {
+        "title": "Course Reminders",
+        "description": "Receive reminders about ongoing courses"
+      },
+      "social": {
+        "title": "Social Notifications",
+        "description": "Receive notifications about community activities"
+      },
+      "marketing": {
+        "title": "Marketing Emails",
+        "description": "Receive news and special promotions"
+      },
+      "actions": {
+        "saveLoading": "Saving...",
+        "save": "Save Preferences"
+      }
+    },
+    "account": {
+      "title": "Account Settings",
+      "subtitle": "Manage advanced settings for your account",
+      "dangerZone": {
+        "title": "Danger Zone",
+        "description": "The actions below are irreversible. Proceed with caution.",
+        "deleteLoading": "Deleting...",
+        "deleteCta": "Delete Account Permanently"
+      },
+      "info": {
+        "title": "Account Information",
+        "memberSince": "Member since:",
+        "lastLogin": "Last login:",
+        "accountId": "Account ID:"
+      }
+    },
     "notifications": {
       "social": {
         "title": "Social Notifications",

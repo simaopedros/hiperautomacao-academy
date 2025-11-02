@@ -424,8 +424,118 @@
     "skip": "Pular por agora"
   },
   "profile": {
+    "header": {
+      "title": "Configurações do Perfil",
+      "subtitle": "Gerencie suas informações pessoais e preferências da conta"
+    },
+    "role": {
+      "admin": "Administrador",
+      "student": "Estudante"
+    },
+    "tabs": {
+      "profile": "Perfil",
+      "security": "Segurança",
+      "subscription": "Assinaturas",
+      "preferences": "Preferências",
+      "account": "Conta"
+    },
+    "personal": {
+      "title": "Informações Pessoais",
+      "subtitle": "Atualize suas informações básicas e preferências de idioma"
+    },
+    "fields": {
+      "name": "Nome Completo",
+      "namePlaceholder": "Seu nome completo",
+      "email": "Email",
+      "emailPlaceholder": "seu@email.com"
+    },
     "preferredLanguage": "Idioma Preferido",
     "languageDescription": "Selecione o idioma da interface do sistema",
+    "actions": {
+      "saveLoading": "Salvando...",
+      "save": "Salvar Alterações"
+    },
+    "security": {
+      "title": "Segurança da Conta",
+      "subtitle": "Mantenha sua conta segura alterando sua senha regularmente",
+      "currentPassword": "Senha Atual",
+      "currentPasswordPlaceholder": "Digite sua senha atual",
+      "newPassword": "Nova Senha",
+      "newPasswordPlaceholder": "Digite a nova senha",
+      "confirmPassword": "Confirmar Nova Senha",
+      "confirmPasswordPlaceholder": "Confirme a nova senha",
+      "tipsTitle": "Dicas para uma senha segura:",
+      "tip1": "• Use pelo menos 8 caracteres",
+      "tip2": "• Combine letras maiúsculas e minúsculas",
+      "tip3": "• Inclua números e símbolos especiais",
+      "tip4": "• Evite informações pessoais óbvias",
+      "actions": {
+        "saveLoading": "Alterando...",
+        "save": "Alterar Senha"
+      }
+    },
+    "subscription": {
+      "status": {
+        "title": "Status da Assinatura",
+        "subtitle": "Informações sobre sua assinatura atual",
+        "fullAccessActive": "Acesso Total Ativo",
+        "limitedAccess": "Acesso Limitado",
+        "validUntil": "Válida até:",
+        "plan": "Plano:",
+        "activeBadge": "Ativo",
+        "limitedBadge": "Limitado",
+        "loading": "Carregando informações da assinatura..."
+      },
+      "plans": {
+        "title": "Planos Disponíveis",
+        "subtitle": "Escolha o plano que melhor se adequa às suas necessidades",
+        "recommended": "RECOMENDADO",
+        "accessForDays": "Acesso por {{days}} dias",
+        "subscribeLoading": "Processando...",
+        "subscribeCta": "Assinar Agora",
+        "noneAvailable": "Nenhum plano disponível no momento"
+      }
+    },
+    "preferences": {
+      "title": "Notificações e Preferências",
+      "subtitle": "Configure como e quando você deseja receber notificações",
+      "email": {
+        "title": "Notificações por Email",
+        "description": "Receba atualizações importantes por email"
+      },
+      "course": {
+        "title": "Lembretes de Curso",
+        "description": "Receba lembretes sobre cursos em andamento"
+      },
+      "social": {
+        "title": "Notificações Sociais",
+        "description": "Receba notificações sobre atividades na comunidade"
+      },
+      "marketing": {
+        "title": "Emails de Marketing",
+        "description": "Receba novidades e promoções especiais"
+      },
+      "actions": {
+        "saveLoading": "Salvando...",
+        "save": "Salvar Preferências"
+      }
+    },
+    "account": {
+      "title": "Configurações da Conta",
+      "subtitle": "Gerencie configurações avançadas da sua conta",
+      "dangerZone": {
+        "title": "Zona de Perigo",
+        "description": "As ações abaixo são irreversíveis. Proceda com cuidado.",
+        "deleteLoading": "Excluindo...",
+        "deleteCta": "Excluir Conta Permanentemente"
+      },
+      "info": {
+        "title": "Informações da Conta",
+        "memberSince": "Membro desde:",
+        "lastLogin": "Último login:",
+        "accountId": "ID da conta:"
+      }
+    },
     "notifications": {
       "social": {
         "title": "Notificações Sociais",

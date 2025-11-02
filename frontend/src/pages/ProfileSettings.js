@@ -293,14 +293,14 @@ export default function ProfileSettings({ user, onLogout }) {
             </div>
             <div className="flex-1">
               <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-emerald-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">
-                Configurações do Perfil
+                {t('profile.header.title', 'Configurações do Perfil')}
               </h1>
               <p className="text-gray-300 text-lg">
-                Gerencie suas informações pessoais e preferências da conta
+                {t('profile.header.subtitle', 'Gerencie suas informações pessoais e preferências da conta')}
               </p>
               <div className="flex flex-wrap gap-2 mt-4">
                 <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                  {user?.role === 'admin' ? 'Administrador' : 'Estudante'}
+                  {user?.role === 'admin' ? t('profile.role.admin', 'Administrador') : t('profile.role.student', 'Estudante')}
                 </Badge>
                 {user?.subscription_status && (
                   <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
@@ -338,35 +338,35 @@ export default function ProfileSettings({ user, onLogout }) {
               className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-200 data-[state=active]:border-emerald-400/30 rounded-xl transition-all duration-300"
             >
               <User className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Perfil</span>
+              <span className="hidden sm:inline">{t('profile.tabs.profile', 'Perfil')}</span>
             </TabsTrigger>
             <TabsTrigger 
               value="security" 
               className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-200 data-[state=active]:border-emerald-400/30 rounded-xl transition-all duration-300"
             >
               <Lock className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Segurança</span>
+              <span className="hidden sm:inline">{t('profile.tabs.security', 'Segurança')}</span>
             </TabsTrigger>
             <TabsTrigger 
               value="subscription" 
               className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-200 data-[state=active]:border-emerald-400/30 rounded-xl transition-all duration-300"
             >
               <CreditCard className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Assinaturas</span>
+              <span className="hidden sm:inline">{t('profile.tabs.subscription', 'Assinaturas')}</span>
             </TabsTrigger>
             <TabsTrigger 
               value="preferences" 
               className="data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-200 data-[state=active]:border-emerald-400/30 rounded-xl transition-all duration-300"
             >
               <Bell className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Preferências</span>
+              <span className="hidden sm:inline">{t('profile.tabs.preferences', 'Preferências')}</span>
             </TabsTrigger>
             <TabsTrigger 
               value="account" 
               className="data-[state=active]:bg-red-500/20 data-[state=active]:text-red-200 data-[state=active]:border-red-400/30 rounded-xl transition-all duration-300"
             >
               <Shield className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Conta</span>
+              <span className="hidden sm:inline">{t('profile.tabs.account', 'Conta')}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -376,36 +376,36 @@ export default function ProfileSettings({ user, onLogout }) {
               <div className="bg-gradient-to-r from-white/5 to-white/10 p-6 border-b border-white/10 rounded-t-3xl">
                 <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                   <User className="w-6 h-6 text-emerald-400" />
-                  Informações Pessoais
+                  {t('profile.personal.title', 'Informações Pessoais')}
                 </h2>
                 <p className="text-gray-300 mt-2">
-                  Atualize suas informações básicas e preferências de idioma
+                  {t('profile.personal.subtitle', 'Atualize suas informações básicas e preferências de idioma')}
                 </p>
               </div>
               <div className="p-8">
                 <form onSubmit={handleProfileUpdate} className="space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-3">
-                      <Label htmlFor="name" className="text-white font-medium">Nome Completo</Label>
+                      <Label htmlFor="name" className="text-white font-medium">{t('profile.fields.name', 'Nome Completo')}</Label>
                       <Input
                         id="name"
                         value={profileData.name}
                         onChange={(e) => setProfileData({...profileData, name: e.target.value})}
                         className="bg-white/5 border-white/10 text-white rounded-xl p-4 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-300"
-                        placeholder="Seu nome completo"
+                        placeholder={t('profile.fields.namePlaceholder', 'Seu nome completo')}
                         required
                       />
                     </div>
 
                     <div className="space-y-3">
-                      <Label htmlFor="email" className="text-white font-medium">Email</Label>
+                      <Label htmlFor="email" className="text-white font-medium">{t('profile.fields.email', 'Email')}</Label>
                       <Input
                         id="email"
                         type="email"
                         value={profileData.email}
                         onChange={(e) => setProfileData({...profileData, email: e.target.value})}
                         className="bg-white/5 border-white/10 text-white rounded-xl p-4 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-300"
-                        placeholder="seu@email.com"
+                        placeholder={t('profile.fields.emailPlaceholder', 'seu@email.com')}
                         required
                       />
                     </div>
@@ -442,7 +442,7 @@ export default function ProfileSettings({ user, onLogout }) {
                     className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/25 hover:-translate-y-0.5"
                   >
                     <Save className="w-5 h-5 mr-2" />
-                    {loading ? 'Salvando...' : 'Salvar Alterações'}
+                    {loading ? t('profile.actions.saveLoading', 'Salvando...') : t('profile.actions.save', 'Salvar Alterações')}
                   </Button>
                 </form>
               </div>
@@ -455,17 +455,17 @@ export default function ProfileSettings({ user, onLogout }) {
               <div className="bg-gradient-to-r from-white/5 to-white/10 p-6 border-b border-white/10 rounded-t-3xl">
                 <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                   <Shield className="w-6 h-6 text-emerald-400" />
-                  Segurança da Conta
+                  {t('profile.security.title', 'Segurança da Conta')}
                 </h2>
                 <p className="text-gray-300 mt-2">
-                  Mantenha sua conta segura alterando sua senha regularmente
+                  {t('profile.security.subtitle', 'Mantenha sua conta segura alterando sua senha regularmente')}
                 </p>
               </div>
               <div className="p-8">
                 <form onSubmit={handlePasswordChange} className="space-y-8">
                   <div className="space-y-6">
                     <div className="space-y-3">
-                      <Label htmlFor="current_password" className="text-white font-medium">Senha Atual</Label>
+                      <Label htmlFor="current_password" className="text-white font-medium">{t('profile.security.currentPassword', 'Senha Atual')}</Label>
                       <div className="relative">
                         <Input
                           id="current_password"
@@ -473,7 +473,7 @@ export default function ProfileSettings({ user, onLogout }) {
                           value={passwordData.current_password}
                           onChange={(e) => setPasswordData({...passwordData, current_password: e.target.value})}
                           className="bg-white/5 border-white/10 text-white rounded-xl p-4 pr-12 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-300"
-                          placeholder="Digite sua senha atual"
+                          placeholder={t('profile.security.currentPasswordPlaceholder', 'Digite sua senha atual')}
                           required
                         />
                         <button
@@ -488,7 +488,7 @@ export default function ProfileSettings({ user, onLogout }) {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-3">
-                        <Label htmlFor="new_password" className="text-white font-medium">Nova Senha</Label>
+                        <Label htmlFor="new_password" className="text-white font-medium">{t('profile.security.newPassword', 'Nova Senha')}</Label>
                         <div className="relative">
                           <Input
                             id="new_password"
@@ -496,7 +496,7 @@ export default function ProfileSettings({ user, onLogout }) {
                             value={passwordData.new_password}
                             onChange={(e) => setPasswordData({...passwordData, new_password: e.target.value})}
                             className="bg-white/5 border-white/10 text-white rounded-xl p-4 pr-12 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-300"
-                            placeholder="Digite a nova senha"
+                            placeholder={t('profile.security.newPasswordPlaceholder', 'Digite a nova senha')}
                             required
                           />
                           <button
@@ -510,7 +510,7 @@ export default function ProfileSettings({ user, onLogout }) {
                       </div>
 
                       <div className="space-y-3">
-                        <Label htmlFor="confirm_password" className="text-white font-medium">Confirmar Nova Senha</Label>
+                        <Label htmlFor="confirm_password" className="text-white font-medium">{t('profile.security.confirmPassword', 'Confirmar Nova Senha')}</Label>
                         <div className="relative">
                           <Input
                             id="confirm_password"
@@ -518,7 +518,7 @@ export default function ProfileSettings({ user, onLogout }) {
                             value={passwordData.confirm_password}
                             onChange={(e) => setPasswordData({...passwordData, confirm_password: e.target.value})}
                             className="bg-white/5 border-white/10 text-white rounded-xl p-4 pr-12 focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 transition-all duration-300"
-                            placeholder="Confirme a nova senha"
+                            placeholder={t('profile.security.confirmPasswordPlaceholder', 'Confirme a nova senha')}
                             required
                           />
                           <button
@@ -537,12 +537,12 @@ export default function ProfileSettings({ user, onLogout }) {
                     <div className="flex items-start gap-3">
                       <Shield className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
                       <div className="text-sm">
-                        <p className="text-blue-300 font-medium mb-2">Dicas para uma senha segura:</p>
+                        <p className="text-blue-300 font-medium mb-2">{t('profile.security.tipsTitle', 'Dicas para uma senha segura:')}</p>
                         <ul className="text-blue-200 space-y-1 text-sm">
-                          <li>• Use pelo menos 8 caracteres</li>
-                          <li>• Combine letras maiúsculas e minúsculas</li>
-                          <li>• Inclua números e símbolos especiais</li>
-                          <li>• Evite informações pessoais óbvias</li>
+                          <li>{t('profile.security.tip1', '• Use pelo menos 8 caracteres')}</li>
+                          <li>{t('profile.security.tip2', '• Combine letras maiúsculas e minúsculas')}</li>
+                          <li>{t('profile.security.tip3', '• Inclua números e símbolos especiais')}</li>
+                          <li>{t('profile.security.tip4', '• Evite informações pessoais óbvias')}</li>
                         </ul>
                       </div>
                     </div>
@@ -556,7 +556,7 @@ export default function ProfileSettings({ user, onLogout }) {
                     className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/25 hover:-translate-y-0.5"
                   >
                     <Lock className="w-5 h-5 mr-2" />
-                    {loading ? 'Alterando...' : 'Alterar Senha'}
+                    {loading ? t('profile.security.actions.saveLoading', 'Alterando...') : t('profile.security.actions.save', 'Alterar Senha')}
                   </Button>
                 </form>
               </div>
@@ -571,10 +571,10 @@ export default function ProfileSettings({ user, onLogout }) {
                 <div className="bg-gradient-to-r from-white/5 to-white/10 p-6 border-b border-white/10 rounded-t-3xl">
                   <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                     <CreditCard className="w-6 h-6 text-emerald-400" />
-                    Status da Assinatura
+                    {t('profile.subscription.status.title', 'Status da Assinatura')}
                   </h2>
                   <p className="text-gray-300 mt-2">
-                    Informações sobre sua assinatura atual
+                    {t('profile.subscription.status.subtitle', 'Informações sobre sua assinatura atual')}
                   </p>
                 </div>
                 <div className="p-8">
@@ -588,16 +588,16 @@ export default function ProfileSettings({ user, onLogout }) {
                             </div>
                             <div>
                               <h3 className="text-xl font-bold text-white">
-                                {subscriptionData.has_full_access ? 'Acesso Total Ativo' : 'Acesso Limitado'}
+                                {subscriptionData.has_full_access ? t('profile.subscription.status.fullAccessActive', 'Acesso Total Ativo') : t('profile.subscription.status.limitedAccess', 'Acesso Limitado')}
                               </h3>
                               {subscriptionData.subscription_valid_until && (
                                 <p className="text-emerald-300 text-sm">
-                                  Válida até: {new Date(subscriptionData.subscription_valid_until).toLocaleDateString('pt-BR')}
+                                  {t('profile.subscription.status.validUntil', 'Válida até:')} {new Date(subscriptionData.subscription_valid_until).toLocaleDateString('pt-BR')}
                                 </p>
                               )}
                               {subscriptionData.subscription_plan_id && (
                                 <p className="text-gray-300 text-sm">
-                                  Plano: {subscriptionData.subscription_plan_id}
+                                  {t('profile.subscription.status.plan', 'Plano:')} {subscriptionData.subscription_plan_id}
                                 </p>
                               )}
                             </div>
@@ -607,7 +607,7 @@ export default function ProfileSettings({ user, onLogout }) {
                               ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
                               : 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
                           }`}>
-                            {subscriptionData.has_full_access ? 'Ativo' : 'Limitado'}
+                            {subscriptionData.has_full_access ? t('profile.subscription.status.activeBadge', 'Ativo') : t('profile.subscription.status.limitedBadge', 'Limitado')}
                           </div>
                         </div>
                       </div>
@@ -615,7 +615,7 @@ export default function ProfileSettings({ user, onLogout }) {
                   ) : (
                     <div className="text-center py-12">
                       <CreditCard className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-                      <p className="text-gray-300 text-lg">Carregando informações da assinatura...</p>
+                      <p className="text-gray-300 text-lg">{t('profile.subscription.status.loading', 'Carregando informações da assinatura...')}</p>
                     </div>
                   )}
                 </div>
@@ -626,10 +626,10 @@ export default function ProfileSettings({ user, onLogout }) {
                 <div className="bg-gradient-to-r from-white/5 to-white/10 p-6 border-b border-white/10 rounded-t-3xl">
                   <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                     <Settings className="w-6 h-6 text-emerald-400" />
-                    Planos Disponíveis
+                    {t('profile.subscription.plans.title', 'Planos Disponíveis')}
                   </h2>
                   <p className="text-gray-300 mt-2">
-                    Escolha o plano que melhor se adequa às suas necessidades
+                    {t('profile.subscription.plans.subtitle', 'Escolha o plano que melhor se adequa às suas necessidades')}
                   </p>
                 </div>
                 <div className="p-8">
@@ -645,7 +645,7 @@ export default function ProfileSettings({ user, onLogout }) {
                           {index === 1 && (
                             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                               <span className="bg-gradient-to-r from-emerald-500 to-cyan-500 text-white px-4 py-1 rounded-full text-sm font-semibold shadow-lg">
-                                RECOMENDADO
+                                {t('profile.subscription.plans.recommended', 'RECOMENDADO')}
                               </span>
                             </div>
                           )}
@@ -662,7 +662,7 @@ export default function ProfileSettings({ user, onLogout }) {
                                 R$ {Number(plan.price_brl).toFixed(2)}
                               </span>
                               <p className="text-gray-300 text-sm mt-1">
-                                Acesso por {plan.duration_days} dias
+                                {t('profile.subscription.plans.accessForDays', 'Acesso por {{days}} dias', { days: plan.duration_days })}
                               </p>
                             </div>
                             <Button
@@ -674,7 +674,7 @@ export default function ProfileSettings({ user, onLogout }) {
                                   : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
                               }`}
                             >
-                              {loadingSubscription ? 'Processando...' : 'Assinar Agora'}
+                              {loadingSubscription ? t('profile.subscription.plans.subscribeLoading', 'Processando...') : t('profile.subscription.plans.subscribeCta', 'Assinar Agora')}
                             </Button>
                           </div>
                         </div>
@@ -683,7 +683,7 @@ export default function ProfileSettings({ user, onLogout }) {
                   ) : (
                     <div className="text-center py-12">
                       <Settings className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-                      <p className="text-gray-300 text-lg">Nenhum plano disponível no momento</p>
+                      <p className="text-gray-300 text-lg">{t('profile.subscription.plans.noneAvailable', 'Nenhum plano disponível no momento')}</p>
                     </div>
                   )}
                 </div>
@@ -697,10 +697,10 @@ export default function ProfileSettings({ user, onLogout }) {
               <div className="bg-gradient-to-r from-white/5 to-white/10 p-6 border-b border-white/10 rounded-t-3xl">
                 <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                   <Bell className="w-6 h-6 text-emerald-400" />
-                  Notificações e Preferências
+                  {t('profile.preferences.title', 'Notificações e Preferências')}
                 </h2>
                 <p className="text-gray-300 mt-2">
-                  Configure como e quando você deseja receber notificações
+                  {t('profile.preferences.subtitle', 'Configure como e quando você deseja receber notificações')}
                 </p>
               </div>
               <div className="p-8 space-y-8">
@@ -710,9 +710,9 @@ export default function ProfileSettings({ user, onLogout }) {
                       <div className="space-y-2">
                         <h4 className="text-white font-semibold flex items-center gap-2">
                           <Mail className="w-5 h-5 text-emerald-400" />
-                          Notificações por Email
+                          {t('profile.preferences.email.title', 'Notificações por Email')}
                         </h4>
-                        <p className="text-gray-300 text-sm">Receba atualizações importantes por email</p>
+                        <p className="text-gray-300 text-sm">{t('profile.preferences.email.description', 'Receba atualizações importantes por email')}</p>
                       </div>
                       <Switch
                         checked={preferences.email_notifications}
@@ -727,9 +727,9 @@ export default function ProfileSettings({ user, onLogout }) {
                       <div className="space-y-2">
                         <h4 className="text-white font-semibold flex items-center gap-2">
                           <Bell className="w-5 h-5 text-emerald-400" />
-                          Lembretes de Curso
+                          {t('profile.preferences.course.title', 'Lembretes de Curso')}
                         </h4>
-                        <p className="text-gray-300 text-sm">Receba lembretes sobre cursos em andamento</p>
+                        <p className="text-gray-300 text-sm">{t('profile.preferences.course.description', 'Receba lembretes sobre cursos em andamento')}</p>
                       </div>
                       <Switch
                         checked={preferences.course_reminders}
@@ -761,9 +761,9 @@ export default function ProfileSettings({ user, onLogout }) {
                       <div className="space-y-2">
                         <h4 className="text-white font-semibold flex items-center gap-2">
                           <Settings className="w-5 h-5 text-emerald-400" />
-                          Emails de Marketing
+                          {t('profile.preferences.marketing.title', 'Emails de Marketing')}
                         </h4>
-                        <p className="text-gray-300 text-sm">Receba novidades e promoções especiais</p>
+                        <p className="text-gray-300 text-sm">{t('profile.preferences.marketing.description', 'Receba novidades e promoções especiais')}</p>
                       </div>
                       <Switch
                         checked={preferences.marketing_emails}
@@ -782,7 +782,7 @@ export default function ProfileSettings({ user, onLogout }) {
                   className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/25 hover:-translate-y-0.5"
                 >
                   <Save className="w-5 h-5 mr-2" />
-                  {loading ? 'Salvando...' : 'Salvar Preferências'}
+                  {loading ? t('profile.preferences.actions.saveLoading', 'Salvando...') : t('profile.preferences.actions.save', 'Salvar Preferências')}
                 </Button>
               </div>
             </div>
@@ -794,10 +794,10 @@ export default function ProfileSettings({ user, onLogout }) {
               <div className="bg-gradient-to-r from-white/5 to-white/10 p-6 border-b border-white/10 rounded-t-3xl">
                 <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                   <Shield className="w-6 h-6 text-emerald-400" />
-                  Configurações da Conta
+                  {t('profile.account.title', 'Configurações da Conta')}
                 </h2>
                 <p className="text-gray-300 mt-2">
-                  Gerencie configurações avançadas da sua conta
+                  {t('profile.account.subtitle', 'Gerencie configurações avançadas da sua conta')}
                 </p>
               </div>
               <div className="p-8 space-y-8">
@@ -807,9 +807,9 @@ export default function ProfileSettings({ user, onLogout }) {
                       <AlertCircle className="w-6 h-6 text-white" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="text-yellow-300 font-bold text-lg mb-2">Zona de Perigo</h4>
+                      <h4 className="text-yellow-300 font-bold text-lg mb-2">{t('profile.account.dangerZone.title', 'Zona de Perigo')}</h4>
                       <p className="text-yellow-200 text-sm mb-6">
-                        As ações abaixo são irreversíveis. Proceda com cuidado.
+                        {t('profile.account.dangerZone.description', 'As ações abaixo são irreversíveis. Proceda com cuidado.')}
                       </p>
                       
                       <Button
@@ -818,7 +818,7 @@ export default function ProfileSettings({ user, onLogout }) {
                         className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-red-500/25 hover:-translate-y-0.5"
                       >
                         <Trash2 className="w-5 h-5 mr-2" />
-                        {loading ? 'Excluindo...' : 'Excluir Conta Permanentemente'}
+                        {loading ? t('profile.account.dangerZone.deleteLoading', 'Excluindo...') : t('profile.account.dangerZone.deleteCta', 'Excluir Conta Permanentemente')}
                       </Button>
                     </div>
                   </div>
@@ -830,22 +830,22 @@ export default function ProfileSettings({ user, onLogout }) {
                       <User className="w-6 h-6 text-white" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="text-blue-300 font-bold text-lg mb-4">Informações da Conta</h4>
+                      <h4 className="text-blue-300 font-bold text-lg mb-4">{t('profile.account.info.title', 'Informações da Conta')}</h4>
                       <div className="space-y-4">
                         <div className="flex justify-between items-center py-2 border-b border-white/10">
-                          <span className="text-gray-300 font-medium">Membro desde:</span>
+                          <span className="text-gray-300 font-medium">{t('profile.account.info.memberSince', 'Membro desde:')}</span>
                           <span className="text-white font-semibold">
                             {user?.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : 'N/A'}
                           </span>
                         </div>
                         <div className="flex justify-between items-center py-2 border-b border-white/10">
-                          <span className="text-gray-300 font-medium">Último login:</span>
+                          <span className="text-gray-300 font-medium">{t('profile.account.info.lastLogin', 'Último login:')}</span>
                           <span className="text-white font-semibold">
                             {user?.last_login ? new Date(user.last_login).toLocaleDateString('pt-BR') : 'N/A'}
                           </span>
                         </div>
                         <div className="flex justify-between items-center py-2">
-                          <span className="text-gray-300 font-medium">ID da conta:</span>
+                          <span className="text-gray-300 font-medium">{t('profile.account.info.accountId', 'ID da conta:')}</span>
                           <span className="text-white font-mono text-sm bg-white/10 px-3 py-1 rounded-lg">{user?.id}</span>
                         </div>
                       </div>

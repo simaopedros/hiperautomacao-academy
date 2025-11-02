@@ -415,8 +415,118 @@
     "phone": "Ingresa un teléfono válido"
   },
   "profile": {
+    "header": {
+      "title": "Configuraciones del Perfil",
+      "subtitle": "Administra tu información personal y preferencias de la cuenta"
+    },
+    "role": {
+      "admin": "Administrador",
+      "student": "Estudiante"
+    },
+    "tabs": {
+      "profile": "Perfil",
+      "security": "Seguridad",
+      "subscription": "Suscripciones",
+      "preferences": "Preferencias",
+      "account": "Cuenta"
+    },
+    "personal": {
+      "title": "Información Personal",
+      "subtitle": "Actualiza tu información básica y preferencias de idioma"
+    },
+    "fields": {
+      "name": "Nombre Completo",
+      "namePlaceholder": "Tu nombre completo",
+      "email": "Correo electrónico",
+      "emailPlaceholder": "tu@email.com"
+    },
     "preferredLanguage": "Idioma Preferido",
     "languageDescription": "Selecciona el idioma de la interfaz del sistema",
+    "actions": {
+      "saveLoading": "Guardando...",
+      "save": "Guardar Cambios"
+    },
+    "security": {
+      "title": "Seguridad de la Cuenta",
+      "subtitle": "Mantén tu cuenta segura cambiando tu contraseña regularmente",
+      "currentPassword": "Contraseña Actual",
+      "currentPasswordPlaceholder": "Ingresa tu contraseña actual",
+      "newPassword": "Nueva Contraseña",
+      "newPasswordPlaceholder": "Ingresa la nueva contraseña",
+      "confirmPassword": "Confirmar Nueva Contraseña",
+      "confirmPasswordPlaceholder": "Confirma la nueva contraseña",
+      "tipsTitle": "Consejos para una contraseña segura:",
+      "tip1": "• Usa al menos 8 caracteres",
+      "tip2": "• Combina letras mayúsculas y minúsculas",
+      "tip3": "• Incluye números y símbolos especiales",
+      "tip4": "• Evita información personal obvia",
+      "actions": {
+        "saveLoading": "Cambiando...",
+        "save": "Cambiar Contraseña"
+      }
+    },
+    "subscription": {
+      "status": {
+        "title": "Estado de la Suscripción",
+        "subtitle": "Información sobre tu suscripción actual",
+        "fullAccessActive": "Acceso Total Activo",
+        "limitedAccess": "Acceso Limitado",
+        "validUntil": "Válida hasta:",
+        "plan": "Plan:",
+        "activeBadge": "Activo",
+        "limitedBadge": "Limitado",
+        "loading": "Cargando información de la suscripción..."
+      },
+      "plans": {
+        "title": "Planes Disponibles",
+        "subtitle": "Elige el plan que mejor se adapte a tus necesidades",
+        "recommended": "RECOMENDADO",
+        "accessForDays": "Acceso por {{days}} días",
+        "subscribeLoading": "Procesando...",
+        "subscribeCta": "Suscribirse Ahora",
+        "noneAvailable": "No hay planes disponibles en este momento"
+      }
+    },
+    "preferences": {
+      "title": "Notificaciones y Preferencias",
+      "subtitle": "Configura cómo y cuándo deseas recibir notificaciones",
+      "email": {
+        "title": "Notificaciones por Correo",
+        "description": "Recibe actualizaciones importantes por correo"
+      },
+      "course": {
+        "title": "Recordatorios de Curso",
+        "description": "Recibe recordatorios sobre cursos en curso"
+      },
+      "social": {
+        "title": "Notificaciones Sociales",
+        "description": "Recibe notificaciones sobre actividades de la comunidad"
+      },
+      "marketing": {
+        "title": "Correos de Marketing",
+        "description": "Recibe novedades y promociones especiales"
+      },
+      "actions": {
+        "saveLoading": "Guardando...",
+        "save": "Guardar Preferencias"
+      }
+    },
+    "account": {
+      "title": "Configuraciones de la Cuenta",
+      "subtitle": "Administra configuraciones avanzadas de tu cuenta",
+      "dangerZone": {
+        "title": "Zona de Peligro",
+        "description": "Las acciones a continuación son irreversibles. Procede con cuidado.",
+        "deleteLoading": "Eliminando...",
+        "deleteCta": "Eliminar Cuenta Permanentemente"
+      },
+      "info": {
+        "title": "Información de la Cuenta",
+        "memberSince": "Miembro desde:",
+        "lastLogin": "Último inicio de sesión:",
+        "accountId": "ID de la cuenta:"
+      }
+    },
     "notifications": {
       "social": {
         "title": "Notificaciones Sociales",
