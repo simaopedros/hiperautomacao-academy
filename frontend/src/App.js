@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import '@/App.css';
 import '@/i18n'; // Inicializar i18n
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -27,6 +28,7 @@ import AdminCategories from '@/pages/AdminCategories';
 import LanguageSelectionModal from '@/components/LanguageSelectionModal';
 
 function App() {
+  const { t } = useTranslation();
   const [user, setUser] = useState(() => {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
@@ -34,19 +36,26 @@ function App() {
   });
   const [loading] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [languageNoticeDismissed, setLanguageNoticeDismissed] = useState(true);
 
   // Verificar se usuário precisa selecionar idioma (apenas para estudantes)
   const needsLanguageSelection = user && !user.preferred_language && user.role !== 'admin';
+
+  // Carregar estado de aviso fechado por usuário
+  useEffect(() => {
+    if (user && needsLanguageSelection) {
+      const key = `languageNoticeDismissed_${user.id}`;
+      const dismissed = localStorage.getItem(key) === 'true';
+      setLanguageNoticeDismissed(dismissed);
+    } else {
+      setLanguageNoticeDismissed(true);
+    }
+  }, [user, needsLanguageSelection]);
 
   const handleLogin = (token, userData) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
-    
-    // Verificar se precisa mostrar modal de idioma após login (apenas para estudantes)
-    if (!userData.preferred_language && userData.role !== 'admin') {
-      setShowLanguageModal(true);
-    }
   };
 
   const handleLogout = () => {
@@ -66,6 +75,14 @@ function App() {
     
     setShowLanguageModal(false);
     console.log('Modal fechado, idioma selecionado:', language);
+  };
+
+  const dismissLanguageNotice = () => {
+    setLanguageNoticeDismissed(true);
+    if (user) {
+      const key = `languageNoticeDismissed_${user.id}`;
+      localStorage.setItem(key, 'true');
+    }
   };
 
   const updateUser = (updatedUserData) => {
@@ -316,10 +333,41 @@ function App() {
           />
         </Routes>
       </BrowserRouter>
-      
-      {/* Modal de seleção de idioma */}
+
+      {/* Aviso para definir idioma no perfil (fechável) */}
+      {needsLanguageSelection && !languageNoticeDismissed && (
+        <div className="fixed bottom-4 left-4 right-4 z-50">
+          <div className="bg-[#1a1a1a] border border-emerald-500/30 rounded-xl p-4 shadow-lg flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <p className="text-white font-medium">
+                {t('languageNotice.title', 'Idioma não definido')}
+              </p>
+              <p className="text-gray-300 text-sm mt-1">
+                {t('languageNotice.message', 'Defina seu idioma preferido nas configurações do perfil para filtrar cursos no seu idioma.')}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href="/profile"
+                className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium"
+              >
+                {t('languageNotice.cta', 'Ir para Perfil')}
+              </a>
+              <button
+                onClick={dismissLanguageNotice}
+                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white"
+                aria-label={t('languageNotice.close', 'Fechar aviso')}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de seleção de idioma (apenas quando explicitamente aberto) */}
       <LanguageSelectionModal
-        isOpen={showLanguageModal || needsLanguageSelection}
+        isOpen={showLanguageModal}
         onLanguageSelect={handleLanguageSelect}
       />
     </div>

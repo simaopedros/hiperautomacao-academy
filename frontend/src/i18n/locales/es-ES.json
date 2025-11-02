@@ -544,6 +544,12 @@
     "confirm": "Confirmar Selección",
     "skip": "Omitir por ahora"
   },
+  "languageNotice": {
+    "title": "Idioma no definido",
+    "message": "Configura tu idioma preferido en el perfil para filtrar cursos en tu idioma.",
+    "cta": "Ir al Perfil",
+    "close": "Cerrar aviso"
+  },
   "payment": {
     "pending": "⏳ Pago pendiente. Haz clic en \"Verificar Pago\" en el panel para confirmar.",
     "verifyButton": "Usa el botón \"Verificar Pago\" en el panel para confirmar.",

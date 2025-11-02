@@ -423,6 +423,12 @@
     "confirm": "Confirmar Seleção",
     "skip": "Pular por agora"
   },
+  "languageNotice": {
+    "title": "Idioma não definido",
+    "message": "Defina seu idioma preferido nas configurações do perfil para filtrar cursos no seu idioma.",
+    "cta": "Ir para Perfil",
+    "close": "Fechar aviso"
+  },
   "profile": {
     "header": {
       "title": "Configurações do Perfil",
