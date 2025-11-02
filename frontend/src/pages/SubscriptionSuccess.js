@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useI18n } from '../hooks/useI18n';
+import { Button } from '@/components/ui/button';
+import DotLottieCanvas from '@/components/animations/DotLottieCanvas';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -119,26 +121,36 @@ export default function SubscriptionSuccess() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-gray-800 rounded-xl p-8 text-center">
-        {/* Ícone */}
-        <div className="mb-6">
+    <div className="min-h-screen bg-[#02060f] text-white relative overflow-hidden">
+      {/* Overlays de gradiente para alinhar com o guia de estilo */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.14),_transparent_60%)] pointer-events-none" />
+      <div className="absolute -top-24 -right-10 w-80 h-80 bg-emerald-500/18 blur-[140px] pointer-events-none" />
+      <div className="absolute -bottom-20 -left-8 w-72 h-72 bg-blue-500/14 blur-[130px] pointer-events-none" />
+
+      <div className="flex items-center justify-center px-4 relative z-10">
+        <div className="max-w-md w-full bg-gray-900/70 backdrop-blur-sm rounded-xl p-8 text-center shadow-lg border border-gray-800">
+        {/* Ícone/Status acessível */}
+        <div className="mb-6 relative" role="status" aria-live="polite" aria-busy={checking}>
           {checking ? (
-            <div className="mx-auto w-20 h-20 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            // Loading/Checking animation (DotLottie com canvas, usando JSON local)
+            <DotLottieCanvas src="/lottie/checking.json" loop autoplay className="w-28 h-28 mx-auto" />
           ) : (
-            <div className="mx-auto w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center">
-              <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-              </svg>
+            // Success check animation (DotLottie)
+            <div className="relative">
+              <DotLottieCanvas src="/lottie/success.json" loop={false} autoplay className="w-28 h-28 mx-auto" />
+              {/* Confetti celebration background */}
+              <div className="pointer-events-none absolute inset-0 -z-10">
+                <DotLottieCanvas src="/lottie/confetti.json" loop autoplay className="w-64 h-64 mx-auto opacity-70" />
+              </div>
             </div>
           )}
         </div>
 
         {/* Mensagem */}
-        <h1 className="text-3xl font-bold text-white mb-2">
+        <h1 id="subscription-success-title" className="text-3xl font-bold gradient-text mb-2">
           {checking ? 'Processando...' : 'Assinatura ativa!'}
         </h1>
-        <p className="text-gray-400 mb-4">{message}</p>
+        <p className="text-gray-300 mb-4" aria-describedby="subscription-success-title" aria-live="polite">{message}</p>
 
         {/* Status da assinatura */}
         {!checking && renderStatus()}
@@ -146,24 +158,19 @@ export default function SubscriptionSuccess() {
         {/* Ações */}
         {!checking && (
           <div className="space-y-4">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-lg transition"
-            >
+            <Button onClick={() => navigate('/dashboard')} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
               Ir para o Dashboard
-            </button>
-            <button
-              onClick={() => navigate('/subscribe')}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition"
-            >
+            </Button>
+            <Button onClick={() => navigate('/subscribe')} variant="secondary" className="w-full bg-gray-800 hover:bg-gray-700 text-white">
               Ver Planos
-            </button>
+            </Button>
           </div>
         )}
 
-        <p className="text-gray-500 text-sm mt-6">
+        <p className="text-gray-400 text-sm mt-6" aria-live="polite">
           {checking ? 'Aguarde...' : 'Redirecionando automaticamente em alguns segundos...'}
         </p>
+        </div>
       </div>
     </div>
   );

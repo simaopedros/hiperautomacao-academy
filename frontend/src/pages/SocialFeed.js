@@ -321,7 +321,6 @@ export default function SocialFeed({ user, onLogout }) {
           {/* Enhanced Sidebar */}
           <aside 
             className="lg:col-span-1 space-y-6 animate-slide-in-left"
-            role="complementary"
             aria-label={t('social.aria.sidebar')}
           >
             {/* Create Post Card */}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, Check, Star, Zap, Crown, Shield } from 'lucide-react';
 import UnifiedHeader from '../components/UnifiedHeader';
+import LottieAnimation from '@/components/animations/LottieAnimation';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -114,8 +115,15 @@ export default function SubscribePage() {
         <h1 className="text-3xl font-bold gradient-text mb-2">Planos de Assinatura</h1>
         <p className="text-gray-400 mb-8">Assine para ter acesso completo aos cursos por um período determinado.</p>
 
+        {/* Animação de introdução divertida (opcional) */}
+        <div className="mb-8 flex items-center justify-center">
+          <LottieAnimation src="/lottie/subscribe-intro.json" loop autoplay className="w-64 h-64" />
+        </div>
+
         {loading ? (
-          <div className="text-emerald-400">Carregando planos...</div>
+          <div className="flex items-center justify-center py-12">
+            <LottieAnimation src="/lottie/loading.json" loop autoplay className="w-36 h-36" />
+          </div>
         ) : plans.length === 0 ? (
           <div className="text-gray-400">Nenhum plano disponível no momento.</div>
         ) : (
@@ -175,6 +183,19 @@ export default function SubscribePage() {
           </div>
         )}
       </div>
+
+      {/* Overlay de processamento de cobrança */}
+      {creatingBilling && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#0f172a] border border-emerald-700/40 rounded-xl p-8 text-center w-[90%] max-w-md">
+            <div className="mb-4">
+              <LottieAnimation src="/lottie/processing.json" loop autoplay className="w-48 h-48 mx-auto" />
+            </div>
+            <h2 className="text-2xl font-semibold text-white mb-2">Gerando cobrança…</h2>
+            <p className="text-emerald-200">Você será redirecionado para o pagamento em instantes.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

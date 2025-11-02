@@ -5,7 +5,6 @@ import {
   BookOpen, 
   MessageCircle, 
   LogOut, 
-  Globe, 
   ChevronDown, 
   ChevronUp,
   Sparkles,
@@ -142,16 +141,7 @@ const UnifiedHeader = ({
                   </div>
                 </div>
                 
-                {/* Language Settings */}
-                {setShowLanguageSettings && (
-                  <button
-                    onClick={() => setShowLanguageSettings(true)}
-                    className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
-                    title={t('dashboard.languageSettings')}
-                  >
-                    <Globe size={18} className="text-gray-200" />
-                  </button>
-                )}
+                {/* Language Settings removed from top navigation */}
                 
                 {/* Logout Button */}
                 <button
