@@ -2548,6 +2548,15 @@ async def create_password_from_token(token: str, password: str):
 
 @api_router.get("/social/feed", response_model=List[Comment])
 async def get_social_feed(current_user: User = Depends(get_current_user), filter: Optional[str] = None):
+    # Restrict feed reading to users with access (except admins)
+    if current_user.role != "admin":
+        has_access = await user_has_access(current_user.id)
+        if not has_access:
+            raise HTTPException(
+                status_code=403,
+                detail="Você precisa ter acesso a pelo menos um curso ou assinatura ativa para ver a comunidade"
+            )
+
     # Get all top-level comments/posts (no parent_id) with reply counts
     query = {"parent_id": None}
     if filter == "discussions":
@@ -2569,6 +2578,15 @@ async def get_social_feed(current_user: User = Depends(get_current_user), filter
 
 @api_router.get("/social/post/{post_id}")
 async def get_post_detail(post_id: str, current_user: User = Depends(get_current_user)):
+    # Restrict post detail to users with access (except admins)
+    if current_user.role != "admin":
+        has_access = await user_has_access(current_user.id)
+        if not has_access:
+            raise HTTPException(
+                status_code=403,
+                detail="Você precisa ter acesso a pelo menos um curso ou assinatura ativa para ver a comunidade"
+            )
+
     # Get the post
     post = await db.comments.find_one({"id": post_id}, {"_id": 0})
     if not post:
