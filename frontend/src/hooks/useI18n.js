@@ -25,7 +25,7 @@ export const useI18n = () => {
           else if (languageCode === 'en-US') backendLanguageCode = 'en';
           else if (languageCode === 'es-ES') backendLanguageCode = 'es';
           
-          const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+          const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
           const response = await fetch(`${BACKEND_URL}/api/auth/language`, {
             method: 'PUT',
             headers: {

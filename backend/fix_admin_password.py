@@ -69,11 +69,14 @@ async def fix_admin_and_test():
     
     # Test the API endpoint
     print("\n=== TESTING API ENDPOINT ===")
+    # Allow overriding backend URL via env; default to 8001
+    BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8001").rstrip("/")
+    API = f"{BACKEND_URL}/api"
     try:
         async with httpx.AsyncClient() as client:
             # Login
             login_response = await client.post(
-                "http://localhost:8000/api/auth/login",
+                f"{API}/auth/login",
                 json={"email": admin_user["email"], "password": new_password}
             )
             
@@ -88,14 +91,14 @@ async def fix_admin_and_test():
                 # Test /auth/me endpoint
                 headers = {"Authorization": f"Bearer {token}"}
                 me_response = await client.get(
-                    "http://localhost:8000/api/auth/me",
+                    f"{API}/auth/me",
                     headers=headers
                 )
                 print(f"/auth/me status: {me_response.status_code}")
                 
                 # Test /admin/users endpoint
                 users_response = await client.get(
-                    "http://localhost:8000/api/admin/users",
+                    f"{API}/admin/users",
                     headers=headers
                 )
                 

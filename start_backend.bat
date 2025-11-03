@@ -67,7 +67,7 @@ if not exist ".env" (
 )
 
 REM Iniciar o servidor
-echo 🚀 Iniciando servidor backend...
-uvicorn server:app --reload --host 0.0.0.0 --port 8000
+echo 🚀 Iniciando servidor backend na porta 8001...
+uvicorn server:app --reload --host 0.0.0.0 --port 8001
 
 pause
