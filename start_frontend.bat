@@ -35,7 +35,8 @@ if not exist "node_modules" (
 REM Verificar se o arquivo .env existe
 if not exist ".env" (
     echo 🛠️  Criando arquivo .env...
-    echo # URL da API Backend>REACT_APP_BACKEND_URL=http://localhost:8000
+    echo # URL da API Backend>.env
+    echo REACT_APP_BACKEND_URL=http://localhost:8001>>.env
     echo.>>.env
     echo # URL de Suporte Padrão>>.env
     echo REACT_APP_DEFAULT_SUPPORT_URL=https://wa.me/5511999999999>>.env

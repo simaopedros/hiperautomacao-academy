@@ -33,7 +33,8 @@ ROOT_DIR = Path(__file__).parent
 # Load default env first (backwards compatibility), then env-specific overrides
 default_env_file = ROOT_DIR / '.env'
 if default_env_file.exists():
-    load_dotenv(default_env_file, override=False)
+    # Ensure local .env takes precedence over any pre-set OS environment vars
+    load_dotenv(default_env_file, override=True)
 
 app_env = os.getenv('APP_ENV', 'development')
 env_specific_file = ROOT_DIR / f'.env.{app_env}'
@@ -52,6 +53,7 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 # Primary database (unwrapped)
 _primary_db = client[os.environ['DB_NAME']]
+logger.info("[Startup] Mongo primary database configured: DB_NAME=%s URL=%s", os.environ.get('DB_NAME'), mongo_url)
 
 # Replication manager and wrapped database
 replication_manager = ReplicationManager()
@@ -4422,6 +4424,16 @@ async def startup_event():
     try:
         await replication_manager.start()
         logger.info("Replication manager started. Enabled=%s", replication_manager.enabled)
+        # Log replication secondary configuration if present
+        try:
+            cfg = load_config()
+            logger.info("[Startup] Replication config loaded: enabled=%s configured=%s mongo_url=%s db_name=%s", 
+                        replication_manager.enabled,
+                        bool(cfg.get('mongo_url') and cfg.get('db_name')),
+                        cfg.get('mongo_url'),
+                        cfg.get('db_name'))
+        except Exception:
+            pass
     except Exception as exc:
         logger.exception("Failed to start replication manager: %s", exc)
 
