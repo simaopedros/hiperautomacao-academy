@@ -3471,7 +3471,8 @@ async def stripe_webhook(request: Request):
     data_obj = (event.get("data", {}) or {}).get("object", {})
 
     try:
-        if event_type in ("checkout.session.completed", "invoice.payment_succeeded"):
+        invoice_success_events = ("invoice.payment_succeeded", "invoice.paid")
+        if event_type in ("checkout.session.completed", *invoice_success_events):
             meta = data_obj.get("metadata") or {}
             user_id = meta.get("user_id") or data_obj.get("client_reference_id")
             plan_id = meta.get("subscription_plan_id")
@@ -3501,7 +3502,7 @@ async def stripe_webhook(request: Request):
                     currency = data_obj["currency"].upper()
 
             price_id = None
-            if event_type == "invoice.payment_succeeded":
+            if event_type in invoice_success_events:
                 line_items = ((data_obj.get("lines") or {}).get("data") or [])
                 if line_items:
                     first_line = line_items[0] or {}
