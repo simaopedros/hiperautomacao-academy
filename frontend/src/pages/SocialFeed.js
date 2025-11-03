@@ -30,7 +30,8 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageSquare,
-  Reply
+  Reply,
+  Lock
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -61,6 +62,7 @@ export default function SocialFeed({ user, onLogout }) {
   const [postReplies, setPostReplies] = useState([]);
   const [replyContent, setReplyContent] = useState('');
   const [showPostDetail, setShowPostDetail] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
   const navigate = useNavigate();
 
   // Helper functions to extract lesson information from post content
@@ -157,7 +159,11 @@ export default function SocialFeed({ user, onLogout }) {
       });
       setFeed(response.data);
     } catch (error) {
-      console.error('Error fetching feed:', error);
+      if (error.response?.status === 403) {
+        setAccessDenied(true);
+      } else {
+        console.error('Error fetching feed:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -502,70 +508,98 @@ export default function SocialFeed({ user, onLogout }) {
           >
 
 
-            {/* Feed Header */}
-            <header className="text-center lg:text-left">
-              <h2 className="text-3xl lg:text-4xl font-bold text-white mb-2">
-                {t('social.feedTitle')}
-              </h2>
-              <p className="text-gray-400 text-lg">
-                {t('social.communityDescription')}
-              </p>
-            </header>
+            {accessDenied && !loading ? (
+              <Card className="bg-gradient-to-br from-[#1a1a1a] to-[#151515] border-[#252525]/50 shadow-xl animate-fade-in-up">
+                <CardContent className="text-center py-16">
+                  <div className="w-16 h-16 bg-gradient-to-br from-red-500/20 to-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-6" aria-hidden="true">
+                    <Lock className="w-8 h-8 text-yellow-400" />
+                  </div>
+                  <h3 className="text-2xl font-semibold text-white mb-2">Acesso à comunidade bloqueado</h3>
+                  <p className="text-gray-400 mb-6 max-w-xl mx-auto">
+                    Você precisa estar matriculado em um curso ou ter uma assinatura ativa para visualizar e participar da comunidade.
+                  </p>
+                  <div className="flex justify-center gap-3">
+                    <Button
+                      onClick={() => navigate('/subscribe')}
+                      className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 rounded-xl"
+                    >
+                      Assinar agora
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate('/')}
+                      className="border-[#2a2a2a] hover:bg-[#252525] rounded-xl"
+                    >
+                      Voltar ao início
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                <header className="text-center lg:text-left">
+                  <h2 className="text-3xl lg:text-4xl font-bold text-white mb-2">
+                    {t('social.feedTitle')}
+                  </h2>
+                  <p className="text-gray-400 text-lg">
+                    {t('social.communityDescription')}
+                  </p>
+                </header>
 
-            {loading ? (
-                <div className="space-y-6" aria-live="polite" aria-label={t('social.loading')}>
-                  {[...Array(3)].map((_, i) => (
-                    <Card key={i} className="bg-gradient-to-br from-[#1a1a1a] to-[#151515] border-[#252525]/50 shadow-xl shimmer-loading">
-                      <CardContent className="p-6">
-                        <div className="animate-pulse">
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 bg-gray-700 rounded-full" aria-hidden="true"></div>
+                {loading ? (
+                  <div className="space-y-6" aria-live="polite" aria-label={t('social.loading')}>
+                    {[...Array(3)].map((_, i) => (
+                      <Card key={i} className="bg-gradient-to-br from-[#1a1a1a] to-[#151515] border-[#252525]/50 shadow-xl shimmer-loading">
+                        <CardContent className="p-6">
+                          <div className="animate-pulse">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="w-10 h-10 bg-gray-700 rounded-full" aria-hidden="true"></div>
+                              <div className="space-y-2">
+                                <div className="h-4 bg-gray-700 rounded w-24" aria-hidden="true"></div>
+                                <div className="h-3 bg-gray-700 rounded w-16" aria-hidden="true"></div>
+                              </div>
+                            </div>
                             <div className="space-y-2">
-                              <div className="h-4 bg-gray-700 rounded w-24" aria-hidden="true"></div>
-                              <div className="h-3 bg-gray-700 rounded w-16" aria-hidden="true"></div>
+                              <div className="h-4 bg-gray-700 rounded" aria-hidden="true"></div>
+                              <div className="h-4 bg-gray-700 rounded w-3/4" aria-hidden="true"></div>
                             </div>
                           </div>
-                          <div className="space-y-2">
-                            <div className="h-4 bg-gray-700 rounded" aria-hidden="true"></div>
-                            <div className="h-4 bg-gray-700 rounded w-3/4" aria-hidden="true"></div>
-                          </div>
-                        </div>
                       </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : filteredFeed.length === 0 ? (
-                <Card className="bg-gradient-to-br from-[#1a1a1a] to-[#151515] border-[#252525]/50 shadow-xl animate-fade-in-up">
-                  <CardContent className="text-center py-20">
-                    <div 
-                      className="w-16 h-16 bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 rounded-full flex items-center justify-center mx-auto mb-6"
-                      aria-hidden="true"
-                    >
-                      <MessageCircle className="w-8 h-8 text-emerald-400 float-animation" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-white mb-2">
-                      {t('social.noDiscussionsFound')}
-                    </h3>
-                    <p className="text-gray-400 mb-6 max-w-md mx-auto">
-                      {searchTerm 
-                        ? t('social.noDiscussionsMessage', { searchTerm })
-                        : t('social.beFirstToStart')
-                      }
-                    </p>
-                    <Button
-                      onClick={() => setShowCreatePost(true)}
-                      className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 rounded-xl button-press ripple glow-on-hover"
-                      aria-label={t('social.aria.createFirstDiscussion')}
-                    >
-                      <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
-                      {t('social.createFirstDiscussion')}
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <>
-                  <div className="space-y-6">
-                    {filteredFeed.map((post, index) => {
+                      </Card>
+                    ))}
+                  </div>
+                ) : filteredFeed.length === 0 ? (
+                  <Card className="bg-gradient-to-br from-[#1a1a1a] to-[#151515] border-[#252525]/50 shadow-xl animate-fade-in-up">
+                    <CardContent className="text-center py-20">
+                      <div 
+                        className="w-16 h-16 bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 rounded-full flex items-center justify-center mx-auto mb-6"
+                        aria-hidden="true"
+                      >
+                        <MessageCircle className="w-8 h-8 text-emerald-400 float-animation" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-white mb-2">
+                        {t('social.noDiscussionsFound')}
+                      </h3>
+                      <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                        {searchTerm 
+                          ? t('social.noDiscussionsMessage', { searchTerm })
+                          : t('social.beFirstToStart')
+                        }
+                      </p>
+                      <Button
+                        onClick={() => setShowCreatePost(true)}
+                        className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 rounded-xl button-press ripple glow-on-hover"
+                        aria-label={t('social.aria.createFirstDiscussion')}
+                      >
+                        <Plus className="w-4 h-4 mr-2" aria-hidden="true" />
+                        {t('social.createFirstDiscussion')}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <>
+                    <div className="space-y-6">
+                      {filteredFeed.map((post, index) => {
                       const interactionType = getInteractionType(post);
                       const IconComponent = interactionType.icon;
                       
@@ -739,67 +773,69 @@ export default function SocialFeed({ user, onLogout }) {
                   </Card>
                       );
                     })}
-              </div>
-
-              {totalPages > 1 && (
-                <div className="mt-8 flex justify-center items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className="bg-[#1a1a1a] border-[#252525] text-white hover:bg-[#252525] disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label={t('social.pagination.previousPage')}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                  
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-                      
-                      return (
-                        <Button
-                          key={pageNum}
-                          variant={currentPage === pageNum ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`w-8 h-8 p-0 ${
-                            currentPage === pageNum
-                              ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white border-0"
-                              : "bg-[#1a1a1a] border-[#252525] text-white hover:bg-[#252525]"
-                          }`}
-                          aria-label={t('social.pagination.goToPage', { page: pageNum })}
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
                   </div>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className="bg-[#1a1a1a] border-[#252525] text-white hover:bg-[#252525] disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label={t('social.pagination.nextPage')}
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
+                  {totalPages > 1 && (
+                    <div className="mt-8 flex justify-center items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="bg-[#1a1a1a] border-[#252525] text-white hover:bg-[#252525] disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label={t('social.pagination.previousPage')}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={currentPage === pageNum ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`w-8 h-8 p-0 ${
+                                currentPage === pageNum
+                                  ? "bg-gradient-to-r from-emerald-500 to-cyan-500 text-white border-0"
+                                  : "bg-[#1a1a1a] border-[#252525] text-white hover:bg-[#252525]"
+                              }`}
+                              aria-label={t('social.pagination.goToPage', { page: pageNum })}
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        })}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className="bg-[#1a1a1a] border-[#252525] text-white hover:bg-[#252525] disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label={t('social.pagination.nextPage')}
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  )}
                 </>
               )}
+              </div>
+            )}
           </section>
         </div>
       </main>
