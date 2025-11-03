@@ -3680,6 +3680,17 @@ async def stripe_webhook(request: Request):
             current_period_end_ts = data_obj.get("current_period_end")
             canceled_at_ts = data_obj.get("canceled_at") or data_obj.get("ended_at")
 
+            # If current_period_end isn't present in payload, try retrieving from Stripe
+            # This covers API versions or payloads where the timestamp may be nested/missing
+            try:
+                if not current_period_end_ts:
+                    sub_id_probe = data_obj.get("id") or data_obj.get("subscription")
+                    if sub_id_probe:
+                        sub_probe = stripe.Subscription.retrieve(sub_id_probe)
+                        current_period_end_ts = sub_probe.get("current_period_end") or current_period_end_ts
+            except Exception as e:
+                logger.warning(f"Could not derive current_period_end from Stripe: {e}")
+
             # Resolve customer email
             email = data_obj.get("customer_email")
             cust_id = data_obj.get("customer")
@@ -3714,6 +3725,10 @@ async def stripe_webhook(request: Request):
                 updates["subscription_cancel_at_period_end"] = True
             if status == "canceled" or canceled_at_ts:
                 updates["subscription_cancelled"] = True
+                # Immediate cancellation should revoke full access
+                # If cancel_at_period_end is False, the subscription ends now
+                if not cancel_at_period_end:
+                    updates["has_full_access"] = False
             if current_period_end_ts:
                 try:
                     updates["subscription_valid_until"] = datetime.fromtimestamp(int(current_period_end_ts), tz=timezone.utc).isoformat()
