@@ -10,8 +10,8 @@ import os
 import logging
 import json
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
-from typing import List, Optional
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, ValidationError
+from typing import List, Optional, Union
 import uuid
 from datetime import datetime, timezone, timedelta
 from collections import deque
@@ -88,6 +88,7 @@ STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
 if STRIPE_SECRET_KEY:
     stripe.api_key = STRIPE_SECRET_KEY
+    stripe.api_version = '2025-10-29'
 
 # Helper to ensure Stripe is configured with the latest available key
 # Tries env -> existing api_key -> payment_settings in DB
@@ -473,6 +474,38 @@ class BrevoListResponse(BaseModel):
     id: int
     name: str
     folder_id: Optional[int] = None
+
+# Stripe Validation Models
+class StripeMetadata(BaseModel):
+    user_id: Optional[str] = None
+    subscription_plan_id: Optional[str] = None
+    access_scope: Optional[str] = "full"
+    course_ids: Optional[Union[str, List[str]]] = None
+    duration_days: Optional[Union[int, str]] = None
+
+class StripeCheckoutSession(BaseModel):
+    id: str
+    object: str = "checkout.session"
+    amount_total: Optional[int] = None
+    amount_subtotal: Optional[int] = None
+    currency: Optional[str] = None
+    customer: Optional[str] = None
+    customer_email: Optional[str] = None
+    metadata: Optional[StripeMetadata] = None
+    subscription: Optional[str] = None
+    customer_details: Optional[dict] = None
+
+class StripeInvoice(BaseModel):
+    id: str
+    object: str = "invoice"
+    amount_paid: Optional[int] = None
+    amount_due: Optional[int] = None
+    currency: Optional[str] = None
+    customer: Optional[str] = None
+    customer_email: Optional[str] = None
+    metadata: Optional[StripeMetadata] = None
+    subscription: Optional[str] = None
+    lines: Optional[dict] = None
 
 # ==================== AUTH HELPERS ====================
 
@@ -3469,6 +3502,29 @@ async def stripe_webhook(request: Request):
 
     event_type = event.get("type")
     data_obj = (event.get("data", {}) or {}).get("object", {})
+    
+    # Validate payload using Pydantic models
+    try:
+        if event_type == "checkout.session.completed":
+            validated_data = StripeCheckoutSession(**data_obj)
+        elif event_type in ("invoice.payment_succeeded", "invoice.paid"):
+            validated_data = StripeInvoice(**data_obj)
+        else:
+            validated_data = None
+            logger.info(f"Stripe: skipping structured validation for event type: {event_type}")
+    except ValidationError as e:
+        logger.error(f"Stripe payload validation failed: {e}")
+        _record_stripe_event({
+            "stage": "error",
+            "type": "validation_failed",
+            "error": str(e),
+            "payload_json": data_obj,
+        })
+        raise HTTPException(status_code=400, detail="Invalid payload structure")
+
+    # Use validated data if available
+    if validated_data:
+        data_obj = validated_data.model_dump()
 
     try:
         invoice_success_events = ("invoice.payment_succeeded", "invoice.paid")
