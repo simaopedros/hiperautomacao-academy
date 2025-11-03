@@ -17,7 +17,9 @@ export default function PaymentSettings({ user, onLogout }) {
     abacatepay_api_key: '',
     environment: 'sandbox',
     stripe_secret_key: '',
-    stripe_webhook_secret: ''
+    stripe_webhook_secret: '',
+    forward_webhook_url: '',
+    forward_test_events: false
   });
 
   useEffect(() => {
@@ -51,7 +53,9 @@ export default function PaymentSettings({ user, onLogout }) {
             abacatepay_api_key: settings.abacatepay_api_key,
             environment: settings.environment,
             stripe_secret_key: settings.stripe_secret_key,
-            stripe_webhook_secret: settings.stripe_webhook_secret
+            stripe_webhook_secret: settings.stripe_webhook_secret,
+            forward_webhook_url: settings.forward_webhook_url || undefined,
+            forward_test_events: settings.forward_test_events ? 'true' : 'false'
           },
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -154,6 +158,26 @@ export default function PaymentSettings({ user, onLogout }) {
                   <p className="text-emerald-300 text-sm font-semibold mb-2">URL do Webhook da Stripe:</p>
                   <code className="text-emerald-400 text-sm bg-[#0a0a0a] p-2 rounded block break-all">{`${API}/api/webhook/stripe`}</code>
                   <p className="text-emerald-300 text-sm mt-2">Configure esta URL no dashboard da Stripe em Webhooks</p>
+                </div>
+                <div className="pt-2">
+                  <Label className="text-gray-300">Encaminhar status para URL externa</Label>
+                  <Input
+                    type="url"
+                    value={settings.forward_webhook_url || ''}
+                    onChange={(e) => setSettings({ ...settings, forward_webhook_url: e.target.value })}
+                    className="bg-[#0a0a0a] border-[#2a2a2a] text-white font-mono"
+                    placeholder="https://seu-sistema.com/webhook"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Se definido, o backend enviará eventos normalizados (ativação, renovação, cancelamento, falha de pagamento).</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <input
+                      id="forward_test_events"
+                      type="checkbox"
+                      checked={!!settings.forward_test_events}
+                      onChange={(e) => setSettings({ ...settings, forward_test_events: e.target.checked })}
+                    />
+                    <Label htmlFor="forward_test_events" className="text-gray-300">Enviar eventos de teste (livemode=false)</Label>
+                  </div>
                 </div>
               </div>
             </div>
