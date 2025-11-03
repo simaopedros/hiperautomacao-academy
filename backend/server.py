@@ -3460,6 +3460,8 @@ async def stripe_webhook(request: Request):
             access_scope = meta.get("access_scope", "full")
             course_ids = [c for c in (meta.get("course_ids") or "").split(",") if c]
             duration_days = int(meta.get("duration_days", "0") or 0)
+            # Capture Stripe customer id if available to link future lifecycle events
+            customer_id = data_obj.get("customer")
 
             if not user_id or not plan_id:
                 logger.warning("Missing user_id or plan_id in webhook metadata; skipping")
@@ -3489,6 +3491,7 @@ async def stripe_webhook(request: Request):
                         "has_full_access": True,
                         "subscription_plan_id": plan_id,
                         "subscription_valid_until": valid_until.isoformat(),
+                        **({"stripe_customer_id": customer_id} if customer_id else {})
                     }}
                 )
                 logger.info(f"Stripe: full access activated for user {user_id} until {valid_until.isoformat()}")
@@ -3496,7 +3499,7 @@ async def stripe_webhook(request: Request):
                 if course_ids:
                     await db.users.update_one(
                         {"id": user_id},
-                        {"$addToSet": {"enrolled_courses": {"$each": course_ids}}, "$set": {"has_purchased": True}}
+                        {"$addToSet": {"enrolled_courses": {"$each": course_ids}}, "$set": {"has_purchased": True, **({"stripe_customer_id": customer_id} if customer_id else {})}}
                     )
                 logger.info(f"Stripe: specific courses granted to user {user_id}: {course_ids}")
 
@@ -3542,17 +3545,30 @@ async def stripe_webhook(request: Request):
 
             # Resolve customer email
             email = data_obj.get("customer_email")
-            if not email:
+            cust_id = data_obj.get("customer")
+            # Try to resolve user by stored stripe_customer_id first (does not require Stripe API)
+            user_filter = None
+            user_doc = None
+            if cust_id:
                 try:
-                    cust_id = data_obj.get("customer")
+                    user_doc = await db.users.find_one({"stripe_customer_id": cust_id}, {"_id": 0, "id": 1, "email": 1})
+                    if user_doc and user_doc.get("id"):
+                        user_filter = {"id": user_doc["id"]}
+                        if not email:
+                            email = user_doc.get("email")
+                except Exception:
+                    pass
+            # Fallback to retrieving email from Stripe API if no user found by customer id
+            if not user_filter and not email:
+                try:
                     if cust_id:
                         cust = stripe.Customer.retrieve(cust_id)
                         email = cust.get("email")
                 except Exception as e:
                     logger.warning(f"Could not retrieve Stripe customer email: {e}")
-
-            if not email:
-                logger.warning("Stripe subscription event without resolvable customer email; skipping user update")
+            # If still no way to identify the user, ignore
+            if not user_filter and not email:
+                logger.warning("Stripe subscription event without resolvable customer identifier; skipping user update")
                 return {"status": "ignored"}
 
             # Update user subscription flags and validity
@@ -3573,8 +3589,10 @@ async def stripe_webhook(request: Request):
                     pass
 
             if updates:
-                await db.users.update_one({"email": email}, {"$set": updates})
-                logger.info(f"Stripe: updated subscription for {email} with {updates}")
+                # Prefer updating by internal user id if available, otherwise by email
+                update_target = user_filter if user_filter else {"email": email}
+                await db.users.update_one(update_target, {"$set": updates})
+                logger.info(f"Stripe: updated subscription for {(user_doc.get('email') if user_doc else email)} with {updates}")
 
             # Reflect cancellation/update in billings using subscription id
             sub_id = data_obj.get("id") or data_obj.get("subscription")
