@@ -587,8 +587,17 @@ export default function ProfileSettings({ user, onLogout }) {
                               <CreditCard className="w-6 h-6 text-white" />
                             </div>
                             <div>
+                              {
+                                /* Título: Assinatura ativa/cancelada ou Acesso vitalício */
+                              }
                               <h3 className="text-xl font-bold text-white">
-                                {subscriptionData.has_full_access ? t('profile.subscription.status.fullAccessActive', 'Acesso Total Ativo') : t('profile.subscription.status.limitedAccess', 'Acesso Limitado')}
+                                {subscriptionData.subscription_plan_id
+                                  ? ((subscriptionData.subscription_valid_until && new Date(subscriptionData.subscription_valid_until).getTime() > Date.now())
+                                      ? t('profile.subscription.status.subscriptionActive', 'Assinatura Ativa')
+                                      : t('profile.subscription.status.subscriptionCanceled', 'Assinatura cancelada ou expirada'))
+                                  : (subscriptionData.has_full_access
+                                      ? t('profile.subscription.status.lifetimeAccessActive', 'Acesso Vitalício Ativo')
+                                      : t('profile.subscription.status.limitedAccess', 'Acesso Limitado'))}
                               </h3>
                               {subscriptionData.subscription_valid_until && (
                                 <p className="text-emerald-300 text-sm">
@@ -602,16 +611,26 @@ export default function ProfileSettings({ user, onLogout }) {
                               )}
                             </div>
                           </div>
-                          <div className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                            subscriptionData.has_full_access 
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
-                              : 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
-                          }`}>
-                            {subscriptionData.has_full_access ? t('profile.subscription.status.activeBadge', 'Ativo') : t('profile.subscription.status.limitedBadge', 'Limitado')}
+                          <div className={'px-4 py-2 rounded-full text-sm font-semibold ' + (
+                            subscriptionData.subscription_plan_id
+                              ? ((subscriptionData.subscription_valid_until && new Date(subscriptionData.subscription_valid_until).getTime() > Date.now())
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                  : 'bg-red-500/20 text-red-300 border border-red-500/30')
+                              : (subscriptionData.has_full_access
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                  : 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30')
+                          )}>
+                            {subscriptionData.subscription_plan_id
+                              ? ((subscriptionData.subscription_valid_until && new Date(subscriptionData.subscription_valid_until).getTime() > Date.now())
+                                  ? t('profile.subscription.status.activeBadge', 'Ativo')
+                                  : t('profile.subscription.status.canceledBadge', 'Cancelado'))
+                              : (subscriptionData.has_full_access
+                                  ? t('profile.subscription.status.activeBadge', 'Ativo')
+                                  : t('profile.subscription.status.limitedBadge', 'Limitado'))}
                           </div>
                         </div>
                       </div>
-                      {subscriptionData.has_full_access && (
+                      {subscriptionData.has_full_access && !subscriptionData.subscription_plan_id && (
                         <div className="bg-emerald-500/10 border border-emerald-400/20 rounded-xl p-4">
                           <p className="text-emerald-200">
                             {t('profile.subscription.status.lifetimeMessage', 'Parabéns! Você tem acesso vitalício à plataforma.')}

@@ -101,12 +101,19 @@ export default function SubscriptionSuccess() {
 
     const hasFullAccess = !!userInfo.has_full_access;
     const planId = userInfo.subscription_plan_id || null;
+    const isActiveSubscription = !!(planId && validUntil && validUntil.getTime() > Date.now());
 
     return (
       <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-lg p-6 mb-8">
         <p className="text-emerald-100 text-sm mb-2">Status da sua assinatura</p>
-        {hasFullAccess ? (
-          <p className="text-white text-lg font-semibold mb-1">Acesso total ativo</p>
+        {planId ? (
+          isActiveSubscription ? (
+            <p className="text-white text-lg font-semibold mb-1">Assinatura ativa</p>
+          ) : (
+            <p className="text-white text-lg font-semibold mb-1">Assinatura cancelada ou expirada</p>
+          )
+        ) : hasFullAccess ? (
+          <p className="text-white text-lg font-semibold mb-1">Acesso vitalício ativo</p>
         ) : (
           <p className="text-white text-lg font-semibold mb-1">Acesso limitado</p>
         )}
