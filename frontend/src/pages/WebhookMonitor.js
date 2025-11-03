@@ -5,7 +5,7 @@ import AdminNavigation from '@/components/AdminNavigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, RefreshCw, Activity, Filter } from 'lucide-react';
+import { AlertCircle, RefreshCw, Activity, Filter, ChevronDown, ChevronRight } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
@@ -17,6 +17,7 @@ export default function WebhookMonitor({ user, onLogout }) {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [refreshMs, setRefreshMs] = useState(2000);
   const [showErrorsOnly, setShowErrorsOnly] = useState(false);
+  const [expandedEvents, setExpandedEvents] = useState({});
   const timerRef = useRef(null);
 
   const fetchEvents = async () => {
@@ -66,41 +67,109 @@ export default function WebhookMonitor({ user, onLogout }) {
     }
   };
 
-  const renderRow = (ev, idx) => (
-    <div key={`${ev.event_id || ev.type || 'noid'}-${idx}`} className="grid grid-cols-12 items-center gap-4 px-4 py-3 border-b border-[#1f1f1f] hover:bg-white/5">
-      <div className={`col-span-2 inline-flex items-center px-2 py-1 rounded border ${stageColor(ev.stage)}`}>
-        <Activity size={16} className="mr-2" />
-        <span className="text-xs font-semibold uppercase">{ev.stage || 'n/a'}</span>
-      </div>
-      <div className="col-span-3">
-        <div className="text-white text-sm font-mono">{ev.type || '—'}</div>
-        <div className="text-xs text-gray-400 font-mono">{ev.event_id || 'sem id'}</div>
-      </div>
-      <div className="col-span-3">
-        <div className="text-xs text-gray-300">{new Date(ev.timestamp || Date.now()).toLocaleString()}</div>
-        {typeof ev.livemode !== 'undefined' && (
-          <span className={`inline-block mt-1 text-[11px] px-2 py-0.5 rounded border ${ev.livemode ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'}`}>
-            {ev.livemode ? 'live' : 'test'}
-          </span>
+  const formatJson = (obj) => {
+    if (!obj) return null;
+    if (typeof obj === 'string') {
+      try {
+        return JSON.stringify(JSON.parse(obj), null, 2);
+      } catch (err) {
+        return obj;
+      }
+    }
+    try {
+      return JSON.stringify(obj, null, 2);
+    } catch (err) {
+      return String(obj);
+    }
+  };
+
+  const toggleExpanded = (key) => {
+    setExpandedEvents((prev) => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const renderRow = (ev, idx) => {
+    const key = `${ev.event_id || ev.type || 'noid'}-${idx}`;
+    const isExpanded = !!expandedEvents[key];
+    const payloadJson = formatJson(ev.payload_json);
+    const payloadRaw = !payloadJson && ev.payload_raw ? ev.payload_raw : null;
+    const dataObject = formatJson(ev.data_object);
+    const metadataJson = formatJson(ev.metadata);
+
+    return (
+      <div key={key} className="border-b border-[#1f1f1f]">
+        <div
+          className="grid grid-cols-12 items-center gap-4 px-4 py-3 hover:bg-white/5 cursor-pointer"
+          onClick={() => toggleExpanded(key)}
+        >
+          <div className={`col-span-2 inline-flex items-center px-2 py-1 rounded border ${stageColor(ev.stage)}`}>
+            <Activity size={16} className="mr-2" />
+            <span className="text-xs font-semibold uppercase">{ev.stage || 'n/a'}</span>
+          </div>
+          <div className="col-span-3">
+            <div className="text-white text-sm font-mono">{ev.type || '—'}</div>
+            <div className="text-xs text-gray-400 font-mono">{ev.event_id || 'sem id'}</div>
+          </div>
+          <div className="col-span-3">
+            <div className="text-xs text-gray-300">{new Date(ev.timestamp || Date.now()).toLocaleString()}</div>
+            {typeof ev.livemode !== 'undefined' && (
+              <span className={`inline-block mt-1 text-[11px] px-2 py-0.5 rounded border ${ev.livemode ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'}`}>
+                {ev.livemode ? 'live' : 'test'}
+              </span>
+            )}
+          </div>
+          <div className="col-span-2">
+            {typeof ev.payload_size !== 'undefined' && (
+              <div className="text-xs text-gray-400">Payload: {ev.payload_size} bytes</div>
+            )}
+            {ev.result && (
+              <div className="text-xs text-gray-300">Resultado: {ev.result}</div>
+            )}
+          </div>
+          <div className="col-span-1 text-right">
+            {ev.error ? (
+              <div className="text-xs text-red-300">Erro: {ev.error}</div>
+            ) : (
+              <div className="text-xs text-gray-500">—</div>
+            )}
+          </div>
+          <div className="col-span-1 flex justify-end text-gray-300">
+            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </div>
+        </div>
+        {isExpanded && (
+          <div className="px-4 pb-4 bg-[#0f0f0f] text-xs text-gray-200 space-y-4">
+            {payloadJson && (
+              <div>
+                <div className="text-[11px] uppercase text-gray-400 mb-1">Payload completo</div>
+                <pre className="whitespace-pre-wrap bg-black/40 border border-[#1f1f1f] rounded p-3 overflow-x-auto">{payloadJson}</pre>
+              </div>
+            )}
+            {payloadRaw && (
+              <div>
+                <div className="text-[11px] uppercase text-gray-400 mb-1">Payload bruto</div>
+                <pre className="whitespace-pre-wrap bg-black/40 border border-[#1f1f1f] rounded p-3 overflow-x-auto">{payloadRaw}</pre>
+              </div>
+            )}
+            {dataObject && (
+              <div>
+                <div className="text-[11px] uppercase text-gray-400 mb-1">Objeto (data.object)</div>
+                <pre className="whitespace-pre-wrap bg-black/40 border border-[#1f1f1f] rounded p-3 overflow-x-auto">{dataObject}</pre>
+              </div>
+            )}
+            {metadataJson && (
+              <div>
+                <div className="text-[11px] uppercase text-gray-400 mb-1">Metadata processada</div>
+                <pre className="whitespace-pre-wrap bg-black/40 border border-[#1f1f1f] rounded p-3 overflow-x-auto">{metadataJson}</pre>
+              </div>
+            )}
+          </div>
         )}
       </div>
-      <div className="col-span-2">
-        {typeof ev.payload_size !== 'undefined' && (
-          <div className="text-xs text-gray-400">Payload: {ev.payload_size} bytes</div>
-        )}
-        {ev.result && (
-          <div className="text-xs text-gray-300">Resultado: {ev.result}</div>
-        )}
-      </div>
-      <div className="col-span-2">
-        {ev.error ? (
-          <div className="text-xs text-red-300">Erro: {ev.error}</div>
-        ) : (
-          <div className="text-xs text-gray-500">—</div>
-        )}
-      </div>
-    </div>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -166,7 +235,8 @@ export default function WebhookMonitor({ user, onLogout }) {
               <div className="col-span-3">Tipo / Evento</div>
               <div className="col-span-3">Horário / Modo</div>
               <div className="col-span-2">Detalhes</div>
-              <div className="col-span-2">Erro</div>
+              <div className="col-span-1">Erro</div>
+              <div className="col-span-1 text-right">Expandir</div>
             </div>
             <div className="divide-y divide-[#1f1f1f]">
               {filteredEvents.length === 0 ? (

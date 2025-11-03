@@ -3401,8 +3401,19 @@ async def stripe_webhook(request: Request):
         raise HTTPException(status_code=500, detail="Stripe webhook not configured")
 
     payload = await request.body()
+    payload_text = ""
+    payload_json = None
+    if payload:
+        try:
+            payload_text = payload.decode("utf-8")
+        except Exception:
+            payload_text = payload.decode("utf-8", errors="replace")
+        try:
+            payload_json = json.loads(payload_text)
+        except Exception:
+            payload_json = None
     sig_header = request.headers.get("Stripe-Signature")
-    
+
     logger.info(f"📝 Webhook payload size: {len(payload)} bytes")
     logger.info(f"🔐 Signature header present: {bool(sig_header)}")
     logger.info(f"🔑 Using webhook secret: {webhook_secret[:10]}...")
@@ -3411,8 +3422,10 @@ async def stripe_webhook(request: Request):
         "type": "unknown",
         "payload_size": len(payload),
         "signature_present": bool(sig_header),
+        "payload_json": payload_json,
+        "payload_raw": payload_text if payload_json is None else None,
     })
-    
+
     try:
         event = stripe.Webhook.construct_event(
             payload=payload,
@@ -3425,6 +3438,7 @@ async def stripe_webhook(request: Request):
             "type": event.get("type"),
             "event_id": event.get("id"),
             "livemode": bool(event.get("livemode", False)),
+            "payload_json": payload_json,
         })
     except ValueError as e:
         logger.error(f"❌ Invalid payload: {e}")
@@ -3432,6 +3446,8 @@ async def stripe_webhook(request: Request):
             "stage": "error",
             "type": "invalid_payload",
             "error": str(e),
+            "payload_json": payload_json,
+            "payload_raw": payload_text if payload_json is None else None,
         })
         raise HTTPException(status_code=400, detail="Invalid payload")
     except stripe.error.SignatureVerificationError as e:
@@ -3440,6 +3456,8 @@ async def stripe_webhook(request: Request):
             "stage": "error",
             "type": "invalid_signature",
             "error": str(e),
+            "payload_json": payload_json,
+            "payload_raw": payload_text if payload_json is None else None,
         })
         raise HTTPException(status_code=400, detail="Invalid signature")
 
@@ -3454,17 +3472,105 @@ async def stripe_webhook(request: Request):
 
     try:
         if event_type in ("checkout.session.completed", "invoice.payment_succeeded"):
-            meta = data_obj.get("metadata", {})
+            meta = data_obj.get("metadata") or {}
             user_id = meta.get("user_id") or data_obj.get("client_reference_id")
             plan_id = meta.get("subscription_plan_id")
-            access_scope = meta.get("access_scope", "full")
-            course_ids = [c for c in (meta.get("course_ids") or "").split(",") if c]
-            duration_days = int(meta.get("duration_days", "0") or 0)
-            # Capture Stripe customer id if available to link future lifecycle events
+            access_scope = meta.get("access_scope") or "full"
+            raw_course_ids = meta.get("course_ids") or ""
+            if isinstance(raw_course_ids, list):
+                course_ids = [str(c) for c in raw_course_ids if c]
+            else:
+                course_ids = [c for c in str(raw_course_ids).split(",") if c]
+            try:
+                duration_days = int(meta.get("duration_days") or 0)
+            except (TypeError, ValueError):
+                duration_days = 0
             customer_id = data_obj.get("customer")
+            customer_email = data_obj.get("customer_email") or ((data_obj.get("customer_details") or {}).get("email"))
+
+            # Capture monetary information (Stripe reports cents)
+            amount_cents = None
+            currency = None
+            if event_type == "checkout.session.completed":
+                amount_cents = data_obj.get("amount_total") or data_obj.get("amount_subtotal")
+                if data_obj.get("currency"):
+                    currency = data_obj["currency"].upper()
+            else:
+                amount_cents = data_obj.get("amount_paid") or data_obj.get("amount_due")
+                if data_obj.get("currency"):
+                    currency = data_obj["currency"].upper()
+
+            price_id = None
+            if event_type == "invoice.payment_succeeded":
+                line_items = ((data_obj.get("lines") or {}).get("data") or [])
+                if line_items:
+                    first_line = line_items[0] or {}
+                    price_data = first_line.get("price") or {}
+                    price_id = price_data.get("id") or price_data.get("price_id")
+                    if not currency:
+                        price_currency = price_data.get("currency")
+                        if price_currency:
+                            currency = price_currency.upper()
+
+            plan_doc = None
+            if plan_id:
+                plan_doc = await db.subscription_plans.find_one(
+                    {"id": plan_id},
+                    {"_id": 0, "id": 1, "access_scope": 1, "course_ids": 1, "duration_days": 1, "stripe_price_id": 1},
+                )
+            if not plan_doc and price_id:
+                plan_doc = await db.subscription_plans.find_one(
+                    {"stripe_price_id": price_id},
+                    {"_id": 0, "id": 1, "access_scope": 1, "course_ids": 1, "duration_days": 1, "stripe_price_id": 1},
+                )
+                if plan_doc:
+                    plan_id = plan_doc.get("id")
+
+            if plan_doc:
+                access_scope = plan_doc.get("access_scope", access_scope or "full")
+                if access_scope == "specific" and not course_ids:
+                    course_ids = [str(c) for c in plan_doc.get("course_ids", []) if c]
+                if duration_days <= 0:
+                    duration_days = int(plan_doc.get("duration_days", 0) or 0)
+
+            if access_scope != "specific":
+                course_ids = []
+
+            if not user_id and customer_id:
+                user_doc = await db.users.find_one(
+                    {"stripe_customer_id": customer_id},
+                    {"_id": 0, "id": 1, "email": 1, "subscription_plan_id": 1},
+                )
+                if user_doc:
+                    user_id = user_doc.get("id")
+                    if not plan_id:
+                        plan_id = user_doc.get("subscription_plan_id") or plan_id
+                    if not customer_email:
+                        customer_email = user_doc.get("email")
+            if not user_id and customer_email:
+                user_doc = await db.users.find_one(
+                    {"email": customer_email},
+                    {"_id": 0, "id": 1, "subscription_plan_id": 1},
+                )
+                if user_doc:
+                    user_id = user_doc.get("id")
+                    if not plan_id:
+                        plan_id = user_doc.get("subscription_plan_id") or plan_id
 
             if not user_id or not plan_id:
-                logger.warning("Missing user_id or plan_id in webhook metadata; skipping")
+                logger.warning(
+                    f"Stripe webhook missing identifiers after resolution (event={event_type}, customer={customer_id}, email={customer_email}, price_id={price_id})"
+                )
+                _record_stripe_event({
+                    "stage": "ignored",
+                    "type": event_type,
+                    "event_id": event.get("id"),
+                    "reason": "missing_identifiers",
+                    "customer_id": customer_id,
+                    "customer_email": customer_email,
+                    "payload_json": payload_json,
+                    "payload_raw": payload_text if payload_json is None else None,
+                })
                 return {"status": "ignored"}
 
             # Try to derive validity from Stripe subscription if available
@@ -3481,7 +3587,6 @@ async def stripe_webhook(request: Request):
                     logger.warning(f"Could not retrieve Stripe subscription {subscription_id}: {e}")
 
             if access_scope == "full":
-                # Fallback to metadata duration if subscription-based validity not available
                 if not valid_until:
                     valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
                 await db.users.update_one(
@@ -3499,20 +3604,47 @@ async def stripe_webhook(request: Request):
                 if course_ids:
                     await db.users.update_one(
                         {"id": user_id},
-                        {"$addToSet": {"enrolled_courses": {"$each": course_ids}}, "$set": {"has_purchased": True, **({"stripe_customer_id": customer_id} if customer_id else {})}}
+                        {
+                            "$addToSet": {"enrolled_courses": {"$each": course_ids}},
+                            "$set": {
+                                "has_purchased": True,
+                                "subscription_plan_id": plan_id,
+                                **({"stripe_customer_id": customer_id} if customer_id else {})
+                            }
+                        }
                     )
                 logger.info(f"Stripe: specific courses granted to user {user_id}: {course_ids}")
 
             billing_id = data_obj.get("id") or data_obj.get("subscription") or data_obj.get("payment_intent")
             if billing_id:
+                billing_updates = {
+                    "status": "paid",
+                    "paid_at": datetime.now(timezone.utc).isoformat(),
+                    "gateway": "stripe",
+                }
+                billing_updates["user_id"] = user_id
+                billing_updates["subscription_plan_id"] = plan_id
+                if customer_id:
+                    billing_updates["stripe_customer_id"] = customer_id
+                if amount_cents is not None:
+                    try:
+                        billing_updates["amount_brl"] = round(float(amount_cents) / 100, 2)
+                    except (TypeError, ValueError):
+                        pass
+                if currency:
+                    billing_updates["currency"] = currency
+
                 await db.billings.update_one(
                     {"billing_id": billing_id},
-                    {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat()}},
+                    {
+                        "$set": billing_updates,
+                        "$setOnInsert": {"created_at": datetime.now(timezone.utc).isoformat()},
+                    },
                     upsert=True,
                 )
 
-            # Forward normalized status to external webhook
             try:
+                normalized_valid_until = valid_until or (datetime.now(timezone.utc) + timedelta(days=duration_days) if duration_days > 0 else None)
                 payload = {
                     "source": "stripe",
                     "type": event_type,
@@ -3520,18 +3652,23 @@ async def stripe_webhook(request: Request):
                     "user_id": user_id,
                     "subscription_plan_id": plan_id,
                     "subscription_id": subscription_id or data_obj.get("subscription"),
-                    "valid_until": ((valid_until or (datetime.now(timezone.utc) + timedelta(days=duration_days))).isoformat()),
+                    "valid_until": (normalized_valid_until.isoformat() if normalized_valid_until else None),
                     "access_scope": access_scope,
                     "course_ids": course_ids,
                     "livemode": bool(event.get("livemode", False)),
                     "metadata": meta,
                 }
+                if price_id:
+                    payload["price_id"] = price_id
                 await _forward_status_to_client(payload)
                 _record_stripe_event({
                     "stage": "processed",
                     "type": event_type,
                     "event_id": event.get("id"),
                     "result": "forwarded_status",
+                    "payload_json": payload_json,
+                    "data_object": data_obj,
+                    "metadata": meta,
                 })
             except Exception:
                 pass
@@ -3621,6 +3758,8 @@ async def stripe_webhook(request: Request):
                     "type": event_type,
                     "event_id": event.get("id"),
                     "result": "forwarded_status",
+                    "payload_json": payload_json,
+                    "data_object": data_obj,
                 })
             except Exception:
                 pass
@@ -3659,6 +3798,8 @@ async def stripe_webhook(request: Request):
                     "type": event_type,
                     "event_id": event.get("id"),
                     "result": "forwarded_status",
+                    "payload_json": payload_json,
+                    "data_object": data_obj,
                 })
             except Exception:
                 pass
@@ -3672,6 +3813,8 @@ async def stripe_webhook(request: Request):
                 "type": event_type or "unknown",
                 "event_id": (event or {}).get("id") if isinstance(event, dict) else None,
                 "error": str(e),
+                "payload_json": payload_json,
+                "payload_raw": payload_text if payload_json is None else None,
             })
         except Exception:
             pass
