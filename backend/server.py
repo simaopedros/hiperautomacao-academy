@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
+from collections import deque
 from jose import jwt
 from passlib.context import CryptContext
 import asyncio
@@ -58,6 +59,17 @@ logger.info("[Startup] Mongo primary database configured: DB_NAME=%s URL=%s", os
 # Replication manager and wrapped database
 replication_manager = ReplicationManager()
 db = wrap_database(_primary_db, replication_manager)
+
+# Buffer em memória para monitorar últimos eventos de webhook do Stripe
+STRIPE_WEBHOOK_EVENTS_BUFFER = deque(maxlen=200)
+
+def _record_stripe_event(entry: dict):
+    try:
+        entry["timestamp"] = datetime.now(timezone.utc).isoformat()
+        STRIPE_WEBHOOK_EVENTS_BUFFER.append(entry)
+    except Exception:
+        # Evita que falhas de monitoramento quebrem o fluxo do webhook
+        pass
 
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -350,6 +362,9 @@ class PaymentGatewayConfig(BaseModel):
     hotmart_token: Optional[str] = None  # Hotmart security token (hottok)
     stripe_secret_key: Optional[str] = None
     stripe_webhook_secret: Optional[str] = None
+    # External forwarding of payment status
+    forward_webhook_url: Optional[str] = None
+    forward_test_events: bool = False
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: Optional[str] = None
 
@@ -2989,7 +3004,9 @@ async def get_payment_settings(current_user: User = Depends(get_current_admin)):
             "abacatepay_api_key": ABACATEPAY_API_KEY or "",
             "environment": os.environ.get('ABACATEPAY_ENVIRONMENT', 'sandbox')
         }
-    
+    # Ensure optional fields exist for UI compatibility
+    settings.setdefault("forward_webhook_url", None)
+    settings.setdefault("forward_test_events", False)
     return settings
 
 # Admin: Update payment settings
@@ -2999,6 +3016,8 @@ async def update_payment_settings(
     environment: str,
     stripe_secret_key: Optional[str] = None,
     stripe_webhook_secret: Optional[str] = None,
+    forward_webhook_url: Optional[str] = None,
+    forward_test_events: Optional[bool] = False,
     current_user: User = Depends(get_current_admin)
 ):
     """Update payment gateway settings (admin only)"""
@@ -3010,6 +3029,8 @@ async def update_payment_settings(
         "environment": environment,
         "stripe_secret_key": stripe_secret_key,
         "stripe_webhook_secret": stripe_webhook_secret,
+        "forward_webhook_url": forward_webhook_url,
+        "forward_test_events": bool(forward_test_events or False),
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "updated_by": current_user.email
     }
@@ -3031,10 +3052,32 @@ async def update_payment_settings(
             pass
     if stripe_webhook_secret:
         os.environ['STRIPE_WEBHOOK_SECRET'] = stripe_webhook_secret
+    if forward_webhook_url:
+        os.environ['FORWARD_WEBHOOK_URL'] = forward_webhook_url
+    os.environ['FORWARD_TEST_EVENTS'] = 'true' if (forward_test_events or False) else 'false'
     
     logger.info(f"Admin {current_user.email} updated payment settings to {environment}")
     
     return {"message": "Payment settings updated successfully. Restart backend to apply changes."}
+
+async def _forward_status_to_client(payload: dict):
+    """Forward normalized payment/subscription status to external webhook if configured.
+    Respects 'forward_test_events' to skip test-mode events when disabled.
+    """
+    try:
+        settings = await db.payment_settings.find_one({}, {"_id": 0})
+        url = (settings or {}).get("forward_webhook_url")
+        allow_test = bool((settings or {}).get("forward_test_events", False))
+        if not url:
+            return
+        # If test events should be skipped
+        if (payload.get("livemode") is False) and (not allow_test):
+            return
+        async with httpx.AsyncClient() as client:
+            await client.post(url, json=payload, timeout=5.0)
+    except Exception:
+        # Don't break webhook processing if forwarding fails
+        logger.warning("Failed to forward status to external webhook", exc_info=True)
 
 # Admin: Get statistics
 @api_router.get("/admin/statistics")
@@ -3345,6 +3388,12 @@ async def stripe_webhook(request: Request):
     logger.info(f"📝 Webhook payload size: {len(payload)} bytes")
     logger.info(f"🔐 Signature header present: {bool(sig_header)}")
     logger.info(f"🔑 Using webhook secret: {webhook_secret[:10]}...")
+    _record_stripe_event({
+        "stage": "received",
+        "type": "unknown",
+        "payload_size": len(payload),
+        "signature_present": bool(sig_header),
+    })
     
     try:
         event = stripe.Webhook.construct_event(
@@ -3353,12 +3402,34 @@ async def stripe_webhook(request: Request):
             secret=webhook_secret,
         )
         logger.info(f"✅ Webhook signature verified successfully")
+        _record_stripe_event({
+            "stage": "verified",
+            "type": event.get("type"),
+            "event_id": event.get("id"),
+            "livemode": bool(event.get("livemode", False)),
+        })
     except ValueError as e:
         logger.error(f"❌ Invalid payload: {e}")
+        _record_stripe_event({
+            "stage": "error",
+            "type": "invalid_payload",
+            "error": str(e),
+        })
         raise HTTPException(status_code=400, detail="Invalid payload")
     except stripe.error.SignatureVerificationError as e:
         logger.error(f"❌ Invalid signature: {e}")
+        _record_stripe_event({
+            "stage": "error",
+            "type": "invalid_signature",
+            "error": str(e),
+        })
         raise HTTPException(status_code=400, detail="Invalid signature")
+
+    # Ensure Stripe SDK is configured with a valid key (covers restarts and DB-provided keys)
+    try:
+        await ensure_stripe_config()
+    except Exception:
+        pass
 
     event_type = event.get("type")
     data_obj = (event.get("data", {}) or {}).get("object", {})
@@ -3376,8 +3447,23 @@ async def stripe_webhook(request: Request):
                 logger.warning("Missing user_id or plan_id in webhook metadata; skipping")
                 return {"status": "ignored"}
 
+            # Try to derive validity from Stripe subscription if available
+            valid_until = None
+            subscription_id = data_obj.get("subscription")
+            if subscription_id:
+                try:
+                    sub = stripe.Subscription.retrieve(subscription_id)
+                    current_period_end = sub.get("current_period_end")
+                    if current_period_end:
+                        valid_until = datetime.fromtimestamp(int(current_period_end), tz=timezone.utc)
+                        logger.info(f"Stripe: derived valid_until from subscription {subscription_id}: {valid_until.isoformat()}")
+                except Exception as e:
+                    logger.warning(f"Could not retrieve Stripe subscription {subscription_id}: {e}")
+
             if access_scope == "full":
-                valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
+                # Fallback to metadata duration if subscription-based validity not available
+                if not valid_until:
+                    valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
                 await db.users.update_one(
                     {"id": user_id},
                     {"$set": {
@@ -3404,10 +3490,166 @@ async def stripe_webhook(request: Request):
                     upsert=True,
                 )
 
+            # Forward normalized status to external webhook
+            try:
+                payload = {
+                    "source": "stripe",
+                    "type": event_type,
+                    "status": "checkout_completed" if event_type == "checkout.session.completed" else "payment_succeeded",
+                    "user_id": user_id,
+                    "subscription_plan_id": plan_id,
+                    "subscription_id": subscription_id or data_obj.get("subscription"),
+                    "valid_until": ((valid_until or (datetime.now(timezone.utc) + timedelta(days=duration_days))).isoformat()),
+                    "access_scope": access_scope,
+                    "course_ids": course_ids,
+                    "livemode": bool(event.get("livemode", False)),
+                    "metadata": meta,
+                }
+                await _forward_status_to_client(payload)
+                _record_stripe_event({
+                    "stage": "processed",
+                    "type": event_type,
+                    "event_id": event.get("id"),
+                    "result": "forwarded_status",
+                })
+            except Exception:
+                pass
+
+        # Handle subscription lifecycle events to reflect cancellations/updates
+        elif event_type in ("customer.subscription.updated", "customer.subscription.deleted"):
+            status = data_obj.get("status")
+            cancel_at_period_end = bool(data_obj.get("cancel_at_period_end"))
+            current_period_end_ts = data_obj.get("current_period_end")
+            canceled_at_ts = data_obj.get("canceled_at") or data_obj.get("ended_at")
+
+            # Resolve customer email
+            email = data_obj.get("customer_email")
+            if not email:
+                try:
+                    cust_id = data_obj.get("customer")
+                    if cust_id:
+                        cust = stripe.Customer.retrieve(cust_id)
+                        email = cust.get("email")
+                except Exception as e:
+                    logger.warning(f"Could not retrieve Stripe customer email: {e}")
+
+            if not email:
+                logger.warning("Stripe subscription event without resolvable customer email; skipping user update")
+                return {"status": "ignored"}
+
+            # Update user subscription flags and validity
+            updates = {}
+            if cancel_at_period_end:
+                updates["subscription_cancel_at_period_end"] = True
+            if status == "canceled" or canceled_at_ts:
+                updates["subscription_cancelled"] = True
+            if current_period_end_ts:
+                try:
+                    updates["subscription_valid_until"] = datetime.fromtimestamp(int(current_period_end_ts), tz=timezone.utc).isoformat()
+                except Exception:
+                    pass
+            elif canceled_at_ts:
+                try:
+                    updates["subscription_valid_until"] = datetime.fromtimestamp(int(canceled_at_ts), tz=timezone.utc).isoformat()
+                except Exception:
+                    pass
+
+            if updates:
+                await db.users.update_one({"email": email}, {"$set": updates})
+                logger.info(f"Stripe: updated subscription for {email} with {updates}")
+
+            # Reflect cancellation/update in billings using subscription id
+            sub_id = data_obj.get("id") or data_obj.get("subscription")
+            if sub_id:
+                await db.billings.update_one(
+                    {"billing_id": sub_id},
+                    {"$set": {"status": "canceled" if status == "canceled" else status, "updated_at": datetime.now(timezone.utc).isoformat()}},
+                    upsert=True,
+                )
+
+            # Forward normalized status to external webhook
+            try:
+                payload = {
+                    "source": "stripe",
+                    "type": event_type,
+                    "status": "canceled" if event_type == "customer.subscription.deleted" or status == "canceled" else "updated",
+                    "customer_email": email,
+                    "subscription_id": sub_id,
+                    "cancel_at_period_end": bool(cancel_at_period_end),
+                    "valid_until": (datetime.fromtimestamp(int(current_period_end_ts), tz=timezone.utc).isoformat() if current_period_end_ts else None),
+                    "livemode": bool(event.get("livemode", False))
+                }
+                await _forward_status_to_client(payload)
+                _record_stripe_event({
+                    "stage": "processed",
+                    "type": event_type,
+                    "event_id": event.get("id"),
+                    "result": "forwarded_status",
+                })
+            except Exception:
+                pass
+
+        elif event_type == "invoice.payment_failed":
+            # Forward failed payment status to external webhook and reflect in billing
+            sub_id = data_obj.get("subscription")
+            customer_id = data_obj.get("customer")
+            email = None
+            try:
+                if customer_id:
+                    cust = stripe.Customer.retrieve(customer_id)
+                    email = cust.get("email")
+            except Exception:
+                pass
+
+            if sub_id:
+                await db.billings.update_one(
+                    {"billing_id": sub_id},
+                    {"$set": {"status": "failed", "updated_at": datetime.now(timezone.utc).isoformat()}},
+                    upsert=True,
+                )
+
+            try:
+                payload = {
+                    "source": "stripe",
+                    "type": event_type,
+                    "status": "payment_failed",
+                    "customer_email": email,
+                    "subscription_id": sub_id,
+                    "livemode": bool(event.get("livemode", False))
+                }
+                await _forward_status_to_client(payload)
+                _record_stripe_event({
+                    "stage": "processed",
+                    "type": event_type,
+                    "event_id": event.get("id"),
+                    "result": "forwarded_status",
+                })
+            except Exception:
+                pass
+
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Error processing Stripe webhook: {e}", exc_info=True)
+        try:
+            _record_stripe_event({
+                "stage": "error",
+                "type": event_type or "unknown",
+                "event_id": (event or {}).get("id") if isinstance(event, dict) else None,
+                "error": str(e),
+            })
+        except Exception:
+            pass
         raise HTTPException(status_code=500, detail="Webhook processing error")
+
+@api_router.get("/admin/webhooks/stripe/events")
+async def list_stripe_webhook_events(current_user: User = Depends(get_current_admin)):
+    """Lista os últimos eventos de webhook do Stripe registrados em memória (admin only)"""
+    try:
+        events = list(reversed(list(STRIPE_WEBHOOK_EVENTS_BUFFER)))
+        return {"events": events[:100]}
+    except Exception as e:
+        logger.error(f"Failed to list Stripe webhook events: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list webhook events")
 
 # Hotmart Webhook Endpoint
 @api_router.post("/hotmart/webhook")

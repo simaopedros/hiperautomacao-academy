@@ -181,7 +181,7 @@ const AdminNavigation = ({ user, onLogout }) => {
                 <ChevronDown size={16} />
               </button>
               {showFinanceMenu && (
-                <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[220px] z-50">
+                <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[240px] z-50">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -221,10 +221,21 @@ const AdminNavigation = ({ user, onLogout }) => {
                       navigate('/admin/payment-settings');
                       setShowFinanceMenu(false);
                     }}
-                    className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
+                    className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
                   >
                     <Settings size={16} />
                     Config. Pagamentos
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate('/admin/webhook-monitor');
+                      setShowFinanceMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
+                  >
+                    <Settings size={16} />
+                    Monitor de Webhooks
                   </button>
                 </div>
               )}

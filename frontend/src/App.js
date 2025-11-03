@@ -26,6 +26,7 @@ import SubscriptionPlansAdmin from '@/pages/SubscriptionPlansAdmin';
 import SubscribePage from '@/pages/SubscribePage';
 import AdminCategories from '@/pages/AdminCategories';
 import LanguageSelectionModal from '@/components/LanguageSelectionModal';
+import WebhookMonitor from '@/pages/WebhookMonitor';
 
 function App() {
   const { t } = useTranslation();
@@ -315,6 +316,16 @@ function App() {
             element={
               user && user.role === 'admin' ? (
                 <SubscriptionPlansAdmin user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/admin/webhook-monitor"
+            element={
+              user && user.role === 'admin' ? (
+                <WebhookMonitor user={user} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/login" replace />
               )
