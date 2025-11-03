@@ -271,6 +271,13 @@ class User(UserBase):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     subscription_plan_id: Optional[str] = None
     subscription_valid_until: Optional[datetime] = None
+    # Campos extras para detalhar assinatura no admin
+    subscription_status: Optional[str] = None  # ativa, expirada, cancelada
+    subscription_recurrence: Optional[str] = None  # mensal, trimestral, anual, etc.
+    subscription_renews_at: Optional[datetime] = None  # próxima renovação / fim do período
+    subscription_is_active: Optional[bool] = None
+    subscription_is_canceled: Optional[bool] = None
+    subscription_days_remaining: Optional[int] = None
 
 class Token(BaseModel):
     access_token: str
@@ -1677,6 +1684,13 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
             # Generate a temporary ID for legacy users or skip them
             user['id'] = f"legacy-{user.get('email', 'unknown')}"
             user['enrolled_courses'] = []
+            # Mesmo usuários legados podem não ter dados de assinatura
+            user['subscription_status'] = None
+            user['subscription_recurrence'] = None
+            user['subscription_renews_at'] = None
+            user['subscription_is_active'] = None
+            user['subscription_is_canceled'] = None
+            user['subscription_days_remaining'] = None
             continue
         
         # Get enrolled courses from enrollments collection
@@ -1687,6 +1701,69 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
             for enrollment in enrollments 
             if enrollment['course_id'] in valid_course_ids
         ]
+
+        # Enriquecer com informações de assinatura
+        try:
+            plan_id = user.get('subscription_plan_id')
+            valid_until = user.get('subscription_valid_until')
+            is_canceled = bool(user.get('subscription_cancelled') or user.get('subscription_cancel_at_period_end'))
+
+            # Normalizar data
+            valid_until_dt = None
+            if valid_until:
+                if isinstance(valid_until, str):
+                    try:
+                        valid_until_dt = datetime.fromisoformat(valid_until)
+                    except Exception:
+                        valid_until_dt = None
+                else:
+                    valid_until_dt = valid_until
+
+            now = datetime.now(timezone.utc)
+            is_active = bool(valid_until_dt and valid_until_dt > now)
+            days_remaining = None
+            if is_active and valid_until_dt:
+                days_remaining = max(0, (valid_until_dt - now).days)
+
+            recurrence_label = None
+            if plan_id:
+                plan = await db.subscription_plans.find_one({"id": plan_id}, {"_id": 0})
+                if plan:
+                    duration = int(plan.get('duration_days') or 0)
+                    # Mapear duração para rótulo amigável
+                    if 28 <= duration <= 31:
+                        recurrence_label = 'mensal'
+                    elif 85 <= duration <= 95:
+                        recurrence_label = 'trimestral'
+                    elif 175 <= duration <= 185:
+                        recurrence_label = 'semestral'
+                    elif 360 <= duration <= 370:
+                        recurrence_label = 'anual'
+                    elif duration > 0:
+                        recurrence_label = f"{duration} dias"
+
+            # Definir status textual
+            status = None
+            if not plan_id:
+                status = None
+            else:
+                if is_canceled:
+                    status = 'cancelada'
+                elif is_active:
+                    status = 'ativa'
+                else:
+                    status = 'expirada'
+
+            # Atribuir campos extras
+            user['subscription_status'] = status
+            user['subscription_recurrence'] = recurrence_label
+            user['subscription_renews_at'] = valid_until_dt
+            user['subscription_is_active'] = is_active if plan_id else None
+            user['subscription_is_canceled'] = is_canceled if plan_id else None
+            user['subscription_days_remaining'] = days_remaining if plan_id else None
+        except Exception as e:
+            # Não quebra a listagem se houver erro ao enriquecer assinatura
+            logger.warning(f"Falha ao enriquecer assinatura de usuário {user.get('id')}: {e}")
     
     # Include pending invitations (users who received an invite link but have
     # not created their password / first login yet)
