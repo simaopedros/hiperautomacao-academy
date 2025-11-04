@@ -3193,7 +3193,9 @@ async def abacatepay_webhook(request: dict):
                         {"$set": {
                             "has_purchased": True,
                             "subscription_plan_id": plan_id,
-                            "subscription_valid_until": valid_until.isoformat()
+                            "subscription_valid_until": valid_until.isoformat(),
+                            "subscription_cancelled": False,
+                            "subscription_cancel_at_period_end": False
                         }}
                     )
                     logger.info(f"Activated subscription {plan_id} for user {user_id} until {valid_until.isoformat()}")
@@ -3319,7 +3321,9 @@ async def check_billing_status(billing_id: str, current_user: User = Depends(get
                             {"$set": {
                                 "has_purchased": True,
                                 "subscription_plan_id": plan_id,
-                                "subscription_valid_until": valid_until.isoformat()
+                                "subscription_valid_until": valid_until.isoformat(),
+                                "subscription_cancelled": False,
+                                "subscription_cancel_at_period_end": False
                             }}
                         )
                         logger.info(f"Activated subscription {plan_id} for user {user_id} until {valid_until.isoformat()} via status check")
@@ -4263,15 +4267,17 @@ async def stripe_webhook(request: Request):
                 return {"status": "ignored"}
 
             # Update user subscription flags and validity
-            updates = {}
-            if cancel_at_period_end:
-                updates["subscription_cancel_at_period_end"] = True
+            updates = {
+                "subscription_cancel_at_period_end": bool(cancel_at_period_end)
+            }
             if status == "canceled" or canceled_at_ts:
                 updates["subscription_cancelled"] = True
                 # Immediate cancellation should revoke full access
                 # If cancel_at_period_end is False, the subscription ends now
                 if not cancel_at_period_end:
                     updates["has_full_access"] = False
+            else:
+                updates["subscription_cancelled"] = False
             if current_period_end_ts:
                 try:
                     updates["subscription_valid_until"] = datetime.fromtimestamp(int(current_period_end_ts), tz=timezone.utc).isoformat()
@@ -4612,6 +4618,8 @@ async def hotmart_webhook(webhook_data: dict):
                 "avatar": None,
                 "full_access": bool(sub_plan is not None),
                 "has_full_access": bool(sub_plan is not None),
+                "subscription_cancelled": False,
+                "subscription_cancel_at_period_end": False,
                 "enrolled_courses": enrolled_courses,
                 "has_purchased": True,  # Mark as purchased
                 "password_creation_token": password_token,
@@ -4635,7 +4643,9 @@ async def hotmart_webhook(webhook_data: dict):
                     {"$set": {
                         "subscription_plan_id": sub_plan["id"],
                         "subscription_valid_until": valid_until.isoformat(),
-                        "has_full_access": True
+                        "has_full_access": True,
+                        "subscription_cancelled": False,
+                        "subscription_cancel_at_period_end": False
                     }}
                 )
                 logger.info(f"🟢 Subscription '{sub_plan['name']}' activated for NEW user until {valid_until.isoformat()}.")
@@ -4681,7 +4691,9 @@ async def hotmart_webhook(webhook_data: dict):
                     {"$set": {
                         "has_full_access": True,
                         "subscription_plan_id": sub_plan["id"],
-                        "subscription_valid_until": valid_until.isoformat()
+                        "subscription_valid_until": valid_until.isoformat(),
+                        "subscription_cancelled": False,
+                        "subscription_cancel_at_period_end": False
                     }}
                 )
                 logger.info(f"🟢 Subscription '{sub_plan['name']}' activated for EXISTING user until {valid_until.isoformat()}.")
