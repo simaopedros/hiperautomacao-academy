@@ -961,6 +961,8 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
         subscription_plan_id = user_data.get("subscription_plan_id")
         subscription_valid_until = user_data.get("subscription_valid_until")
         has_full_access = user_data.get("has_full_access", False)
+        subscription_cancel_at_period_end = bool(user_data.get("subscription_cancel_at_period_end"))
+        subscription_cancelled = bool(user_data.get("subscription_cancelled"))
         
         # If no subscription
         if not subscription_plan_id:
@@ -973,7 +975,11 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
                 # Extra fields for frontend compatibility
                 "has_full_access": has_full_access,
                 "subscription_plan_id": subscription_plan_id,
-                "subscription_valid_until": subscription_valid_until
+                "subscription_valid_until": subscription_valid_until,
+                "subscription_cancel_at_period_end": subscription_cancel_at_period_end,
+                "subscription_cancelled": subscription_cancelled,
+                "auto_renews": False,
+                "renewal_date": None
             }
         
         # Get subscription plan details
@@ -988,7 +994,11 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
                 # Extra fields for frontend compatibility
                 "has_full_access": has_full_access,
                 "subscription_plan_id": subscription_plan_id,
-                "subscription_valid_until": subscription_valid_until
+                "subscription_valid_until": subscription_valid_until,
+                "subscription_cancel_at_period_end": subscription_cancel_at_period_end,
+                "subscription_cancelled": subscription_cancelled,
+                "auto_renews": False,
+                "renewal_date": None
             }
         
         # Check if subscription is still valid
@@ -1011,6 +1021,10 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
             except Exception as e:
                 logger.error(f"Error parsing subscription date: {e}")
         
+        # Determine auto-renewal semantics
+        auto_renews = bool(is_active and not subscription_cancel_at_period_end and not subscription_cancelled)
+        renewal_date = subscription_valid_until if auto_renews else None
+        
         return {
             "has_subscription": True,
             "subscription_plan": {
@@ -1028,7 +1042,11 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
             # Extra fields for frontend compatibility
             "has_full_access": has_full_access,
             "subscription_plan_id": subscription_plan_id,
-            "subscription_valid_until": subscription_valid_until
+            "subscription_valid_until": subscription_valid_until,
+            "subscription_cancel_at_period_end": subscription_cancel_at_period_end,
+            "subscription_cancelled": subscription_cancelled,
+            "auto_renews": auto_renews,
+            "renewal_date": renewal_date
         }
         
     except Exception as e:

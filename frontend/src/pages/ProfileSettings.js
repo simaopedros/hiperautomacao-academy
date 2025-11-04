@@ -601,10 +601,12 @@ export default function ProfileSettings({ user, onLogout }) {
                               </h3>
                               {subscriptionData.subscription_valid_until && (
                                 <p className="text-emerald-300 text-sm">
-                                  {t('profile.subscription.status.validUntil', 'Válida até:')} {new Date(subscriptionData.subscription_valid_until).toLocaleDateString('pt-BR')}
+                                  {subscriptionData.auto_renews
+                                    ? `${t('profile.subscription.status.renewsAt', 'Renova em:')} ${new Date(subscriptionData.subscription_valid_until).toLocaleDateString('pt-BR')}`
+                                    : `${t('profile.subscription.status.validUntil', 'Válida até:')} ${new Date(subscriptionData.subscription_valid_until).toLocaleDateString('pt-BR')}`}
                                 </p>
                               )}
-                              {subscriptionData.subscription_plan_id && (
+                              {subscriptionData.subscription_plan_id && !subscriptionData.auto_renews && (
                                 <p className="text-gray-300 text-sm">
                                   {t('profile.subscription.status.plan', 'Plano:')} {subscriptionData.subscription_plan_id}
                                 </p>
@@ -637,6 +639,13 @@ export default function ProfileSettings({ user, onLogout }) {
                           </p>
                         </div>
                       )}
+                      {subscriptionData.auto_renews && (
+                        <div className="bg-emerald-500/10 border border-emerald-400/20 rounded-xl p-4">
+                          <p className="text-emerald-200">
+                            {t('profile.subscription.status.autoRenewCongrats', 'Parabéns! Sua assinatura está ativa com renovação automática.')}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="text-center py-12">
@@ -648,7 +657,7 @@ export default function ProfileSettings({ user, onLogout }) {
               </div>
 
               {/* Planos Disponíveis */}
-              {!(subscriptionData?.has_full_access) && (
+              {!(subscriptionData?.has_full_access) && !(subscriptionData?.is_active && subscriptionData?.auto_renews) && (
               <div className="glass-panel rounded-3xl border border-white/10 shadow-[0_25px_90px_rgba(0,0,0,0.35)]">
                 <div className="bg-gradient-to-r from-white/5 to-white/10 p-6 border-b border-white/10 rounded-t-3xl">
                   <h2 className="text-2xl font-bold text-white flex items-center gap-3">
