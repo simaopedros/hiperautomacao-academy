@@ -10,8 +10,8 @@ import os
 import logging
 import json
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
-from typing import List, Optional
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, ValidationError
+from typing import List, Optional, Union
 import uuid
 from datetime import datetime, timezone, timedelta
 from collections import deque
@@ -63,6 +63,44 @@ db = wrap_database(_primary_db, replication_manager)
 # Buffer em memória para monitorar últimos eventos de webhook do Stripe
 STRIPE_WEBHOOK_EVENTS_BUFFER = deque(maxlen=200)
 
+# Simple cache for Stripe config to reduce DB lookups
+STRIPE_CONFIG_CACHE_TTL_SECONDS = 300
+_STRIPE_CONFIG_CACHE = {
+    "api_key": None,
+    "ts": 0,
+}
+
+async def stripe_call_with_retry(func, *args, max_retries: int = 3, initial_delay: float = 0.5, max_delay: float = 3.0, **kwargs):
+    attempt = 0
+    while True:
+        try:
+            # Run blocking Stripe calls in a thread to avoid blocking the event loop
+            return await asyncio.to_thread(func, *args, **kwargs)
+        except stripe.error.RateLimitError as e:
+            transient = True
+        except stripe.error.APIConnectionError as e:
+            transient = True
+        except stripe.error.APIError as e:
+            status = getattr(e, 'http_status', None)
+            transient = (status is None) or (int(status) >= 500)
+        except stripe.error.StripeError as e:
+            transient = False
+        except Exception:
+            # Non-Stripe unexpected error; do not retry by default
+            raise
+
+        if not transient or attempt >= max_retries:
+            # Re-raise last error if not transient or max retries reached
+            raise
+
+        # Exponential backoff with jitter
+        delay = min(max_delay, initial_delay * (2 ** attempt))
+        jitter = random.uniform(0, delay * 0.2)
+        delay += jitter
+        logger.warning(f"Stripe transient error; retrying in {delay:.2f}s (attempt {attempt + 1}/{max_retries})")
+        await asyncio.sleep(delay)
+        attempt += 1
+
 def _record_stripe_event(entry: dict):
     try:
         entry["timestamp"] = datetime.now(timezone.utc).isoformat()
@@ -88,10 +126,28 @@ STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET')
 if STRIPE_SECRET_KEY:
     stripe.api_key = STRIPE_SECRET_KEY
+    stripe.api_version = '2025-10-29'
 
 # Helper to ensure Stripe is configured with the latest available key
 # Tries env -> existing api_key -> payment_settings in DB
 async def ensure_stripe_config():
+    # Use cached api_key if still valid
+    try:
+        now = datetime.now(timezone.utc).timestamp()
+        if _STRIPE_CONFIG_CACHE.get("api_key") and (_STRIPE_CONFIG_CACHE.get("ts", 0) + STRIPE_CONFIG_CACHE_TTL_SECONDS > now):
+            key = _STRIPE_CONFIG_CACHE.get("api_key")
+            try:
+                stripe.api_key = key
+            except Exception:
+                pass
+            try:
+                replication_manager.audit.info("stripe_config cache_hit source=memory")
+            except Exception:
+                pass
+            return key
+    except Exception:
+        # Ignore cache errors
+        pass
     # 1) Try environment variable
     key = os.environ.get('STRIPE_SECRET_KEY')
     if key:
@@ -99,10 +155,28 @@ async def ensure_stripe_config():
             stripe.api_key = key
         except Exception:
             pass
+        try:
+            _STRIPE_CONFIG_CACHE["api_key"] = key
+            _STRIPE_CONFIG_CACHE["ts"] = datetime.now(timezone.utc).timestamp()
+        except Exception:
+            pass
+        try:
+            replication_manager.audit.info("stripe_config env_key_used")
+        except Exception:
+            pass
         return key
 
     # 2) Try already configured api_key
     if getattr(stripe, 'api_key', None):
+        try:
+            _STRIPE_CONFIG_CACHE["api_key"] = stripe.api_key
+            _STRIPE_CONFIG_CACHE["ts"] = datetime.now(timezone.utc).timestamp()
+        except Exception:
+            pass
+        try:
+            replication_manager.audit.info("stripe_config existing_key_used")
+        except Exception:
+            pass
         return stripe.api_key
 
     # 3) Fallback: read from payment_settings in DB
@@ -116,11 +190,24 @@ async def ensure_stripe_config():
                 pass
             # also set env to keep process aligned
             os.environ['STRIPE_SECRET_KEY'] = key
+            try:
+                _STRIPE_CONFIG_CACHE["api_key"] = key
+                _STRIPE_CONFIG_CACHE["ts"] = datetime.now(timezone.utc).timestamp()
+            except Exception:
+                pass
+            try:
+                replication_manager.audit.info("stripe_config db_key_used")
+            except Exception:
+                pass
             return key
     except Exception:
         # Swallow DB errors here; the caller will handle missing config
         pass
 
+    try:
+        replication_manager.audit.error("stripe_config missing_key")
+    except Exception:
+        pass
     return None
 
 # Helper to get frontend base URL with sensible default
@@ -184,6 +271,13 @@ class User(UserBase):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     subscription_plan_id: Optional[str] = None
     subscription_valid_until: Optional[datetime] = None
+    # Campos extras para detalhar assinatura no admin
+    subscription_status: Optional[str] = None  # ativa, expirada, cancelada
+    subscription_recurrence: Optional[str] = None  # mensal, trimestral, anual, etc.
+    subscription_renews_at: Optional[datetime] = None  # próxima renovação / fim do período
+    subscription_is_active: Optional[bool] = None
+    subscription_is_canceled: Optional[bool] = None
+    subscription_days_remaining: Optional[int] = None
 
 class Token(BaseModel):
     access_token: str
@@ -473,6 +567,38 @@ class BrevoListResponse(BaseModel):
     id: int
     name: str
     folder_id: Optional[int] = None
+
+# Stripe Validation Models
+class StripeMetadata(BaseModel):
+    user_id: Optional[str] = None
+    subscription_plan_id: Optional[str] = None
+    access_scope: Optional[str] = "full"
+    course_ids: Optional[Union[str, List[str]]] = None
+    duration_days: Optional[Union[int, str]] = None
+
+class StripeCheckoutSession(BaseModel):
+    id: str
+    object: str = "checkout.session"
+    amount_total: Optional[int] = None
+    amount_subtotal: Optional[int] = None
+    currency: Optional[str] = None
+    customer: Optional[str] = None
+    customer_email: Optional[str] = None
+    metadata: Optional[StripeMetadata] = None
+    subscription: Optional[str] = None
+    customer_details: Optional[dict] = None
+
+class StripeInvoice(BaseModel):
+    id: str
+    object: str = "invoice"
+    amount_paid: Optional[int] = None
+    amount_due: Optional[int] = None
+    currency: Optional[str] = None
+    customer: Optional[str] = None
+    customer_email: Optional[str] = None
+    metadata: Optional[StripeMetadata] = None
+    subscription: Optional[str] = None
+    lines: Optional[dict] = None
 
 # ==================== AUTH HELPERS ====================
 
@@ -1110,12 +1236,12 @@ async def cancel_user_subscription(
         # Find active Stripe subscription for this user
         try:
             # Search for subscriptions by customer email
-            customers = stripe.Customer.list(email=current_user.email, limit=1)
+            customers = await stripe_call_with_retry(stripe.Customer.list, email=current_user.email, limit=1)
             if not customers.data:
                 raise HTTPException(status_code=404, detail="No Stripe customer found")
             
             customer = customers.data[0]
-            subscriptions = stripe.Subscription.list(customer=customer.id, status='active')
+            subscriptions = await stripe_call_with_retry(stripe.Subscription.list, customer=customer.id, status='active')
             
             # Find subscription with matching price ID
             target_subscription = None
@@ -1131,7 +1257,8 @@ async def cancel_user_subscription(
                 raise HTTPException(status_code=404, detail="Active Stripe subscription not found")
             
             # Cancel the subscription at period end
-            cancelled_subscription = stripe.Subscription.modify(
+            cancelled_subscription = await stripe_call_with_retry(
+                stripe.Subscription.modify,
                 target_subscription.id,
                 cancel_at_period_end=True
             )
@@ -1557,6 +1684,13 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
             # Generate a temporary ID for legacy users or skip them
             user['id'] = f"legacy-{user.get('email', 'unknown')}"
             user['enrolled_courses'] = []
+            # Mesmo usuários legados podem não ter dados de assinatura
+            user['subscription_status'] = None
+            user['subscription_recurrence'] = None
+            user['subscription_renews_at'] = None
+            user['subscription_is_active'] = None
+            user['subscription_is_canceled'] = None
+            user['subscription_days_remaining'] = None
             continue
         
         # Get enrolled courses from enrollments collection
@@ -1567,6 +1701,69 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
             for enrollment in enrollments 
             if enrollment['course_id'] in valid_course_ids
         ]
+
+        # Enriquecer com informações de assinatura
+        try:
+            plan_id = user.get('subscription_plan_id')
+            valid_until = user.get('subscription_valid_until')
+            is_canceled = bool(user.get('subscription_cancelled') or user.get('subscription_cancel_at_period_end'))
+
+            # Normalizar data
+            valid_until_dt = None
+            if valid_until:
+                if isinstance(valid_until, str):
+                    try:
+                        valid_until_dt = datetime.fromisoformat(valid_until)
+                    except Exception:
+                        valid_until_dt = None
+                else:
+                    valid_until_dt = valid_until
+
+            now = datetime.now(timezone.utc)
+            is_active = bool(valid_until_dt and valid_until_dt > now)
+            days_remaining = None
+            if is_active and valid_until_dt:
+                days_remaining = max(0, (valid_until_dt - now).days)
+
+            recurrence_label = None
+            if plan_id:
+                plan = await db.subscription_plans.find_one({"id": plan_id}, {"_id": 0})
+                if plan:
+                    duration = int(plan.get('duration_days') or 0)
+                    # Mapear duração para rótulo amigável
+                    if 28 <= duration <= 31:
+                        recurrence_label = 'mensal'
+                    elif 85 <= duration <= 95:
+                        recurrence_label = 'trimestral'
+                    elif 175 <= duration <= 185:
+                        recurrence_label = 'semestral'
+                    elif 360 <= duration <= 370:
+                        recurrence_label = 'anual'
+                    elif duration > 0:
+                        recurrence_label = f"{duration} dias"
+
+            # Definir status textual
+            status = None
+            if not plan_id:
+                status = None
+            else:
+                if is_canceled:
+                    status = 'cancelada'
+                elif is_active:
+                    status = 'ativa'
+                else:
+                    status = 'expirada'
+
+            # Atribuir campos extras
+            user['subscription_status'] = status
+            user['subscription_recurrence'] = recurrence_label
+            user['subscription_renews_at'] = valid_until_dt
+            user['subscription_is_active'] = is_active if plan_id else None
+            user['subscription_is_canceled'] = is_canceled if plan_id else None
+            user['subscription_days_remaining'] = days_remaining if plan_id else None
+        except Exception as e:
+            # Não quebra a listagem se houver erro ao enriquecer assinatura
+            logger.warning(f"Falha ao enriquecer assinatura de usuário {user.get('id')}: {e}")
     
     # Include pending invitations (users who received an invite link but have
     # not created their password / first login yet)
@@ -2672,7 +2869,8 @@ async def create_billing(request: CreateBillingRequest, current_user: User = Dep
                 success_url = f"{frontend_url}/subscription-success?session_id={{CHECKOUT_SESSION_ID}}"
                 cancel_url = f"{frontend_url}/payment-cancelled"
                 logger.info(f"Stripe checkout URLs composed: success={success_url} cancel={cancel_url}")
-                session = stripe.checkout.Session.create(
+                session = await stripe_call_with_retry(
+                    stripe.checkout.Session.create,
                     mode="subscription",
                     customer_email=request.customer_email,
                     line_items=[{
@@ -3380,6 +3578,107 @@ async def update_gateway_config(
     
     return {"message": "Gateway configuration updated successfully"}
 
+# ==================== ADMIN ROUTES - STRIPE ====================
+
+@api_router.post("/admin/stripe/sync-user-subscription")
+async def admin_sync_user_subscription(email: EmailStr, current_user: User = Depends(get_current_admin)):
+    """Synchronize a user's subscription status with Stripe based on email.
+
+    - Finds Stripe customer by email
+    - Retrieves active subscription and maps price to local subscription plan
+    - Updates user's Stripe customer id, plan id, access scope, and valid_until
+    """
+    try:
+        # Ensure Stripe configured
+        stripe_key = await ensure_stripe_config()
+        if not stripe_key:
+            raise HTTPException(status_code=500, detail="Stripe not configured")
+
+        # Find local user
+        user_doc = await db.users.find_one({"email": str(email)}, {"_id": 0, "id": 1})
+        if not user_doc:
+            raise HTTPException(status_code=404, detail="User not found")
+        user_id = user_doc["id"]
+
+        # Lookup Stripe customer by email
+        customers = await stripe_call_with_retry(stripe.Customer.list, email=str(email), limit=1)
+        if not getattr(customers, "data", []):
+            raise HTTPException(status_code=404, detail="No Stripe customer found for email")
+        customer = customers.data[0]
+
+        # List active subscriptions
+        subs = await stripe_call_with_retry(stripe.Subscription.list, customer=customer.id, status="active")
+        if not getattr(subs, "data", []):
+            raise HTTPException(status_code=404, detail="No active Stripe subscriptions for customer")
+        subscription = subs.data[0]
+
+        # Determine plan via price id
+        price_id = None
+        try:
+            first_item = (subscription.get("items", {}) or {}).get("data", [{}])[0]
+            price_id = ((first_item or {}).get("price") or {}).get("id")
+        except Exception:
+            price_id = None
+
+        plan_doc = None
+        if price_id:
+            plan_doc = await db.subscription_plans.find_one(
+                {"stripe_price_id": price_id},
+                {"_id": 0, "id": 1, "access_scope": 1, "course_ids": 1, "duration_days": 1},
+            )
+
+        # Compute validity
+        valid_until = None
+        current_period_end = subscription.get("current_period_end")
+        if current_period_end:
+            try:
+                valid_until = datetime.fromtimestamp(int(current_period_end), tz=timezone.utc)
+            except Exception:
+                valid_until = None
+
+        # Default if missing: use plan duration
+        if not valid_until and plan_doc and int(plan_doc.get("duration_days", 0) or 0) > 0:
+            valid_until = datetime.now(timezone.utc) + timedelta(days=int(plan_doc.get("duration_days", 0)))
+
+        # Prepare updates
+        updates = {
+            "has_purchased": True,
+            "stripe_customer_id": customer.id,
+        }
+        if valid_until:
+            updates["subscription_valid_until"] = valid_until.isoformat()
+        if plan_doc:
+            updates["subscription_plan_id"] = plan_doc.get("id")
+            if plan_doc.get("access_scope", "full") == "full":
+                updates["has_full_access"] = True
+
+        await db.users.update_one({"id": user_id}, {"$set": updates})
+
+        try:
+            replication_manager.audit.info(
+                f"stripe_sync_user email={email} customer={customer.id} plan={plan_doc.get('id') if plan_doc else 'unknown'}"
+            )
+        except Exception:
+            pass
+
+        return {
+            "message": "User subscription synchronized",
+            "user_id": user_id,
+            "stripe_customer_id": customer.id,
+            "subscription_id": subscription.get("id"),
+            "subscription_plan_id": (plan_doc or {}).get("id"),
+            "valid_until": (valid_until.isoformat() if valid_until else None),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Admin Stripe sync error: {e}", exc_info=True)
+        try:
+            replication_manager.audit.error(f"stripe_sync_user_error email={email} error={e}")
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail="Failed to sync user subscription with Stripe")
+
 # ==================== STRIPE WEBHOOK ====================
 
 @api_router.post("/webhook/stripe")
@@ -3417,6 +3716,12 @@ async def stripe_webhook(request: Request):
     logger.info(f"📝 Webhook payload size: {len(payload)} bytes")
     logger.info(f"🔐 Signature header present: {bool(sig_header)}")
     logger.info(f"🔑 Using webhook secret: {webhook_secret[:10]}...")
+    try:
+        replication_manager.audit.info(
+            f"stripe_webhook_received size={len(payload)} signature_present={bool(sig_header)}"
+        )
+    except Exception:
+        pass
     _record_stripe_event({
         "stage": "received",
         "type": "unknown",
@@ -3427,12 +3732,19 @@ async def stripe_webhook(request: Request):
     })
 
     try:
-        event = stripe.Webhook.construct_event(
+        event = await stripe_call_with_retry(
+            stripe.Webhook.construct_event,
             payload=payload,
             sig_header=sig_header,
             secret=webhook_secret,
         )
         logger.info(f"✅ Webhook signature verified successfully")
+        try:
+            replication_manager.audit.info(
+                f"stripe_webhook_verified type={event.get('type')} id={event.get('id')} livemode={bool(event.get('livemode', False))}"
+            )
+        except Exception:
+            pass
         _record_stripe_event({
             "stage": "verified",
             "type": event.get("type"),
@@ -3442,6 +3754,10 @@ async def stripe_webhook(request: Request):
         })
     except ValueError as e:
         logger.error(f"❌ Invalid payload: {e}")
+        try:
+            replication_manager.audit.error(f"stripe_webhook_invalid_payload error={e}")
+        except Exception:
+            pass
         _record_stripe_event({
             "stage": "error",
             "type": "invalid_payload",
@@ -3452,6 +3768,10 @@ async def stripe_webhook(request: Request):
         raise HTTPException(status_code=400, detail="Invalid payload")
     except stripe.error.SignatureVerificationError as e:
         logger.error(f"❌ Invalid signature: {e}")
+        try:
+            replication_manager.audit.error(f"stripe_webhook_invalid_signature error={e}")
+        except Exception:
+            pass
         _record_stripe_event({
             "stage": "error",
             "type": "invalid_signature",
@@ -3469,6 +3789,29 @@ async def stripe_webhook(request: Request):
 
     event_type = event.get("type")
     data_obj = (event.get("data", {}) or {}).get("object", {})
+    
+    # Validate payload using Pydantic models
+    try:
+        if event_type == "checkout.session.completed":
+            validated_data = StripeCheckoutSession(**data_obj)
+        elif event_type in ("invoice.payment_succeeded", "invoice.paid"):
+            validated_data = StripeInvoice(**data_obj)
+        else:
+            validated_data = None
+            logger.info(f"Stripe: skipping structured validation for event type: {event_type}")
+    except ValidationError as e:
+        logger.error(f"Stripe payload validation failed: {e}")
+        _record_stripe_event({
+            "stage": "error",
+            "type": "validation_failed",
+            "error": str(e),
+            "payload_json": data_obj,
+        })
+        raise HTTPException(status_code=400, detail="Invalid payload structure")
+
+    # Use validated data if available
+    if validated_data:
+        data_obj = validated_data.model_dump()
 
     try:
         invoice_success_events = ("invoice.payment_succeeded", "invoice.paid")
@@ -3579,7 +3922,7 @@ async def stripe_webhook(request: Request):
             subscription_id = data_obj.get("subscription")
             if subscription_id:
                 try:
-                    sub = stripe.Subscription.retrieve(subscription_id)
+                    sub = await stripe_call_with_retry(stripe.Subscription.retrieve, subscription_id)
                     current_period_end = sub.get("current_period_end")
                     if current_period_end:
                         valid_until = datetime.fromtimestamp(int(current_period_end), tz=timezone.utc)
@@ -3687,7 +4030,7 @@ async def stripe_webhook(request: Request):
                 if not current_period_end_ts:
                     sub_id_probe = data_obj.get("id") or data_obj.get("subscription")
                     if sub_id_probe:
-                        sub_probe = stripe.Subscription.retrieve(sub_id_probe)
+                        sub_probe = await stripe_call_with_retry(stripe.Subscription.retrieve, sub_id_probe)
                         current_period_end_ts = sub_probe.get("current_period_end") or current_period_end_ts
             except Exception as e:
                 logger.warning(f"Could not derive current_period_end from Stripe: {e}")
@@ -3711,7 +4054,7 @@ async def stripe_webhook(request: Request):
             if not user_filter and not email:
                 try:
                     if cust_id:
-                        cust = stripe.Customer.retrieve(cust_id)
+                        cust = await stripe_call_with_retry(stripe.Customer.retrieve, cust_id)
                         email = cust.get("email")
                 except Exception as e:
                     logger.warning(f"Could not retrieve Stripe customer email: {e}")
@@ -3787,7 +4130,7 @@ async def stripe_webhook(request: Request):
             email = None
             try:
                 if customer_id:
-                    cust = stripe.Customer.retrieve(customer_id)
+                    cust = await stripe_call_with_retry(stripe.Customer.retrieve, customer_id)
                     email = cust.get("email")
             except Exception:
                 pass
@@ -3799,30 +4142,34 @@ async def stripe_webhook(request: Request):
                     upsert=True,
                 )
 
-            try:
-                payload = {
-                    "source": "stripe",
-                    "type": event_type,
-                    "status": "payment_failed",
-                    "customer_email": email,
-                    "subscription_id": sub_id,
-                    "livemode": bool(event.get("livemode", False))
-                }
-                await _forward_status_to_client(payload)
-                _record_stripe_event({
-                    "stage": "processed",
-                    "type": event_type,
-                    "event_id": event.get("id"),
-                    "result": "forwarded_status",
-                    "payload_json": payload_json,
-                    "data_object": data_obj,
-                })
-            except Exception:
-                pass
+        try:
+            payload = {
+                "source": "stripe",
+                "type": event_type,
+                "status": "payment_failed",
+                "customer_email": email,
+                "subscription_id": sub_id,
+                "livemode": bool(event.get("livemode", False))
+            }
+            await _forward_status_to_client(payload)
+            _record_stripe_event({
+                "stage": "processed",
+                "type": event_type,
+                "event_id": event.get("id"),
+                "result": "forwarded_status",
+                "payload_json": payload_json,
+                "data_object": data_obj,
+            })
+        except Exception:
+            pass
 
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Error processing Stripe webhook: {e}", exc_info=True)
+        try:
+            replication_manager.audit.error(f"stripe_webhook_processing_error error={e}")
+        except Exception:
+            pass
         try:
             _record_stripe_event({
                 "stage": "error",

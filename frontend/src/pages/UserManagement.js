@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Users, Plus, Edit, Trash2, BookOpen, CheckCircle, XCircle, ArrowLeft, Upload, Download, Settings, Mail, Key, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, BookOpen, CheckCircle, XCircle, ArrowLeft, Upload, Download, Settings, Mail, Key, Search, Filter, ChevronLeft, ChevronRight, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -770,6 +770,28 @@ export default function UserManagement({ user, onLogout }) {
                           <span className="text-xs px-3 py-1 rounded-full bg-gray-500/20 text-gray-400 flex items-center gap-1">
                             <XCircle size={14} />
                             {u.enrolled_courses?.length || 0} curso(s)
+                          </span>
+                        )}
+                        {/* Assinatura */}
+                        {u.subscription_status && (
+                          <span
+                            className={`text-xs px-3 py-1 rounded-full flex items-center gap-1 ${
+                              u.subscription_status === 'ativa'
+                                ? 'bg-emerald-500/20 text-emerald-400'
+                                : u.subscription_status === 'cancelada'
+                                ? 'bg-yellow-500/20 text-yellow-400'
+                                : 'bg-red-500/20 text-red-400'
+                            }`}
+                            title={
+                              u.subscription_renews_at
+                                ? `Renova/expira em ${new Date(u.subscription_renews_at).toLocaleDateString('pt-BR')}`
+                                : undefined
+                            }
+                          >
+                            <CreditCard size={14} />
+                            {`Assinatura ${u.subscription_status}`}
+                            {u.subscription_recurrence && ` • ${u.subscription_recurrence}`}
+                            {u.subscription_renews_at && ` • ${new Date(u.subscription_renews_at).toLocaleDateString('pt-BR')}`}
                           </span>
                         )}
                         {u.invited && !u.password_created && (
