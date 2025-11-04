@@ -630,7 +630,7 @@ export default function ProfileSettings({ user, onLogout }) {
                                     : `${t('profile.subscription.status.validUntil', 'Válida até:')} ${new Date(subscriptionData.subscription_valid_until).toLocaleDateString('pt-BR')}`}
                                 </p>
                               )}
-                              {planDisplayName && !subscriptionData.auto_renews && (
+                              {planDisplayName && (
                                 <p className="text-gray-300 text-sm">
                                   {t('profile.subscription.status.plan', 'Plano:')} {planDisplayName}
                                 </p>
