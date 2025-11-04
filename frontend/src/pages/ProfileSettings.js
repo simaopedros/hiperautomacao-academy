@@ -592,7 +592,7 @@ export default function ProfileSettings({ user, onLogout }) {
                               }
                               <h3 className="text-xl font-bold text-white">
                                 {subscriptionData.subscription_plan_id
-                                  ? ((subscriptionData.subscription_valid_until && new Date(subscriptionData.subscription_valid_until).getTime() > Date.now())
+                                  ? (subscriptionData.is_active
                                       ? t('profile.subscription.status.subscriptionActive', 'Assinatura Ativa')
                                       : t('profile.subscription.status.subscriptionCanceled', 'Assinatura cancelada ou expirada'))
                                   : (subscriptionData.has_full_access
@@ -615,7 +615,7 @@ export default function ProfileSettings({ user, onLogout }) {
                           </div>
                           <div className={'px-4 py-2 rounded-full text-sm font-semibold ' + (
                             subscriptionData.subscription_plan_id
-                              ? ((subscriptionData.subscription_valid_until && new Date(subscriptionData.subscription_valid_until).getTime() > Date.now())
+                              ? (subscriptionData.is_active
                                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                   : 'bg-red-500/20 text-red-300 border border-red-500/30')
                               : (subscriptionData.has_full_access
@@ -623,7 +623,7 @@ export default function ProfileSettings({ user, onLogout }) {
                                   : 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30')
                           )}>
                             {subscriptionData.subscription_plan_id
-                              ? ((subscriptionData.subscription_valid_until && new Date(subscriptionData.subscription_valid_until).getTime() > Date.now())
+                              ? (subscriptionData.is_active
                                   ? t('profile.subscription.status.activeBadge', 'Ativo')
                                   : t('profile.subscription.status.canceledBadge', 'Cancelado'))
                               : (subscriptionData.has_full_access
@@ -633,7 +633,7 @@ export default function ProfileSettings({ user, onLogout }) {
                         </div>
                       </div>
                       {/* Botão de reativação quando assinatura cancelada/expirada */}
-                      {subscriptionData.subscription_plan_id && (!subscriptionData.subscription_valid_until || new Date(subscriptionData.subscription_valid_until).getTime() <= Date.now()) && (
+                      {subscriptionData.subscription_plan_id && !subscriptionData.is_active && (
                         <div className="bg-red-500/10 border border-red-400/20 rounded-xl p-4 flex items-center justify-between">
                           <p className="text-red-200 text-sm">
                             {t('profile.subscription.status.reactivateInfo', 'Sua assinatura está cancelada ou expirada. Reative para voltar a ter acesso.')}
@@ -644,6 +644,14 @@ export default function ProfileSettings({ user, onLogout }) {
                           >
                             {t('profile.subscription.status.reactivateCta', 'Reativar Assinatura')}
                           </Button>
+                        </div>
+                      )}
+                      {/* Banner informativo quando há cancelamento agendado (sem renovação automática) */}
+                      {subscriptionData.subscription_plan_id && subscriptionData.is_active && !subscriptionData.auto_renews && (
+                        <div className="bg-yellow-500/10 border border-yellow-400/20 rounded-xl p-4">
+                          <p className="text-yellow-200 text-sm">
+                            {t('profile.subscription.status.cancelScheduled', 'Sua assinatura está ativa até a data informada. A renovação automática está desativada.')}
+                          </p>
                         </div>
                       )}
                       {subscriptionData.has_full_access && !subscriptionData.subscription_plan_id && (
