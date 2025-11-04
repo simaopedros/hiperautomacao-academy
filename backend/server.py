@@ -4129,6 +4129,8 @@ async def stripe_webhook(request: Request):
                         "has_full_access": True,
                         "subscription_plan_id": plan_id,
                         "subscription_valid_until": valid_until.isoformat(),
+                        "subscription_cancelled": False,
+                        "subscription_cancel_at_period_end": False,
                         **({"stripe_customer_id": customer_id} if customer_id else {})
                     }}
                 )
@@ -4156,6 +4158,8 @@ async def stripe_webhook(request: Request):
                             "$set": {
                                 "has_purchased": True,
                                 "subscription_plan_id": plan_id,
+                                "subscription_cancelled": False,
+                                "subscription_cancel_at_period_end": False,
                                 **({"stripe_customer_id": customer_id} if customer_id else {})
                             }
                         }
@@ -4278,14 +4282,18 @@ async def stripe_webhook(request: Request):
                     updates["has_full_access"] = False
             else:
                 updates["subscription_cancelled"] = False
-            if current_period_end_ts:
-                try:
-                    updates["subscription_valid_until"] = datetime.fromtimestamp(int(current_period_end_ts), tz=timezone.utc).isoformat()
-                except Exception:
-                    pass
+            # Determine the effective end date for the subscription
+            effective_end_ts = None
+            if status == "canceled" and canceled_at_ts and not cancel_at_period_end:
+                effective_end_ts = canceled_at_ts
+            elif current_period_end_ts:
+                effective_end_ts = current_period_end_ts
             elif canceled_at_ts:
+                effective_end_ts = canceled_at_ts
+
+            if effective_end_ts:
                 try:
-                    updates["subscription_valid_until"] = datetime.fromtimestamp(int(canceled_at_ts), tz=timezone.utc).isoformat()
+                    updates["subscription_valid_until"] = datetime.fromtimestamp(int(effective_end_ts), tz=timezone.utc).isoformat()
                 except Exception:
                     pass
 
