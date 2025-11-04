@@ -27,6 +27,7 @@ import SubscribePage from '@/pages/SubscribePage';
 import AdminCategories from '@/pages/AdminCategories';
 import LanguageSelectionModal from '@/components/LanguageSelectionModal';
 import WebhookMonitor from '@/pages/WebhookMonitor';
+import VersionBadge from '@/components/VersionBadge';
 
 function App() {
   const { t } = useTranslation();
@@ -380,6 +381,7 @@ function App() {
         isOpen={showLanguageModal}
         onLanguageSelect={handleLanguageSelect}
       />
+      <VersionBadge />
     </div>
   );
 }
