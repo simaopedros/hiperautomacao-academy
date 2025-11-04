@@ -692,18 +692,20 @@ async def user_has_course_access(user_id: str, course_id: str, has_full_access: 
         valid_until_dt = valid_until_dt.replace(tzinfo=timezone.utc)
 
     now = datetime.now(timezone.utc)
-    is_canceled = bool(user_doc.get("subscription_cancelled") or user_doc.get("subscription_cancel_at_period_end"))
+    cancel_at_period_end = bool(user_doc.get("subscription_cancel_at_period_end"))
+    cancelled_effective = bool(user_doc.get("subscription_cancelled"))
     has_lifetime_access = bool(user_doc.get("has_full_access")) and not plan_id
 
     if has_lifetime_access or (has_full_access and not plan_id):
         return True
 
     if plan_id:
-        is_active = bool(valid_until_dt and valid_until_dt > now and not is_canceled)
-        if is_active:
+        is_active = bool(valid_until_dt and valid_until_dt > now)
+        if is_active and not cancelled_effective:
+            # Válido mesmo se cancelado para o fim do ciclo
             return True
 
-        # If the subscription is no longer active, clear lingering full access flags
+        # Se assinatura não está mais ativa, remove o flag de acesso amplo herdado
         if user_doc.get("has_full_access"):
             await db.users.update_one({"id": user_id}, {"$set": {"has_full_access": False}})
 
@@ -1018,9 +1020,18 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
         has_full_access = user_data.get("has_full_access", False)
         subscription_cancel_at_period_end = bool(user_data.get("subscription_cancel_at_period_end"))
         subscription_cancelled = bool(user_data.get("subscription_cancelled"))
+        cancellation_type = None
+        cancellation_note = None
         
         # If no subscription
         if not subscription_plan_id:
+            if subscription_cancel_at_period_end:
+                cancellation_type = "period_end"
+                cancellation_note = "Cancelamento programado ao final do ciclo atual."
+            elif subscription_cancelled:
+                cancellation_type = "immediate"
+                cancellation_note = "Assinatura cancelada. Acesso encerrado."
+
             return {
                 "has_subscription": False,
                 "subscription_plan": None,
@@ -1034,7 +1045,9 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
                 "subscription_cancel_at_period_end": subscription_cancel_at_period_end,
                 "subscription_cancelled": subscription_cancelled,
                 "auto_renews": False,
-                "renewal_date": None
+                "renewal_date": None,
+                "cancellation_type": cancellation_type,
+                "cancellation_note": cancellation_note
             }
         
         # Get subscription plan details
@@ -1053,7 +1066,9 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
                 "subscription_cancel_at_period_end": subscription_cancel_at_period_end,
                 "subscription_cancelled": subscription_cancelled,
                 "auto_renews": False,
-                "renewal_date": None
+                "renewal_date": None,
+                "cancellation_type": cancellation_type,
+                "cancellation_note": cancellation_note
             }
         
         # Check if subscription is still valid
@@ -1080,6 +1095,13 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
         auto_renews = bool(is_active and not subscription_cancel_at_period_end and not subscription_cancelled)
         renewal_date = subscription_valid_until if auto_renews else None
         
+        if subscription_cancelled and not is_active:
+            cancellation_type = "immediate"
+            cancellation_note = "Assinatura cancelada. O acesso foi encerrado."
+        elif subscription_cancel_at_period_end and is_active:
+            cancellation_type = "period_end"
+            cancellation_note = "Cancelamento programado: você mantém o acesso até a data de validade."
+
         return {
             "has_subscription": True,
             "subscription_plan": {
@@ -1101,7 +1123,9 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
             "subscription_cancel_at_period_end": subscription_cancel_at_period_end,
             "subscription_cancelled": subscription_cancelled,
             "auto_renews": auto_renews,
-            "renewal_date": renewal_date
+            "renewal_date": renewal_date,
+            "cancellation_type": cancellation_type,
+            "cancellation_note": cancellation_note
         }
         
     except Exception as e:
@@ -1779,7 +1803,8 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
         try:
             plan_id = user.get('subscription_plan_id')
             valid_until = user.get('subscription_valid_until')
-            is_canceled = bool(user.get('subscription_cancelled') or user.get('subscription_cancel_at_period_end'))
+            cancelled_effective = bool(user.get('subscription_cancelled'))
+            cancel_at_period_end = bool(user.get('subscription_cancel_at_period_end'))
 
             # Normalizar data
             valid_until_dt = None
@@ -1820,7 +1845,7 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
             if not plan_id:
                 status = None
             else:
-                if is_canceled:
+                if cancelled_effective and not is_active:
                     status = 'cancelada'
                 elif is_active:
                     status = 'ativa'
@@ -1832,7 +1857,8 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
             user['subscription_recurrence'] = recurrence_label
             user['subscription_renews_at'] = valid_until_dt
             user['subscription_is_active'] = is_active if plan_id else None
-            user['subscription_is_canceled'] = is_canceled if plan_id else None
+            user['subscription_is_canceled'] = cancelled_effective if plan_id else None
+            user['subscription_cancel_at_period_end'] = cancel_at_period_end if plan_id else None
             user['subscription_days_remaining'] = days_remaining if plan_id else None
         except Exception as e:
             # Não quebra a listagem se houver erro ao enriquecer assinatura
@@ -2169,11 +2195,13 @@ async def get_published_courses(current_user: User = Depends(get_current_user)):
     # Determine subscription state and cancellation flags
     has_subscription = False
     subscription_active = False
-    subscription_canceled = False
+    subscription_cancelled_effective = False
+    subscription_cancel_at_period_end = False
     if user_doc:
         plan_id = user_doc.get("subscription_plan_id")
         valid_until = user_doc.get("subscription_valid_until")
-        subscription_canceled = bool(user_doc.get("subscription_cancelled") or user_doc.get("subscription_cancel_at_period_end"))
+        subscription_cancelled_effective = bool(user_doc.get("subscription_cancelled"))
+        subscription_cancel_at_period_end = bool(user_doc.get("subscription_cancel_at_period_end"))
         has_subscription = bool(plan_id)
         if plan_id:
             if isinstance(valid_until, str):
@@ -2201,20 +2229,23 @@ async def get_published_courses(current_user: User = Depends(get_current_user)):
         course_data = dict(course)
         course_data['is_enrolled'] = course['id'] in enrolled_course_ids or has_lifetime_access
         # Access rules:
-        # - lifetime full access: always True
-        # - has subscription canceled: always False
-        # - has subscription active: True only if enrolled
+        # - lifetime full access: sempre True
+        # - assinatura cancelada para o fim do ciclo: acesso continua até expirar
+        # - assinatura cancelada imediatamente: bloqueia
+        # - assinatura ativa: True apenas se matriculado
         # - no subscription: True if enrolled (legacy/lifetime purchases)
         if has_lifetime_access:
             course_data['has_access'] = True
         elif has_subscription:
-            if subscription_canceled or not subscription_active:
+            if not subscription_active or (subscription_cancelled_effective and not subscription_cancel_at_period_end):
                 course_data['has_access'] = False
+            elif subscription_cancel_at_period_end:
+                course_data['has_access'] = course['id'] in enrolled_course_ids
             else:
                 course_data['has_access'] = course['id'] in enrolled_course_ids
         else:
             course_data['has_access'] = course['id'] in enrolled_course_ids
-        
+
         result.append(course_data)
     
     return result
@@ -2377,10 +2408,10 @@ async def user_has_access(user_id: str) -> bool:
         return True
 
     if plan_id:
-        is_canceled = bool(user.get("subscription_cancelled") or user.get("subscription_cancel_at_period_end"))
-        is_active = bool(valid_until_dt and valid_until_dt > now and not is_canceled)
+        cancelled_effective = bool(user.get("subscription_cancelled"))
+        is_active = bool(valid_until_dt and valid_until_dt > now)
 
-        if is_active:
+        if is_active and not cancelled_effective:
             return True
 
         if has_full_access:
@@ -4129,6 +4160,8 @@ async def stripe_webhook(request: Request):
                         "has_full_access": True,
                         "subscription_plan_id": plan_id,
                         "subscription_valid_until": valid_until.isoformat(),
+                        "subscription_cancelled": False,
+                        "subscription_cancel_at_period_end": False,
                         **({"stripe_customer_id": customer_id} if customer_id else {})
                     }}
                 )
@@ -4156,6 +4189,8 @@ async def stripe_webhook(request: Request):
                             "$set": {
                                 "has_purchased": True,
                                 "subscription_plan_id": plan_id,
+                                "subscription_cancelled": False,
+                                "subscription_cancel_at_period_end": False,
                                 **({"stripe_customer_id": customer_id} if customer_id else {})
                             }
                         }
@@ -4278,14 +4313,18 @@ async def stripe_webhook(request: Request):
                     updates["has_full_access"] = False
             else:
                 updates["subscription_cancelled"] = False
-            if current_period_end_ts:
-                try:
-                    updates["subscription_valid_until"] = datetime.fromtimestamp(int(current_period_end_ts), tz=timezone.utc).isoformat()
-                except Exception:
-                    pass
+            # Determine the effective end date for the subscription
+            effective_end_ts = None
+            if status == "canceled" and canceled_at_ts and not cancel_at_period_end:
+                effective_end_ts = canceled_at_ts
+            elif current_period_end_ts:
+                effective_end_ts = current_period_end_ts
             elif canceled_at_ts:
+                effective_end_ts = canceled_at_ts
+
+            if effective_end_ts:
                 try:
-                    updates["subscription_valid_until"] = datetime.fromtimestamp(int(canceled_at_ts), tz=timezone.utc).isoformat()
+                    updates["subscription_valid_until"] = datetime.fromtimestamp(int(effective_end_ts), tz=timezone.utc).isoformat()
                 except Exception:
                     pass
 
