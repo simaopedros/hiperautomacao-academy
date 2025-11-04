@@ -650,7 +650,25 @@ async def user_has_course_access(user_id: str, course_id: str, has_full_access: 
     """
     if has_full_access:
         return True
-    
+
+    # Load user document to check subscription state and legacy enrollments
+    user_doc = await db.users.find_one({"id": user_id})
+    if not user_doc:
+        return False
+
+    # If user has a subscription, enforce it being active to allow any course access
+    plan_id = user_doc.get("subscription_plan_id")
+    valid_until = user_doc.get("subscription_valid_until")
+    if plan_id:
+        if isinstance(valid_until, str):
+            try:
+                valid_until = datetime.fromisoformat(valid_until)
+            except Exception:
+                valid_until = None
+        # Block access when subscription is canceled/expired
+        if not (valid_until and datetime.now(timezone.utc) < valid_until):
+            return False
+
     # Check enrollments collection (new system)
     enrollment = await db.enrollments.find_one({
         "user_id": user_id,
@@ -658,12 +676,11 @@ async def user_has_course_access(user_id: str, course_id: str, has_full_access: 
     })
     if enrollment:
         return True
-    
+
     # Check user's enrolled_courses field (legacy system)
-    user_doc = await db.users.find_one({"id": user_id})
-    if user_doc and "enrolled_courses" in user_doc:
+    if "enrolled_courses" in user_doc:
         return course_id in user_doc.get("enrolled_courses", [])
-    
+
     return False
 
 # ==================== AUTH ROUTES ====================
@@ -2111,6 +2128,19 @@ async def get_published_courses(current_user: User = Depends(get_current_user)):
         legacy_courses = set(user_doc["enrolled_courses"])
         enrolled_course_ids = list(set(enrolled_course_ids) | legacy_courses)
     
+    # Determine subscription active state (if user has a subscription)
+    subscription_active = False
+    if user_doc:
+        plan_id = user_doc.get("subscription_plan_id")
+        valid_until = user_doc.get("subscription_valid_until")
+        if plan_id:
+            if isinstance(valid_until, str):
+                try:
+                    valid_until = datetime.fromisoformat(valid_until)
+                except Exception:
+                    valid_until = None
+            subscription_active = bool(valid_until and datetime.now(timezone.utc) < valid_until)
+
     # Add enrollment status to each course
     result = []
     for course in courses:
@@ -2120,7 +2150,14 @@ async def get_published_courses(current_user: User = Depends(get_current_user)):
         # Add enrollment info
         course_data = dict(course)
         course_data['is_enrolled'] = course['id'] in enrolled_course_ids or current_user.has_full_access
-        course_data['has_access'] = course['id'] in enrolled_course_ids or current_user.has_full_access
+        # If user has a subscription and it's expired/canceled, they lose access to all courses (unless full access)
+        if current_user.has_full_access:
+            course_data['has_access'] = True
+        elif subscription_active:
+            # Keep legacy behavior: active subscription does not auto-enroll; access requires enrollment unless full access
+            course_data['has_access'] = course['id'] in enrolled_course_ids
+        else:
+            course_data['has_access'] = False
         
         result.append(course_data)
     
@@ -2266,19 +2303,20 @@ async def user_has_access(user_id: str) -> bool:
     if user.get("has_full_access", False):
         return True
 
-    # Check active subscription
+    # If user has a subscription, only allow access when it is active
+    plan_id = user.get("subscription_plan_id")
     valid_until = user.get("subscription_valid_until")
-    if valid_until:
+    if plan_id:
         # Normalize to datetime if stored as string
         if isinstance(valid_until, str):
             try:
                 valid_until = datetime.fromisoformat(valid_until)
             except Exception:
                 valid_until = None
-        if valid_until and datetime.now(timezone.utc) < valid_until:
-            return True
-    
-    # Check if user is enrolled in at least one course
+        # Active subscription grants access; canceled/expired revokes community/course access
+        return bool(valid_until and datetime.now(timezone.utc) < valid_until)
+
+    # No subscription: fall back to enrollment-based access (legacy behavior)
     enrollment = await db.enrollments.find_one({"user_id": user_id})
     return enrollment is not None
 

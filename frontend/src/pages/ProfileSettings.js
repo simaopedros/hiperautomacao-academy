@@ -632,6 +632,20 @@ export default function ProfileSettings({ user, onLogout }) {
                           </div>
                         </div>
                       </div>
+                      {/* Botão de reativação quando assinatura cancelada/expirada */}
+                      {subscriptionData.subscription_plan_id && (!subscriptionData.subscription_valid_until || new Date(subscriptionData.subscription_valid_until).getTime() <= Date.now()) && (
+                        <div className="bg-red-500/10 border border-red-400/20 rounded-xl p-4 flex items-center justify-between">
+                          <p className="text-red-200 text-sm">
+                            {t('profile.subscription.status.reactivateInfo', 'Sua assinatura está cancelada ou expirada. Reative para voltar a ter acesso.')}
+                          </p>
+                          <Button
+                            onClick={() => navigate('/subscribe')}
+                            className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:shadow-lg hover:shadow-red-500/25 hover:-translate-y-0.5"
+                          >
+                            {t('profile.subscription.status.reactivateCta', 'Reativar Assinatura')}
+                          </Button>
+                        </div>
+                      )}
                       {subscriptionData.has_full_access && !subscriptionData.subscription_plan_id && (
                         <div className="bg-emerald-500/10 border border-emerald-400/20 rounded-xl p-4">
                           <p className="text-emerald-200">

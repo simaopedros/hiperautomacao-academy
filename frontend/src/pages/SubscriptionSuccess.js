@@ -168,9 +168,15 @@ export default function SubscriptionSuccess() {
             <Button onClick={() => navigate('/dashboard')} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
               Ir para o Dashboard
             </Button>
-            <Button onClick={() => navigate('/subscribe')} variant="secondary" className="w-full bg-gray-800 hover:bg-gray-700 text-white">
-              Ver Planos
-            </Button>
+            {userInfo?.subscription_plan_id && !(userInfo?.subscription_valid_until && new Date(userInfo.subscription_valid_until).getTime() > Date.now()) ? (
+              <Button onClick={() => navigate('/subscribe')} variant="secondary" className="w-full bg-red-600 hover:bg-red-700 text-white">
+                Reativar Assinatura
+              </Button>
+            ) : (
+              <Button onClick={() => navigate('/subscribe')} variant="secondary" className="w-full bg-gray-800 hover:bg-gray-700 text-white">
+                Ver Planos
+              </Button>
+            )}
           </div>
         )}
 
