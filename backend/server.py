@@ -626,7 +626,31 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user = await db.users.find_one({"id": user_id}, {"_id": 0})
         if user is None:
             raise HTTPException(status_code=401, detail="User not found")
-        
+
+        # Ensure subscription users do not keep lifetime access once the plan ends
+        plan_id = user.get("subscription_plan_id")
+        if plan_id:
+            valid_until = user.get("subscription_valid_until")
+            if isinstance(valid_until, str):
+                try:
+                    valid_until = datetime.fromisoformat(valid_until)
+                except Exception:
+                    valid_until = None
+            elif not isinstance(valid_until, datetime):
+                valid_until = None
+
+            valid_until_dt = valid_until
+            if valid_until_dt and valid_until_dt.tzinfo is None:
+                valid_until_dt = valid_until_dt.replace(tzinfo=timezone.utc)
+
+            now = datetime.now(timezone.utc)
+            is_canceled = bool(user.get("subscription_cancelled") or user.get("subscription_cancel_at_period_end"))
+            is_active = bool(valid_until_dt and valid_until_dt > now and not is_canceled)
+
+            if not is_active and user.get("has_full_access"):
+                await db.users.update_one({"id": user_id}, {"$set": {"has_full_access": False}})
+                user["has_full_access"] = False
+
         return User(**user)
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -648,30 +672,40 @@ async def user_has_course_access(user_id: str, course_id: str, has_full_access: 
     Checks BOTH enrollments collection (new system) and enrolled_courses field (legacy system)
     for backward compatibility with existing production data.
     """
-    if has_full_access:
-        return True
-
-    # Load user document to check subscription state and legacy enrollments
+    # Load user document to check subscription state, lifetime access and enrollments
     user_doc = await db.users.find_one({"id": user_id})
     if not user_doc:
         return False
 
-    # If user has a subscription, enforce immediate revocation when canceled/expired
     plan_id = user_doc.get("subscription_plan_id")
     valid_until = user_doc.get("subscription_valid_until")
+    if isinstance(valid_until, str):
+        try:
+            valid_until = datetime.fromisoformat(valid_until)
+        except Exception:
+            valid_until = None
+    elif not isinstance(valid_until, datetime):
+        valid_until = None
+
+    valid_until_dt = valid_until
+    if valid_until_dt and valid_until_dt.tzinfo is None:
+        valid_until_dt = valid_until_dt.replace(tzinfo=timezone.utc)
+
+    now = datetime.now(timezone.utc)
     is_canceled = bool(user_doc.get("subscription_cancelled") or user_doc.get("subscription_cancel_at_period_end"))
+    has_lifetime_access = bool(user_doc.get("has_full_access")) and not plan_id
+
+    if has_lifetime_access or (has_full_access and not plan_id):
+        return True
+
     if plan_id:
-        if isinstance(valid_until, str):
-            try:
-                valid_until = datetime.fromisoformat(valid_until)
-            except Exception:
-                valid_until = None
-        # Canceled subscriptions lose access immediately, regardless of valid_until
-        if is_canceled:
-            return False
-        # Expired subscriptions also lose access
-        if not (valid_until and datetime.now(timezone.utc) < valid_until):
-            return False
+        is_active = bool(valid_until_dt and valid_until_dt > now and not is_canceled)
+        if is_active:
+            return True
+
+        # If the subscription is no longer active, clear lingering full access flags
+        if user_doc.get("has_full_access"):
+            await db.users.update_one({"id": user_id}, {"$set": {"has_full_access": False}})
 
     # Check enrollments collection (new system)
     enrollment = await db.enrollments.find_one({
@@ -2147,23 +2181,31 @@ async def get_published_courses(current_user: User = Depends(get_current_user)):
                     valid_until = datetime.fromisoformat(valid_until)
                 except Exception:
                     valid_until = None
+            elif not isinstance(valid_until, datetime):
+                valid_until = None
+            if valid_until and valid_until.tzinfo is None:
+                valid_until = valid_until.replace(tzinfo=timezone.utc)
             subscription_active = bool(valid_until and datetime.now(timezone.utc) < valid_until)
 
     # Add enrollment status to each course
     result = []
+    has_lifetime_access = bool(
+        (user_doc.get("has_full_access") if user_doc else current_user.has_full_access)
+        and not has_subscription
+    )
     for course in courses:
         if isinstance(course['created_at'], str):
             course['created_at'] = datetime.fromisoformat(course['created_at'])
         
         # Add enrollment info
         course_data = dict(course)
-        course_data['is_enrolled'] = course['id'] in enrolled_course_ids or current_user.has_full_access
+        course_data['is_enrolled'] = course['id'] in enrolled_course_ids or has_lifetime_access
         # Access rules:
-        # - has_full_access: always True
+        # - lifetime full access: always True
         # - has subscription canceled: always False
         # - has subscription active: True only if enrolled
         # - no subscription: True if enrolled (legacy/lifetime purchases)
-        if current_user.has_full_access:
+        if has_lifetime_access:
             course_data['has_access'] = True
         elif has_subscription:
             if subscription_canceled or not subscription_active:
@@ -2313,28 +2355,38 @@ async def user_has_access(user_id: str) -> bool:
     if not user:
         return False
     
-    # Check if user has full access
-    if user.get("has_full_access", False):
-        return True
-
-    # If user has a subscription, enforce immediate revocation when canceled/expired
     plan_id = user.get("subscription_plan_id")
     valid_until = user.get("subscription_valid_until")
-    is_canceled = bool(user.get("subscription_cancelled") or user.get("subscription_cancel_at_period_end"))
-    if plan_id:
-        # Normalize to datetime if stored as string
-        if isinstance(valid_until, str):
-            try:
-                valid_until = datetime.fromisoformat(valid_until)
-            except Exception:
-                valid_until = None
-        # Canceled subscriptions lose access immediately
-        if is_canceled:
-            return False
-        # Active subscription grants access; expired revokes access
-        return bool(valid_until and datetime.now(timezone.utc) < valid_until)
+    if isinstance(valid_until, str):
+        try:
+            valid_until = datetime.fromisoformat(valid_until)
+        except Exception:
+            valid_until = None
+    elif not isinstance(valid_until, datetime):
+        valid_until = None
 
-    # No subscription: fall back to enrollment-based access (legacy behavior)
+    valid_until_dt = valid_until
+    if valid_until_dt and valid_until_dt.tzinfo is None:
+        valid_until_dt = valid_until_dt.replace(tzinfo=timezone.utc)
+
+    now = datetime.now(timezone.utc)
+    has_full_access = bool(user.get("has_full_access"))
+    has_lifetime_access = has_full_access and not plan_id
+
+    if has_lifetime_access:
+        return True
+
+    if plan_id:
+        is_canceled = bool(user.get("subscription_cancelled") or user.get("subscription_cancel_at_period_end"))
+        is_active = bool(valid_until_dt and valid_until_dt > now and not is_canceled)
+
+        if is_active:
+            return True
+
+        if has_full_access:
+            await db.users.update_one({"id": user_id}, {"$set": {"has_full_access": False}})
+
+    # No subscription or inactive subscription: fall back to enrollment-based access (legacy behavior)
     enrollment = await db.enrollments.find_one({"user_id": user_id})
     return enrollment is not None
 
