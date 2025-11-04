@@ -656,16 +656,20 @@ async def user_has_course_access(user_id: str, course_id: str, has_full_access: 
     if not user_doc:
         return False
 
-    # If user has a subscription, enforce it being active to allow any course access
+    # If user has a subscription, enforce immediate revocation when canceled/expired
     plan_id = user_doc.get("subscription_plan_id")
     valid_until = user_doc.get("subscription_valid_until")
+    is_canceled = bool(user_doc.get("subscription_cancelled") or user_doc.get("subscription_cancel_at_period_end"))
     if plan_id:
         if isinstance(valid_until, str):
             try:
                 valid_until = datetime.fromisoformat(valid_until)
             except Exception:
                 valid_until = None
-        # Block access when subscription is canceled/expired
+        # Canceled subscriptions lose access immediately, regardless of valid_until
+        if is_canceled:
+            return False
+        # Expired subscriptions also lose access
         if not (valid_until and datetime.now(timezone.utc) < valid_until):
             return False
 
@@ -2128,11 +2132,15 @@ async def get_published_courses(current_user: User = Depends(get_current_user)):
         legacy_courses = set(user_doc["enrolled_courses"])
         enrolled_course_ids = list(set(enrolled_course_ids) | legacy_courses)
     
-    # Determine subscription active state (if user has a subscription)
+    # Determine subscription state and cancellation flags
+    has_subscription = False
     subscription_active = False
+    subscription_canceled = False
     if user_doc:
         plan_id = user_doc.get("subscription_plan_id")
         valid_until = user_doc.get("subscription_valid_until")
+        subscription_canceled = bool(user_doc.get("subscription_cancelled") or user_doc.get("subscription_cancel_at_period_end"))
+        has_subscription = bool(plan_id)
         if plan_id:
             if isinstance(valid_until, str):
                 try:
@@ -2150,14 +2158,20 @@ async def get_published_courses(current_user: User = Depends(get_current_user)):
         # Add enrollment info
         course_data = dict(course)
         course_data['is_enrolled'] = course['id'] in enrolled_course_ids or current_user.has_full_access
-        # If user has a subscription and it's expired/canceled, they lose access to all courses (unless full access)
+        # Access rules:
+        # - has_full_access: always True
+        # - has subscription canceled: always False
+        # - has subscription active: True only if enrolled
+        # - no subscription: True if enrolled (legacy/lifetime purchases)
         if current_user.has_full_access:
             course_data['has_access'] = True
-        elif subscription_active:
-            # Keep legacy behavior: active subscription does not auto-enroll; access requires enrollment unless full access
-            course_data['has_access'] = course['id'] in enrolled_course_ids
+        elif has_subscription:
+            if subscription_canceled or not subscription_active:
+                course_data['has_access'] = False
+            else:
+                course_data['has_access'] = course['id'] in enrolled_course_ids
         else:
-            course_data['has_access'] = False
+            course_data['has_access'] = course['id'] in enrolled_course_ids
         
         result.append(course_data)
     
@@ -2303,9 +2317,10 @@ async def user_has_access(user_id: str) -> bool:
     if user.get("has_full_access", False):
         return True
 
-    # If user has a subscription, only allow access when it is active
+    # If user has a subscription, enforce immediate revocation when canceled/expired
     plan_id = user.get("subscription_plan_id")
     valid_until = user.get("subscription_valid_until")
+    is_canceled = bool(user.get("subscription_cancelled") or user.get("subscription_cancel_at_period_end"))
     if plan_id:
         # Normalize to datetime if stored as string
         if isinstance(valid_until, str):
@@ -2313,7 +2328,10 @@ async def user_has_access(user_id: str) -> bool:
                 valid_until = datetime.fromisoformat(valid_until)
             except Exception:
                 valid_until = None
-        # Active subscription grants access; canceled/expired revokes community/course access
+        # Canceled subscriptions lose access immediately
+        if is_canceled:
+            return False
+        # Active subscription grants access; expired revokes access
         return bool(valid_until and datetime.now(timezone.utc) < valid_until)
 
     # No subscription: fall back to enrollment-based access (legacy behavior)
@@ -3127,6 +3145,22 @@ async def abacatepay_webhook(request: dict):
                         }}
                     )
                     logger.info(f"Activated subscription {plan_id} for user {user_id} until {valid_until.isoformat()}")
+                    # Send activation email
+                    try:
+                        user_doc = await db.users.find_one({"id": user_id}, {"_id": 0, "email": 1, "name": 1})
+                        if user_doc and user_doc.get("email"):
+                            login_url = f"{get_frontend_url()}/login"
+                            loop = asyncio.get_event_loop()
+                            loop.run_in_executor(
+                                executor,
+                                send_subscription_activation_email,
+                                user_doc.get("email"),
+                                user_doc.get("name"),
+                                login_url,
+                                valid_until.isoformat(),
+                            )
+                    except Exception:
+                        pass
 
             logger.info(f"Successfully processed payment for billing {billing_id}")
             return {"status": "ok", "message": "Payment processed"}
@@ -3958,20 +3992,63 @@ async def stripe_webhook(request: Request):
                         plan_id = user_doc.get("subscription_plan_id") or plan_id
 
             if not user_id or not plan_id:
-                logger.warning(
-                    f"Stripe webhook missing identifiers after resolution (event={event_type}, customer={customer_id}, email={customer_email}, price_id={price_id})"
-                )
-                _record_stripe_event({
-                    "stage": "ignored",
-                    "type": event_type,
-                    "event_id": event.get("id"),
-                    "reason": "missing_identifiers",
-                    "customer_id": customer_id,
-                    "customer_email": customer_email,
-                    "payload_json": payload_json,
-                    "payload_raw": payload_text if payload_json is None else None,
-                })
-                return {"status": "ignored"}
+                # If we have customer email and a plan, create a new user automatically
+                if customer_email and plan_id:
+                    try:
+                        logger.info(f"Stripe: creating user for {customer_email} from webhook event {event_type}")
+                        new_user_id = str(uuid.uuid4())
+                        # Generate password creation token
+                        password_token = secrets.token_urlsafe(32)
+                        # Try to derive a display name from email
+                        display_name = (customer_email.split("@", 1)[0] or "").replace(".", " ").title()
+                        # Build base user doc
+                        base_user = {
+                            "id": new_user_id,
+                            "email": customer_email,
+                            "name": display_name,
+                            "password": None,
+                            "role": "student",
+                            "avatar": None,
+                            "has_purchased": True,
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                            "created_via": "stripe",
+                            "password_creation_token": password_token,
+                            "password_token_expires": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+                            "stripe_customer_id": customer_id,
+                        }
+                        await db.users.insert_one(base_user)
+                        user_id = new_user_id
+                        # Send password creation email
+                        try:
+                            frontend_url = get_frontend_url()
+                            password_link = f"{frontend_url}/create-password?token={password_token}"
+                            loop = asyncio.get_event_loop()
+                            loop.run_in_executor(
+                                executor,
+                                send_password_creation_email,
+                                customer_email,
+                                display_name,
+                                password_link
+                            )
+                        except Exception as e:
+                            logger.warning(f"Stripe: failed to enqueue password creation email: {e}")
+                    except Exception as e:
+                        logger.warning(f"Stripe: could not create user for {customer_email}: {e}")
+                else:
+                    logger.warning(
+                        f"Stripe webhook missing identifiers after resolution (event={event_type}, customer={customer_id}, email={customer_email}, price_id={price_id})"
+                    )
+                    _record_stripe_event({
+                        "stage": "ignored",
+                        "type": event_type,
+                        "event_id": event.get("id"),
+                        "reason": "missing_identifiers",
+                        "customer_id": customer_id,
+                        "customer_email": customer_email,
+                        "payload_json": payload_json,
+                        "payload_raw": payload_text if payload_json is None else None,
+                    })
+                    return {"status": "ignored"}
 
             # Try to derive validity from Stripe subscription if available
             valid_until = None
@@ -4000,6 +4077,20 @@ async def stripe_webhook(request: Request):
                     }}
                 )
                 logger.info(f"Stripe: full access activated for user {user_id} until {valid_until.isoformat()}")
+                # Send activation email
+                try:
+                    login_url = f"{get_frontend_url()}/login"
+                    loop = asyncio.get_event_loop()
+                    loop.run_in_executor(
+                        executor,
+                        send_subscription_activation_email,
+                        customer_email or (user_doc.get("email") if 'user_doc' in locals() and user_doc else None),
+                        (user_doc.get("name") if 'user_doc' in locals() and user_doc else ""),
+                        login_url,
+                        valid_until.isoformat() if valid_until else None,
+                    )
+                except Exception:
+                    pass
             else:
                 if course_ids:
                     await db.users.update_one(
@@ -4145,6 +4236,28 @@ async def stripe_webhook(request: Request):
                 update_target = user_filter if user_filter else {"email": email}
                 await db.users.update_one(update_target, {"$set": updates})
                 logger.info(f"Stripe: updated subscription for {(user_doc.get('email') if user_doc else email)} with {updates}")
+
+                # Send cancellation email when applicable
+                try:
+                    if status == "canceled" or canceled_at_ts:
+                        valid_iso = None
+                        try:
+                            if current_period_end_ts:
+                                valid_iso = datetime.fromtimestamp(int(current_period_end_ts), tz=timezone.utc).isoformat()
+                            elif canceled_at_ts:
+                                valid_iso = datetime.fromtimestamp(int(canceled_at_ts), tz=timezone.utc).isoformat()
+                        except Exception:
+                            valid_iso = None
+                        loop = asyncio.get_event_loop()
+                        loop.run_in_executor(
+                            executor,
+                            send_subscription_cancellation_email,
+                            email,
+                            (user_doc.get("name") if user_doc else ""),
+                            valid_iso,
+                        )
+                except Exception:
+                    pass
 
             # Reflect cancellation/update in billings using subscription id
             sub_id = data_obj.get("id") or data_obj.get("subscription")
@@ -4373,6 +4486,18 @@ async def hotmart_webhook(webhook_data: dict):
                     "subscription_valid_until": datetime.now(timezone.utc).isoformat()
                 }}
             )
+            # Send cancellation email
+            try:
+                loop = asyncio.get_event_loop()
+                loop.run_in_executor(
+                    executor,
+                    send_subscription_cancellation_email,
+                    email,
+                    user.get("name"),
+                    datetime.now(timezone.utc).isoformat(),
+                )
+            except Exception:
+                pass
             await db.hotmart_webhooks.update_one(
                 {"transaction": transaction},
                 {"$set": {"processed": True, "processed_at": datetime.now(timezone.utc).isoformat()}}
@@ -4815,6 +4940,158 @@ def send_password_reset_email(email: str, name: str, password_link: str):
     except Exception as e:
         logger.error(f"❌ Failed to send password reset email to {email}: {e}")
 
+
+# Helper: send subscription activation email
+def send_subscription_activation_email(email: str, name: str, login_url: str, valid_until_iso: Optional[str] = None):
+    """Send subscription activation email via SMTP"""
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        # Get Brevo configuration synchronously
+        from pymongo import MongoClient
+        mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+        sync_client = MongoClient(mongo_url)
+        sync_db = sync_client[os.environ.get('DB_NAME', 'hiperautomacao_db')]
+
+        config = sync_db.email_config.find_one({})
+        if not config:
+            logger.warning("No email configuration found, skipping activation email")
+            sync_client.close()
+            return
+
+        sender_email = config.get('sender_email')
+        sender_name = config.get('sender_name', 'Hiperautomação')
+
+        smtp_username = config.get('smtp_username')
+        smtp_password = config.get('smtp_password')
+        smtp_server = config.get('smtp_server', 'smtp-relay.brevo.com')
+        smtp_port = config.get('smtp_port', 587)
+        if not smtp_username or not smtp_password:
+            smtp_username = config.get('sender_email')
+            smtp_password = config.get('brevo_smtp_key') or config.get('brevo_api_key')
+        if not smtp_username or not smtp_password:
+            logger.error("No SMTP credentials found in configuration")
+            sync_client.close()
+            return
+
+        # Compose message
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = 'Assinatura Ativada - Hiperautomação'
+        msg['From'] = f"{sender_name} <{sender_email}>"
+        msg['To'] = email
+
+        valid_text = ''
+        try:
+            if valid_until_iso:
+                valid_text = f"<p>Validade da assinatura: {valid_until_iso}</p>"
+        except Exception:
+            valid_text = ''
+
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #10b981;">Assinatura ativa! 🎉</h2>
+            <p>Olá {name or ''},</p>
+            <p>Sua assinatura foi ativada com sucesso. Agora você já pode acessar a plataforma.</p>
+            {valid_text}
+            <p style="margin: 30px 0;">
+                <a href="{login_url}" 
+                   style="background-color: #10b981; color: white; padding: 12px 30px; 
+                          text-decoration: none; border-radius: 5px; display: inline-block;">
+                    Acessar Plataforma
+                </a>
+            </p>
+            <p>Use seu email para login. Se não tiver senha, crie uma na opção "Esqueci minha senha".</p>
+        </body>
+        </html>
+        """
+
+        part = MIMEText(html_content, 'html')
+        msg.attach(part)
+
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.send_message(msg)
+
+        logger.info(f"✅ Subscription activation email sent successfully to {email}")
+        sync_client.close()
+    except Exception as e:
+        logger.error(f"❌ Failed to send activation email to {email}: {e}")
+
+
+# Helper: send subscription cancellation email
+def send_subscription_cancellation_email(email: str, name: str, valid_until_iso: Optional[str] = None):
+    """Send subscription cancellation email via SMTP"""
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        # Get Brevo configuration synchronously
+        from pymongo import MongoClient
+        mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+        sync_client = MongoClient(mongo_url)
+        sync_db = sync_client[os.environ.get('DB_NAME', 'hiperautomacao_db')]
+
+        config = sync_db.email_config.find_one({})
+        if not config:
+            logger.warning("No email configuration found, skipping cancellation email")
+            sync_client.close()
+            return
+
+        sender_email = config.get('sender_email')
+        sender_name = config.get('sender_name', 'Hiperautomação')
+
+        smtp_username = config.get('smtp_username')
+        smtp_password = config.get('smtp_password')
+        smtp_server = config.get('smtp_server', 'smtp-relay.brevo.com')
+        smtp_port = config.get('smtp_port', 587)
+        if not smtp_username or not smtp_password:
+            smtp_username = config.get('sender_email')
+            smtp_password = config.get('brevo_smtp_key') or config.get('brevo_api_key')
+        if not smtp_username or not smtp_password:
+            logger.error("No SMTP credentials found in configuration")
+            sync_client.close()
+            return
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = 'Assinatura Cancelada - Hiperautomação'
+        msg['From'] = f"{sender_name} <{sender_email}>"
+        msg['To'] = email
+
+        valid_text = ''
+        try:
+            if valid_until_iso:
+                valid_text = f"<p>Você terá acesso até: {valid_until_iso}</p>"
+        except Exception:
+            valid_text = ''
+
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #ef4444;">Assinatura cancelada</h2>
+            <p>Olá {name or ''},</p>
+            <p>Sua assinatura foi cancelada. {valid_text}</p>
+            <p>Você pode reativar sua assinatura a qualquer momento acessando a plataforma.</p>
+        </body>
+        </html>
+        """
+
+        part = MIMEText(html_content, 'html')
+        msg.attach(part)
+
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.send_message(msg)
+
+        logger.info(f"✅ Subscription cancellation email sent successfully to {email}")
+        sync_client.close()
+    except Exception as e:
+        logger.error(f"❌ Failed to send cancellation email to {email}: {e}")
 
 
 # ==================== GAMIFICATION SYSTEM ====================
