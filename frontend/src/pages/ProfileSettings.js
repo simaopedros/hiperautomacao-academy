@@ -36,6 +36,20 @@ const API = `${BACKEND_URL}/api`;
 export default function ProfileSettings({ user, onLogout }) {
   const { t, changeLanguage, getCurrentLanguage } = useI18n();
   const navigate = useNavigate();
+  const statusLabelFallbacks = {
+    ativa: 'Assinatura ativa',
+    inativa: 'Assinatura inativa',
+    ativa_ate_final_do_periodo: 'Assinatura ativa até o final do período',
+    ativa_com_renovacao_automatica: 'Assinatura ativa com renovação automática',
+    cancelada: 'Assinatura cancelada',
+    expirada: 'Assinatura expirada'
+  };
+
+  const getSubscriptionStatusLabel = (status) => {
+    if (!status) return null;
+    const fallback = statusLabelFallbacks[status] || status;
+    return t(`profile.subscription.status.statusTag.${status}`, fallback);
+  };
   
   // Estados para dados do perfil
   const [profileData, setProfileData] = useState({
@@ -72,6 +86,16 @@ export default function ProfileSettings({ user, onLogout }) {
   const [subscriptionData, setSubscriptionData] = useState(null);
   const [subscriptionPlans, setSubscriptionPlans] = useState([]);
   const [loadingSubscription, setLoadingSubscription] = useState(false);
+  const effectiveSubscriptionStatus = subscriptionData?.status || user?.subscription_status;
+  const getSubscriptionPlanName = () => {
+    if (!subscriptionData?.subscription_plan_id) return null;
+    const plan = subscriptionData.subscription_plan;
+    if (plan) {
+      return plan.name || plan.display_name || plan.title || plan.id;
+    }
+    return subscriptionData.subscription_plan_name || subscriptionData.subscription_plan_id;
+  };
+  const planDisplayName = getSubscriptionPlanName();
 
   useEffect(() => {
     fetchUserPreferences();
@@ -302,9 +326,9 @@ export default function ProfileSettings({ user, onLogout }) {
                 <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
                   {user?.role === 'admin' ? t('profile.role.admin', 'Administrador') : t('profile.role.student', 'Estudante')}
                 </Badge>
-                {user?.subscription_status && (
+                {effectiveSubscriptionStatus && (
                   <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
-                    {user.subscription_status}
+                    {getSubscriptionStatusLabel(effectiveSubscriptionStatus)}
                   </Badge>
                 )}
               </div>
@@ -606,9 +630,9 @@ export default function ProfileSettings({ user, onLogout }) {
                                     : `${t('profile.subscription.status.validUntil', 'Válida até:')} ${new Date(subscriptionData.subscription_valid_until).toLocaleDateString('pt-BR')}`}
                                 </p>
                               )}
-                              {subscriptionData.subscription_plan_id && !subscriptionData.auto_renews && (
+                              {planDisplayName && !subscriptionData.auto_renews && (
                                 <p className="text-gray-300 text-sm">
-                                  {t('profile.subscription.status.plan', 'Plano:')} {subscriptionData.subscription_plan_id}
+                                  {t('profile.subscription.status.plan', 'Plano:')} {planDisplayName}
                                 </p>
                               )}
                             </div>
@@ -644,14 +668,6 @@ export default function ProfileSettings({ user, onLogout }) {
                           >
                             {t('profile.subscription.status.reactivateCta', 'Reativar Assinatura')}
                           </Button>
-                        </div>
-                      )}
-                      {/* Banner informativo quando há cancelamento agendado (sem renovação automática) */}
-                      {subscriptionData.subscription_plan_id && subscriptionData.is_active && !subscriptionData.auto_renews && (
-                        <div className="bg-yellow-500/10 border border-yellow-400/20 rounded-xl p-4">
-                          <p className="text-yellow-200 text-sm">
-                            {t('profile.subscription.status.cancelScheduled', 'Sua assinatura está ativa até a data informada. A renovação automática está desativada.')}
-                          </p>
                         </div>
                       )}
                       {subscriptionData.has_full_access && !subscriptionData.subscription_plan_id && (

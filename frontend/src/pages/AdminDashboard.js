@@ -55,8 +55,6 @@ function CourseList({ onLogout, user }) {
     categories: [],
     published: false,
     price_brl: 0,
-    hotmart_product_id: '',
-    hotmart_checkout_url: '',
     language: null
   });
   const navigate = useNavigate();
@@ -131,7 +129,7 @@ function CourseList({ onLogout, user }) {
       alert('Curso salvo com sucesso!');
       setShowDialog(false);
       setEditingCourse(null);
-      setFormData({ title: '', description: '', thumbnail_url: '', categories: [], published: false, price_brl: 0, hotmart_product_id: '', hotmart_checkout_url: '', language: null });
+      setFormData({ title: '', description: '', thumbnail_url: '', categories: [], published: false, price_brl: 0, language: null });
       fetchCourses();
     } catch (error) {
       console.error('Error saving course:', error);
@@ -173,8 +171,6 @@ function CourseList({ onLogout, user }) {
       categories: categories,
       published: course.published,
       price_brl: course.price_brl || 0,
-      hotmart_product_id: course.hotmart_product_id || '',
-      hotmart_checkout_url: course.hotmart_checkout_url || '',
       language: course.language || null
     });
     setShowDialog(true);
@@ -495,7 +491,7 @@ function CourseList({ onLogout, user }) {
                   data-testid="create-course-button"
                   onClick={() => {
                     setEditingCourse(null);
-                    setFormData({ title: '', description: '', thumbnail_url: '', categories: [], published: false, price_brl: 0, hotmart_product_id: '', hotmart_checkout_url: '', language: null });
+                    setFormData({ title: '', description: '', thumbnail_url: '', categories: [], published: false, price_brl: 0, language: null });
                   }}
                   className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 py-3 rounded-lg shadow-lg hover:shadow-emerald-500/25 transition-all duration-200"
                 >
@@ -592,28 +588,6 @@ function CourseList({ onLogout, user }) {
                     />
                   </div>
                 </div>
-                <div>
-                  <Label>ID Produto Hotmart (Opcional)</Label>
-                  <Input
-                    type="text"
-                    value={formData.hotmart_product_id || ''}
-                    onChange={(e) => setFormData({ ...formData, hotmart_product_id: e.target.value })}
-                    placeholder="Ex: 6315704"
-                    className="bg-[#111111] border-[#2a2a2a]"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Configure se vender este curso pela Hotmart</p>
-                </div>
-                <div>
-                  <Label>URL Checkout Hotmart (Opcional)</Label>
-                  <Input
-                    type="url"
-                    value={formData.hotmart_checkout_url || ''}
-                    onChange={(e) => setFormData({ ...formData, hotmart_checkout_url: e.target.value })}
-                    placeholder="https://pay.hotmart.com/..."
-                    className="bg-[#111111] border-[#2a2a2a]"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Link do checkout da Hotmart para este curso</p>
-                </div>
                 <div className="flex items-center gap-2">
                   <input
                     data-testid="course-published-checkbox"
@@ -658,7 +632,7 @@ function CourseList({ onLogout, user }) {
                 <Button
                   onClick={() => {
                     setEditingCourse(null);
-                    setFormData({ title: '', description: '', thumbnail_url: '', categories: [], published: false, price_brl: 0, hotmart_product_id: '', hotmart_checkout_url: '', language: null });
+                    setFormData({ title: '', description: '', thumbnail_url: '', categories: [], published: false, price_brl: 0, language: null });
                     setShowDialog(true);
                   }}
                   className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 py-3"

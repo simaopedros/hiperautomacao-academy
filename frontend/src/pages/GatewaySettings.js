@@ -1,205 +1,59 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { ArrowLeft, Save, CreditCard } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import React from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft, CreditCard } from 'lucide-react';
 import AdminNavigation from '../components/AdminNavigation';
+import { Button } from '@/components/ui/button';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 export default function GatewaySettings({ user, onLogout }) {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [config, setConfig] = useState({
-    active_gateway: 'abacatepay',
-    hotmart_token: ''
-  });
-
-  useEffect(() => {
-    fetchConfig();
-  }, []);
-
-  const fetchConfig = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API}/api/admin/gateway-config`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setConfig(response.data);
-    } catch (error) {
-      console.error('Error fetching config:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSave = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API}/api/admin/gateway-config`,
-        null,
-        {
-          params: config,
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      alert('Configurações salvas com sucesso!');
-    } catch (error) {
-      console.error('Error saving config:', error);
-      alert(error.response?.data?.detail || 'Erro ao salvar configurações');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <div className="text-white">Carregando...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       <AdminNavigation user={user} onLogout={onLogout} />
 
-      <main className="max-w-4xl mx-auto px-6 py-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Configurações de Gateway</h1>
-          <p className="text-gray-400">Configure as opções de gateway de pagamento</p>
+      <main className="max-w-3xl mx-auto px-6 py-12">
+        <div className="mb-8 flex items-start gap-4">
+          <Button
+            variant="ghost"
+            className="text-gray-400 hover:text-white hover:bg-[#141414]"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Gateway de Pagamentos</h1>
+            <p className="text-gray-400">A plataforma agora utiliza exclusivamente a Stripe para processar assinaturas.</p>
+          </div>
         </div>
 
-        <div className="bg-[#111111] rounded-lg border border-[#252525] p-8">
-          <h2 className="text-xl font-bold text-white mb-6">Configuração Global de Gateway</h2>
-          
-          <form onSubmit={handleSave} className="space-y-6">
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
-              <p className="text-blue-300 text-sm">
-                <strong>Importante:</strong> Escolha qual gateway de pagamento será utilizado 
-                globalmente na plataforma. Esta configuração afeta todos os cursos.
-              </p>
-            </div>
+        <div className="bg-[#111111] rounded-lg border border-[#252525] p-10 text-gray-200">
+          <div className="flex items-center gap-3 text-emerald-300 mb-6">
+            <CreditCard size={22} />
+            <span className="font-semibold">Stripe é o gateway padrão</span>
+          </div>
 
-            {/* Gateway Selection */}
-            <div>
-              <fieldset>
-                <legend className="text-gray-300 mb-3 block text-sm font-medium">Gateway Ativo</legend>
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 p-4 bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg cursor-pointer hover:border-emerald-500 transition-colors">
-                  <input
-                    type="radio"
-                    name="gateway"
-                    value="abacatepay"
-                    checked={config.active_gateway === 'abacatepay'}
-                    onChange={(e) => setConfig({ ...config, active_gateway: e.target.value })}
-                    className="w-4 h-4 text-emerald-500"
-                  />
-                  <div>
-                    <p className="text-white font-semibold">Abacate Pay</p>
-                    <p className="text-sm text-gray-500">Gateway padrão com PIX e Cartão</p>
-                  </div>
-                </label>
+          <p className="text-gray-300 leading-relaxed mb-4">
+            Concluímos a migração para o Stripe como único provedor de pagamentos. Isso simplifica o fluxo de checkout,
+            reduz pontos de falha e permite recursos avançados como renovação automática, cancelamento programado
+            e sincronização de status em tempo real via webhooks.
+          </p>
 
-                <label className="flex items-center gap-3 p-4 bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg cursor-pointer hover:border-emerald-500 transition-colors">
-                  <input
-                    type="radio"
-                    name="gateway"
-                    value="hotmart"
-                    checked={config.active_gateway === 'hotmart'}
-                    onChange={(e) => setConfig({ ...config, active_gateway: e.target.value })}
-                    className="w-4 h-4 text-emerald-500"
-                  />
-                  <div>
-                    <p className="text-white font-semibold">Hotmart</p>
-                    <p className="text-sm text-gray-500">Vendas através da Hotmart (webhook)</p>
-                  </div>
-                </label>
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 text-sm text-emerald-200 mb-6">
+            <p className="font-semibold mb-2">O que você precisa configurar:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>Crie produtos e preços recorrentes no dashboard da Stripe.</li>
+              <li>Cadastre o webhook em <code className="bg-[#0a0a0a] px-2 py-1 rounded">{`${API}/api/webhook/stripe`}</code>.</li>
+              <li>Informe a Secret Key e o Webhook Secret na página de <Link to="/admin/payment-settings" className="underline text-emerald-300">Configurações de Pagamento</Link>.</li>
+              <li>Associe os Price IDs aos planos de assinatura no painel administrativo.</li>
+            </ul>
+          </div>
 
-                <label className="flex items-center gap-3 p-4 bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg cursor-pointer hover:border-emerald-500 transition-colors">
-                  <input
-                    type="radio"
-                    name="gateway"
-                    value="stripe"
-                    checked={config.active_gateway === 'stripe'}
-                    onChange={(e) => setConfig({ ...config, active_gateway: e.target.value })}
-                    className="w-4 h-4 text-emerald-500"
-                  />
-                  <div>
-                    <p className="text-white font-semibold">Stripe</p>
-                    <p className="text-sm text-gray-500">Assinaturas e pagamentos via Stripe Checkout</p>
-                  </div>
-                </label>
-                </div>
-              </fieldset>
-            </div>
-
-            {/* Hotmart Token (only show if Hotmart is selected) */}
-            {config.active_gateway === 'hotmart' && (
-              <div>
-                <Label htmlFor="hotmart-token" className="text-gray-300">Token de Segurança Hotmart (hottok)</Label>
-                <Input
-                  id="hotmart-token"
-                  type="text"
-                  value={config.hotmart_token || ''}
-                  onChange={(e) => setConfig({ ...config, hotmart_token: e.target.value })}
-                  placeholder="Digite o token de segurança da Hotmart"
-                  className="bg-[#0a0a0a] border-[#2a2a2a] text-white"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  Configure este token nas configurações de webhook da Hotmart para validar as requisições
-                </p>
-              </div>
-            )}
-
-            {/* Webhook URL Info */}
-            {config.active_gateway === 'hotmart' && (
-              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
-                <p className="text-emerald-300 text-sm font-semibold mb-2">
-                  URL do Webhook para Hotmart:
-                </p>
-                <code className="text-emerald-400 text-sm bg-[#0a0a0a] p-2 rounded block break-all">
-                  {`${API}/api/hotmart/webhook`}
-                </code>
-                <p className="text-emerald-300 text-sm mt-2">
-                  Configure esta URL na sua conta Hotmart para receber notificações de compra.
-                </p>
-              </div>
-            )}
-
-            {config.active_gateway === 'stripe' && (
-              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
-                <p className="text-emerald-300 text-sm font-semibold mb-2">URL do Webhook para Stripe:</p>
-                <code className="text-emerald-400 text-sm bg-[#0a0a0a] p-2 rounded block break-all">{`${API}/api/webhook/stripe`}</code>
-                <p className="text-emerald-300 text-sm mt-2">Configure esta URL no dashboard da Stripe em Webhooks.</p>
-              </div>
-            )}
-
-            {/* Save Button */}
-            <div className="flex gap-4 pt-4">
-              <Button
-                type="submit"
-                disabled={saving}
-                className="flex-1 bg-emerald-500 hover:bg-emerald-600"
-              >
-                <Save size={18} className="mr-2" />
-                {saving ? 'Salvando...' : 'Salvar Configurações'}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => navigate('/admin')}
-                className="bg-gray-700 hover:bg-gray-600"
-              >
-                Cancelar
-              </Button>
-            </div>
-          </form>
+          <p className="text-gray-400 text-sm">
+            Precisa alterar as credenciais da Stripe ou encaminhar eventos para outro sistema? Acesse
+            {' '}<Link to="/admin/payment-settings" className="underline text-emerald-300">Configurações de Pagamento</Link>.
+          </p>
         </div>
       </main>
     </div>

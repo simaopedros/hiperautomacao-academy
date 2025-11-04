@@ -12,6 +12,8 @@ import json
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr, ValidationError
 from typing import List, Optional, Union
+from functools import partial
+from enum import Enum
 import uuid
 from datetime import datetime, timezone, timedelta
 from collections import deque
@@ -70,27 +72,118 @@ _STRIPE_CONFIG_CACHE = {
     "ts": 0,
 }
 
+
+class SubscriptionStatus(str, Enum):
+    INACTIVE = "inativa"
+    ACTIVE = "ativa"
+    ACTIVE_UNTIL_PERIOD_END = "ativa_ate_final_do_periodo"
+    ACTIVE_WITH_AUTO_RENEW = "ativa_com_renovacao_automatica"
+
+
+def parse_datetime(value: Optional[Union[str, datetime]]) -> Optional[datetime]:
+    """Normalize a datetime that may arrive as string or naive datetime."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        try:
+            value_str = str(value)
+            if value_str.endswith("Z"):
+                value_str = value_str[:-1] + "+00:00"
+            dt = datetime.fromisoformat(value_str)
+        except Exception:
+            return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def determine_subscription_status(
+    plan_id: Optional[str],
+    valid_until: Optional[datetime],
+    auto_renew: Optional[bool],
+    now: Optional[datetime] = None,
+) -> str:
+    """Return normalized subscription status based on plan, validity and renewal settings."""
+    if not plan_id:
+        return SubscriptionStatus.INACTIVE.value
+    now = now or datetime.now(timezone.utc)
+    if not valid_until or valid_until <= now:
+        return SubscriptionStatus.INACTIVE.value
+    if auto_renew is None:
+        return SubscriptionStatus.ACTIVE.value
+    if auto_renew:
+        return SubscriptionStatus.ACTIVE_WITH_AUTO_RENEW.value
+    return SubscriptionStatus.ACTIVE_UNTIL_PERIOD_END.value
+
+
+def build_subscription_snapshot(user_doc: dict) -> dict:
+    """Compose a normalized subscription snapshot for a user document."""
+    plan_id = user_doc.get("subscription_plan_id")
+    valid_until = parse_datetime(user_doc.get("subscription_valid_until"))
+    auto_renew = user_doc.get("subscription_auto_renew")
+    # Backwards compatibility with legacy cancel flags
+    if auto_renew is None and plan_id is not None:
+        if "subscription_cancel_at_period_end" in user_doc:
+            auto_renew = not bool(user_doc.get("subscription_cancel_at_period_end"))
+        elif "subscription_cancelled" in user_doc:
+            auto_renew = not bool(user_doc.get("subscription_cancelled"))
+    status = determine_subscription_status(plan_id, valid_until, auto_renew)
+    is_active = status != SubscriptionStatus.INACTIVE.value
+    return {
+        "plan_id": plan_id,
+        "valid_until": valid_until,
+        "valid_until_iso": valid_until.isoformat() if valid_until else None,
+        "auto_renew": auto_renew if plan_id else None,
+        "status": status,
+        "is_active": is_active,
+    }
+
+
+def format_datetime_human(value: Optional[Union[str, datetime]]) -> Optional[str]:
+    """Convert ISO or datetime into a friendly dd/mm/YYYY HH:MM string (UTC)."""
+    dt = parse_datetime(value)
+    if not dt:
+        return None
+    try:
+        display = dt.strftime("%d/%m/%Y %H:%M")
+        if dt.tzinfo:
+            return f"{display} UTC"
+        return display
+    except Exception:
+        return None
+
+
 async def stripe_call_with_retry(func, *args, max_retries: int = 3, initial_delay: float = 0.5, max_delay: float = 3.0, **kwargs):
     attempt = 0
+    last_exc: Optional[Exception] = None
     while True:
         try:
             # Run blocking Stripe calls in a thread to avoid blocking the event loop
             return await asyncio.to_thread(func, *args, **kwargs)
         except stripe.error.RateLimitError as e:
             transient = True
+            last_exc = e
         except stripe.error.APIConnectionError as e:
             transient = True
+            last_exc = e
         except stripe.error.APIError as e:
             status = getattr(e, 'http_status', None)
             transient = (status is None) or (int(status) >= 500)
+            last_exc = e
         except stripe.error.StripeError as e:
             transient = False
-        except Exception:
+            last_exc = e
+        except Exception as e:
             # Non-Stripe unexpected error; do not retry by default
+            last_exc = e
             raise
 
         if not transient or attempt >= max_retries:
             # Re-raise last error if not transient or max retries reached
+            if last_exc:
+                raise last_exc
             raise
 
         # Exponential backoff with jitter
@@ -116,10 +209,6 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
 security = HTTPBearer()
-
-# Abacate Pay Configuration
-ABACATEPAY_API_KEY = os.environ.get('ABACATEPAY_API_KEY')
-ABACATEPAY_BASE_URL = "https://api.abacatepay.com/v1"
 
 # Stripe Configuration
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
@@ -271,13 +360,8 @@ class User(UserBase):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     subscription_plan_id: Optional[str] = None
     subscription_valid_until: Optional[datetime] = None
-    # Campos extras para detalhar assinatura no admin
-    subscription_status: Optional[str] = None  # ativa, expirada, cancelada
-    subscription_recurrence: Optional[str] = None  # mensal, trimestral, anual, etc.
-    subscription_renews_at: Optional[datetime] = None  # próxima renovação / fim do período
-    subscription_is_active: Optional[bool] = None
-    subscription_is_canceled: Optional[bool] = None
-    subscription_days_remaining: Optional[int] = None
+    subscription_status: Optional[str] = None  # inativa, ativa, ativa_ate_final_do_periodo, ativa_com_renovacao_automatica
+    subscription_auto_renew: Optional[bool] = None  # True quando renovação automática estiver ativa
 
 class Token(BaseModel):
     access_token: str
@@ -308,8 +392,6 @@ class CourseBase(BaseModel):
     categories: List[str] = []
     published: bool = False
     price_brl: Optional[float] = 0.0  # Price in BRL (R$)
-    hotmart_product_id: Optional[str] = None  # Hotmart product ID
-    hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL
     language: Optional[str] = None  # Course language (pt, en, es, etc.) - None means available for all languages
 
 class CourseCreate(CourseBase):
@@ -323,8 +405,6 @@ class CourseUpdate(BaseModel):
     categories: Optional[List[str]] = None
     published: Optional[bool] = None
     price_brl: Optional[float] = None
-    hotmart_product_id: Optional[str] = None  # Hotmart product ID
-    hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL
     language: Optional[str] = None  # Course language (pt, en, es, etc.) - None means available for all languages
 
 class Course(CourseBase):
@@ -399,6 +479,11 @@ class PasswordCreationToken(BaseModel):
     has_full_access: bool = False
     course_ids: list[str] = []
     expires_at: datetime
+    token_history: List[str] = Field(default_factory=list)
+
+
+class PasswordTokenResendRequest(BaseModel):
+    token: str
 
 # Lesson Models
 class LessonBase(BaseModel):
@@ -449,49 +534,6 @@ class Progress(ProgressBase):
     user_id: str
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-# Payment Gateway Configuration
-class PaymentGatewayConfig(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    active_gateway: str = "abacatepay"  # "abacatepay", "hotmart" ou "stripe"
-    hotmart_token: Optional[str] = None  # Hotmart security token (hottok)
-    stripe_secret_key: Optional[str] = None
-    stripe_webhook_secret: Optional[str] = None
-    # External forwarding of payment status
-    forward_webhook_url: Optional[str] = None
-    forward_test_events: bool = False
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_by: Optional[str] = None
-
-# Hotmart Webhook Models
-class HotmartWebhookData(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    callback_type: str
-    transaction: str
-    prod: str  # Product ID
-    prod_name: str
-    status: str
-    email: str
-    name: str
-    purchase_date: str
-    price: str
-    currency: str
-    raw_data: dict  # Store full webhook data
-    processed: bool = False
-    processed_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-# Abacate Pay Models
-class AbacatePayBilling(BaseModel):
-    billing_id: str
-    user_id: str
-    amount_brl: float
-    course_id: Optional[str] = None  # For direct course purchase
-    status: str = "pending"  # pending, paid, failed, cancelled
-    payment_url: Optional[str] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    paid_at: Optional[datetime] = None
-
 # ==================== SUBSCRIPTION MODELS ====================
 
 class SubscriptionPlanBase(BaseModel):
@@ -500,9 +542,6 @@ class SubscriptionPlanBase(BaseModel):
     price_brl: float
     duration_days: int # Access duration in days
     is_active: bool = True # To easily enable/disable plans
-    hotmart_product_id: Optional[str] = None  # Hotmart product ID for this subscription plan
-    hotmart_checkout_url: Optional[str] = None  # Hotmart checkout URL for this plan
-    # Stripe
     stripe_price_id: Optional[str] = None  # Price ID (recorrente) para checkout
     stripe_product_id: Optional[str] = None
     # Access scope
@@ -628,28 +667,10 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             raise HTTPException(status_code=401, detail="User not found")
 
         # Ensure subscription users do not keep lifetime access once the plan ends
-        plan_id = user.get("subscription_plan_id")
-        if plan_id:
-            valid_until = user.get("subscription_valid_until")
-            if isinstance(valid_until, str):
-                try:
-                    valid_until = datetime.fromisoformat(valid_until)
-                except Exception:
-                    valid_until = None
-            elif not isinstance(valid_until, datetime):
-                valid_until = None
-
-            valid_until_dt = valid_until
-            if valid_until_dt and valid_until_dt.tzinfo is None:
-                valid_until_dt = valid_until_dt.replace(tzinfo=timezone.utc)
-
-            now = datetime.now(timezone.utc)
-            is_canceled = bool(user.get("subscription_cancelled") or user.get("subscription_cancel_at_period_end"))
-            is_active = bool(valid_until_dt and valid_until_dt > now and not is_canceled)
-
-            if not is_active and user.get("has_full_access"):
-                await db.users.update_one({"id": user_id}, {"$set": {"has_full_access": False}})
-                user["has_full_access"] = False
+        snapshot = build_subscription_snapshot(user)
+        if snapshot["plan_id"] and not snapshot["is_active"] and user.get("has_full_access"):
+            await db.users.update_one({"id": user_id}, {"$set": {"has_full_access": False}})
+            user["has_full_access"] = False
 
         return User(**user)
     except jwt.ExpiredSignatureError:
@@ -677,32 +698,18 @@ async def user_has_course_access(user_id: str, course_id: str, has_full_access: 
     if not user_doc:
         return False
 
-    plan_id = user_doc.get("subscription_plan_id")
-    valid_until = user_doc.get("subscription_valid_until")
-    if isinstance(valid_until, str):
-        try:
-            valid_until = datetime.fromisoformat(valid_until)
-        except Exception:
-            valid_until = None
-    elif not isinstance(valid_until, datetime):
-        valid_until = None
+    snapshot = build_subscription_snapshot(user_doc)
+    plan_id = snapshot["plan_id"]
+    valid_until_dt = snapshot["valid_until"]
 
-    valid_until_dt = valid_until
-    if valid_until_dt and valid_until_dt.tzinfo is None:
-        valid_until_dt = valid_until_dt.replace(tzinfo=timezone.utc)
+    has_lifetime_access = bool(user_doc.get("has_full_access")) and snapshot["status"] == SubscriptionStatus.INACTIVE.value
 
-    now = datetime.now(timezone.utc)
-    cancel_at_period_end = bool(user_doc.get("subscription_cancel_at_period_end"))
-    cancelled_effective = bool(user_doc.get("subscription_cancelled"))
-    has_lifetime_access = bool(user_doc.get("has_full_access")) and not plan_id
-
-    if has_lifetime_access or (has_full_access and not plan_id):
+    if has_lifetime_access or (has_full_access and snapshot["status"] == SubscriptionStatus.INACTIVE.value):
         return True
 
     if plan_id:
-        is_active = bool(valid_until_dt and valid_until_dt > now)
-        if is_active and not cancelled_effective:
-            # Válido mesmo se cancelado para o fim do ciclo
+        if snapshot["is_active"]:
+            # Subscription is active regardless of auto-renew flag
             return True
 
         # Se assinatura não está mais ativa, remove o flag de acesso amplo herdado
@@ -1014,120 +1021,66 @@ async def get_user_subscription_status(current_user: User = Depends(get_current_
         user_data = await db.users.find_one({"id": current_user.id}, {"_id": 0})
         if not user_data:
             raise HTTPException(status_code=404, detail="User not found")
-        
-        subscription_plan_id = user_data.get("subscription_plan_id")
-        subscription_valid_until = user_data.get("subscription_valid_until")
+
         has_full_access = user_data.get("has_full_access", False)
-        subscription_cancel_at_period_end = bool(user_data.get("subscription_cancel_at_period_end"))
-        subscription_cancelled = bool(user_data.get("subscription_cancelled"))
+        snapshot = build_subscription_snapshot(user_data)
+        plan_id = snapshot["plan_id"]
+        now = datetime.now(timezone.utc)
+        valid_until_dt = snapshot["valid_until"]
+        valid_until_iso = valid_until_dt.isoformat() if valid_until_dt else None
+        days_remaining = 0
+        if valid_until_dt and valid_until_dt > now:
+            days_remaining = max(0, (valid_until_dt - now).days)
+
         cancellation_type = None
         cancellation_note = None
-        
-        # If no subscription
-        if not subscription_plan_id:
-            if subscription_cancel_at_period_end:
-                cancellation_type = "period_end"
-                cancellation_note = "Cancelamento programado ao final do ciclo atual."
-            elif subscription_cancelled:
-                cancellation_type = "immediate"
-                cancellation_note = "Assinatura cancelada. Acesso encerrado."
 
-            return {
-                "has_subscription": False,
-                "subscription_plan": None,
-                "valid_until": None,
-                "is_active": False,
-                "days_remaining": 0,
-                # Extra fields for frontend compatibility
-                "has_full_access": has_full_access,
-                "subscription_plan_id": subscription_plan_id,
-                "subscription_valid_until": subscription_valid_until,
-                "subscription_cancel_at_period_end": subscription_cancel_at_period_end,
-                "subscription_cancelled": subscription_cancelled,
-                "auto_renews": False,
-                "renewal_date": None,
-                "cancellation_type": cancellation_type,
-                "cancellation_note": cancellation_note
-            }
-        
-        # Get subscription plan details
-        plan = await db.subscription_plans.find_one({"id": subscription_plan_id}, {"_id": 0})
-        if not plan:
-            return {
-                "has_subscription": False,
-                "subscription_plan": None,
-                "valid_until": None,
-                "is_active": False,
-                "days_remaining": 0,
-                # Extra fields for frontend compatibility
-                "has_full_access": has_full_access,
-                "subscription_plan_id": subscription_plan_id,
-                "subscription_valid_until": subscription_valid_until,
-                "subscription_cancel_at_period_end": subscription_cancel_at_period_end,
-                "subscription_cancelled": subscription_cancelled,
-                "auto_renews": False,
-                "renewal_date": None,
-                "cancellation_type": cancellation_type,
-                "cancellation_note": cancellation_note
-            }
-        
-        # Check if subscription is still valid
-        is_active = False
-        days_remaining = 0
-        
-        if subscription_valid_until:
-            try:
-                if isinstance(subscription_valid_until, str):
-                    valid_until_date = datetime.fromisoformat(subscription_valid_until.replace('Z', '+00:00'))
-                else:
-                    valid_until_date = subscription_valid_until
-                
-                now = datetime.now(timezone.utc)
-                is_active = valid_until_date > now
-                
-                if is_active:
-                    days_remaining = (valid_until_date - now).days
-                
-            except Exception as e:
-                logger.error(f"Error parsing subscription date: {e}")
-        
-        # Determine auto-renewal semantics
-        auto_renews = bool(is_active and not subscription_cancel_at_period_end and not subscription_cancelled)
-        renewal_date = subscription_valid_until if auto_renews else None
-        
-        if subscription_cancelled and not is_active:
-            cancellation_type = "immediate"
-            cancellation_note = "Assinatura cancelada. O acesso foi encerrado."
-        elif subscription_cancel_at_period_end and is_active:
+        if snapshot["status"] == SubscriptionStatus.ACTIVE_UNTIL_PERIOD_END.value:
             cancellation_type = "period_end"
-            cancellation_note = "Cancelamento programado: você mantém o acesso até a data de validade."
+            cancellation_note = "Cancelamento programado ao final do ciclo atual."
+        elif snapshot["status"] == SubscriptionStatus.INACTIVE.value and plan_id:
+            cancellation_type = "expired"
+            cancellation_note = "Assinatura expirada ou cancelada."
+
+        if not plan_id:
+            return {
+                "has_subscription": False,
+                "status": snapshot["status"],
+                "subscription_plan": None,
+                "valid_until": valid_until_iso,
+                "is_active": False,
+                "days_remaining": 0,
+                "has_full_access": has_full_access,
+                "subscription_plan_id": None,
+                "subscription_valid_until": valid_until_iso,
+                "subscription_cancel_at_period_end": False,
+                "subscription_cancelled": snapshot["status"] == SubscriptionStatus.INACTIVE.value,
+                "auto_renews": snapshot["auto_renew"],
+                "renewal_date": None,
+                "cancellation_type": cancellation_type,
+                "cancellation_note": cancellation_note,
+            }
+
+        plan = await db.subscription_plans.find_one({"id": plan_id}, {"_id": 0})
 
         return {
             "has_subscription": True,
-            "subscription_plan": {
-                "id": plan["id"],
-                "name": plan["name"],
-                "description": plan.get("description", ""),
-                "price_brl": plan.get("price_brl", 0),
-                "duration_days": plan.get("duration_days", 0),
-                "access_scope": plan.get("access_scope", "full"),
-                "course_ids": plan.get("course_ids", [])
-            },
-            "valid_until": subscription_valid_until,
-            "is_active": is_active,
-            "days_remaining": max(0, days_remaining),
-            # Extra fields for frontend compatibility
+            "status": snapshot["status"],
+            "subscription_plan": plan,
+            "valid_until": valid_until_iso,
+            "is_active": snapshot["is_active"],
+            "days_remaining": days_remaining,
             "has_full_access": has_full_access,
-            "subscription_plan_id": subscription_plan_id,
-            "subscription_valid_until": subscription_valid_until,
-            "subscription_cancel_at_period_end": subscription_cancel_at_period_end,
-            "subscription_cancelled": subscription_cancelled,
-            "auto_renews": auto_renews,
-            "renewal_date": renewal_date,
+            "subscription_plan_id": plan_id,
+            "subscription_valid_until": valid_until_iso,
+            "subscription_cancel_at_period_end": snapshot["status"] == SubscriptionStatus.ACTIVE_UNTIL_PERIOD_END.value,
+            "subscription_cancelled": snapshot["status"] == SubscriptionStatus.INACTIVE.value,
+            "auto_renews": snapshot["auto_renew"],
+            "renewal_date": valid_until_iso if snapshot["auto_renew"] else None,
             "cancellation_type": cancellation_type,
-            "cancellation_note": cancellation_note
+            "cancellation_note": cancellation_note,
         }
-        
+
     except Exception as e:
         logger.error(f"Error getting subscription status for user {current_user.id}: {e}")
         raise HTTPException(status_code=500, detail="Error retrieving subscription status")
@@ -1263,25 +1216,17 @@ async def get_user_subscriptions(current_user: User = Depends(get_current_user))
         
         subscriptions = []
         
-        # Check if user has an active subscription
-        if user_data.get("subscription_plan_id") and user_data.get("subscription_valid_until"):
+        snapshot = build_subscription_snapshot(user_data)
+        if snapshot["plan_id"]:
             plan = await db.subscription_plans.find_one(
-                {"id": user_data["subscription_plan_id"]}, 
-                {"_id": 0}
+                {"id": snapshot["plan_id"]},
+                {"_id": 0},
             )
-            
             if plan:
-                # Parse subscription date
-                subscription_valid_until = user_data["subscription_valid_until"]
-                if isinstance(subscription_valid_until, str):
-                    try:
-                        subscription_valid_until = datetime.fromisoformat(subscription_valid_until.replace('Z', '+00:00'))
-                    except ValueError:
-                        subscription_valid_until = datetime.fromisoformat(subscription_valid_until)
-                
-                is_active = subscription_valid_until > datetime.now(timezone.utc)
-                days_remaining = (subscription_valid_until - datetime.now(timezone.utc)).days
-                
+                valid_until_dt = snapshot["valid_until"]
+                days_remaining = 0
+                if valid_until_dt:
+                    days_remaining = max(0, (valid_until_dt - datetime.now(timezone.utc)).days)
                 subscription_info = {
                     "id": plan["id"],
                     "name": plan["name"],
@@ -1290,11 +1235,13 @@ async def get_user_subscriptions(current_user: User = Depends(get_current_user))
                     "duration_days": plan.get("duration_days", 0),
                     "access_scope": plan.get("access_scope", "full"),
                     "course_ids": plan.get("course_ids", []),
-                    "valid_until": subscription_valid_until.isoformat(),
-                    "is_active": is_active,
-                    "days_remaining": max(0, days_remaining),
+                    "valid_until": valid_until_dt.isoformat() if valid_until_dt else None,
+                    "is_active": snapshot["is_active"],
+                    "days_remaining": days_remaining,
                     "stripe_price_id": plan.get("stripe_price_id"),
-                    "can_cancel": bool(plan.get("stripe_price_id"))  # Only Stripe subscriptions can be cancelled
+                    "can_cancel": bool(plan.get("stripe_price_id")),
+                    "status": snapshot["status"],
+                    "auto_renews": snapshot["auto_renew"],
                 }
                 subscriptions.append(subscription_info)
         
@@ -1359,19 +1306,31 @@ async def cancel_user_subscription(
                 target_subscription.id,
                 cancel_at_period_end=True
             )
-            
+
+            period_end = datetime.fromtimestamp(cancelled_subscription.current_period_end, timezone.utc)
+
             # Update user record to reflect cancellation
             await db.users.update_one(
                 {"id": current_user.id},
-                {"$set": {"subscription_cancelled": True, "subscription_cancel_at_period_end": True}}
+                {
+                    "$set": {
+                        "subscription_auto_renew": False,
+                        "subscription_status": SubscriptionStatus.ACTIVE_UNTIL_PERIOD_END.value,
+                        "subscription_valid_until": period_end.isoformat(),
+                    },
+                    "$unset": {
+                        "subscription_cancelled": "",
+                        "subscription_cancel_at_period_end": "",
+                    },
+                },
             )
-            
+
             logger.info(f"Subscription {subscription_id} cancelled for user {current_user.id}")
             
             return {
                 "message": "Subscription cancelled successfully",
                 "cancelled_at_period_end": True,
-                "period_end": datetime.fromtimestamp(cancelled_subscription.current_period_end, timezone.utc).isoformat()
+                "period_end": period_end.isoformat(),
             }
             
         except stripe.error.StripeError as e:
@@ -1782,12 +1741,8 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
             user['id'] = f"legacy-{user.get('email', 'unknown')}"
             user['enrolled_courses'] = []
             # Mesmo usuários legados podem não ter dados de assinatura
-            user['subscription_status'] = None
-            user['subscription_recurrence'] = None
-            user['subscription_renews_at'] = None
-            user['subscription_is_active'] = None
-            user['subscription_is_canceled'] = None
-            user['subscription_days_remaining'] = None
+            user['subscription_status'] = SubscriptionStatus.INACTIVE.value
+            user['subscription_auto_renew'] = None
             continue
         
         # Get enrolled courses from enrollments collection
@@ -1801,65 +1756,10 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
 
         # Enriquecer com informações de assinatura
         try:
-            plan_id = user.get('subscription_plan_id')
-            valid_until = user.get('subscription_valid_until')
-            cancelled_effective = bool(user.get('subscription_cancelled'))
-            cancel_at_period_end = bool(user.get('subscription_cancel_at_period_end'))
-
-            # Normalizar data
-            valid_until_dt = None
-            if valid_until:
-                if isinstance(valid_until, str):
-                    try:
-                        valid_until_dt = datetime.fromisoformat(valid_until)
-                    except Exception:
-                        valid_until_dt = None
-                else:
-                    valid_until_dt = valid_until
-
-            now = datetime.now(timezone.utc)
-            is_active = bool(valid_until_dt and valid_until_dt > now)
-            days_remaining = None
-            if is_active and valid_until_dt:
-                days_remaining = max(0, (valid_until_dt - now).days)
-
-            recurrence_label = None
-            if plan_id:
-                plan = await db.subscription_plans.find_one({"id": plan_id}, {"_id": 0})
-                if plan:
-                    duration = int(plan.get('duration_days') or 0)
-                    # Mapear duração para rótulo amigável
-                    if 28 <= duration <= 31:
-                        recurrence_label = 'mensal'
-                    elif 85 <= duration <= 95:
-                        recurrence_label = 'trimestral'
-                    elif 175 <= duration <= 185:
-                        recurrence_label = 'semestral'
-                    elif 360 <= duration <= 370:
-                        recurrence_label = 'anual'
-                    elif duration > 0:
-                        recurrence_label = f"{duration} dias"
-
-            # Definir status textual
-            status = None
-            if not plan_id:
-                status = None
-            else:
-                if cancelled_effective and not is_active:
-                    status = 'cancelada'
-                elif is_active:
-                    status = 'ativa'
-                else:
-                    status = 'expirada'
-
-            # Atribuir campos extras
-            user['subscription_status'] = status
-            user['subscription_recurrence'] = recurrence_label
-            user['subscription_renews_at'] = valid_until_dt
-            user['subscription_is_active'] = is_active if plan_id else None
-            user['subscription_is_canceled'] = cancelled_effective if plan_id else None
-            user['subscription_cancel_at_period_end'] = cancel_at_period_end if plan_id else None
-            user['subscription_days_remaining'] = days_remaining if plan_id else None
+            snapshot = build_subscription_snapshot(user)
+            user['subscription_status'] = snapshot['status']
+            user['subscription_auto_renew'] = snapshot['auto_renew']
+            user['subscription_valid_until'] = snapshot['valid_until']
         except Exception as e:
             # Não quebra a listagem se houver erro ao enriquecer assinatura
             logger.warning(f"Falha ao enriquecer assinatura de usuário {user.get('id')}: {e}")
@@ -1919,6 +1819,7 @@ async def create_user_by_admin(user_data: UserCreate, current_user: User = Depen
     token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     
+    now_iso = datetime.now(timezone.utc).isoformat()
     token_data = {
         "token": token,
         "email": user_data.email,
@@ -1926,7 +1827,9 @@ async def create_user_by_admin(user_data: UserCreate, current_user: User = Depen
         "has_full_access": user_data.has_full_access,
         "course_ids": [],
         "expires_at": expires_at.isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "created_at": now_iso,
+        "updated_at": now_iso,
+        "token_history": [token],
     }
     await db.password_tokens.insert_one(token_data)
     
@@ -2128,7 +2031,7 @@ async def get_user_enrollments(user_id: str, current_user: User = Depends(get_cu
                 "enrolled_at": enrollment["enrolled_at"]
             })
     
-    # Also get courses from user's enrolled_courses field (new method - Hotmart)
+    # Also get courses from user's enrolled_courses field (legacy direct grants)
     user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if user and user.get("enrolled_courses"):
         for course_id in user.get("enrolled_courses", []):
@@ -2192,28 +2095,21 @@ async def get_published_courses(current_user: User = Depends(get_current_user)):
         legacy_courses = set(user_doc["enrolled_courses"])
         enrolled_course_ids = list(set(enrolled_course_ids) | legacy_courses)
     
-    # Determine subscription state and cancellation flags
-    has_subscription = False
-    subscription_active = False
-    subscription_cancelled_effective = False
-    subscription_cancel_at_period_end = False
-    if user_doc:
-        plan_id = user_doc.get("subscription_plan_id")
-        valid_until = user_doc.get("subscription_valid_until")
-        subscription_cancelled_effective = bool(user_doc.get("subscription_cancelled"))
-        subscription_cancel_at_period_end = bool(user_doc.get("subscription_cancel_at_period_end"))
-        has_subscription = bool(plan_id)
-        if plan_id:
-            if isinstance(valid_until, str):
-                try:
-                    valid_until = datetime.fromisoformat(valid_until)
-                except Exception:
-                    valid_until = None
-            elif not isinstance(valid_until, datetime):
-                valid_until = None
-            if valid_until and valid_until.tzinfo is None:
-                valid_until = valid_until.replace(tzinfo=timezone.utc)
-            subscription_active = bool(valid_until and datetime.now(timezone.utc) < valid_until)
+    # Determine subscription state
+    subscription_snapshot = build_subscription_snapshot(user_doc or {})
+    has_subscription = bool(subscription_snapshot["plan_id"])
+    subscription_active = bool(subscription_snapshot["is_active"])
+    subscription_access_scope = "full"
+    subscription_course_ids: set[str] = set()
+    if has_subscription and subscription_snapshot["plan_id"]:
+        plan_doc = await db.subscription_plans.find_one(
+            {"id": subscription_snapshot["plan_id"]},
+            {"_id": 0, "access_scope": 1, "course_ids": 1},
+        )
+        if plan_doc:
+            subscription_access_scope = plan_doc.get("access_scope", "full")
+            if subscription_access_scope == "specific":
+                subscription_course_ids = {cid for cid in plan_doc.get("course_ids", []) if cid}
 
     # Add enrollment status to each course
     result = []
@@ -2237,12 +2133,12 @@ async def get_published_courses(current_user: User = Depends(get_current_user)):
         if has_lifetime_access:
             course_data['has_access'] = True
         elif has_subscription:
-            if not subscription_active or (subscription_cancelled_effective and not subscription_cancel_at_period_end):
+            if not subscription_active:
                 course_data['has_access'] = False
-            elif subscription_cancel_at_period_end:
-                course_data['has_access'] = course['id'] in enrolled_course_ids
+            elif subscription_access_scope == "specific":
+                course_data['has_access'] = course['id'] in subscription_course_ids
             else:
-                course_data['has_access'] = course['id'] in enrolled_course_ids
+                course_data['has_access'] = True
         else:
             course_data['has_access'] = course['id'] in enrolled_course_ids
 
@@ -2386,32 +2282,15 @@ async def user_has_access(user_id: str) -> bool:
     if not user:
         return False
     
-    plan_id = user.get("subscription_plan_id")
-    valid_until = user.get("subscription_valid_until")
-    if isinstance(valid_until, str):
-        try:
-            valid_until = datetime.fromisoformat(valid_until)
-        except Exception:
-            valid_until = None
-    elif not isinstance(valid_until, datetime):
-        valid_until = None
-
-    valid_until_dt = valid_until
-    if valid_until_dt and valid_until_dt.tzinfo is None:
-        valid_until_dt = valid_until_dt.replace(tzinfo=timezone.utc)
-
-    now = datetime.now(timezone.utc)
+    snapshot = build_subscription_snapshot(user)
     has_full_access = bool(user.get("has_full_access"))
-    has_lifetime_access = has_full_access and not plan_id
+    has_lifetime_access = has_full_access and snapshot["status"] == SubscriptionStatus.INACTIVE.value
 
     if has_lifetime_access:
         return True
 
-    if plan_id:
-        cancelled_effective = bool(user.get("subscription_cancelled"))
-        is_active = bool(valid_until_dt and valid_until_dt > now)
-
-        if is_active and not cancelled_effective:
+    if snapshot["plan_id"]:
+        if snapshot["is_active"]:
             return True
 
         if has_full_access:
@@ -2738,6 +2617,7 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                     token = secrets.token_urlsafe(32)
                     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
                     
+                    now_iso = datetime.now(timezone.utc).isoformat()
                     token_data = {
                         "token": token,
                         "email": email,
@@ -2745,7 +2625,9 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                         "has_full_access": request.has_full_access,
                         "course_ids": request.course_ids if not request.has_full_access else [],
                         "expires_at": expires_at.isoformat(),
-                        "created_at": datetime.now(timezone.utc).isoformat()
+                        "created_at": now_iso,
+                        "updated_at": now_iso,
+                        "token_history": [token],
                     }
                     
                     await db.password_tokens.insert_one(token_data)
@@ -2850,53 +2732,223 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
 async def create_password_from_token(token: str, password: str):
     """Create user account from invitation token"""
     token_data = await db.password_tokens.find_one({"token": token}, {"_id": 0})
+    now = datetime.now(timezone.utc)
     
-    if not token_data:
-        raise HTTPException(status_code=404, detail="Invalid or expired token")
+    if token_data:
+        # Check expiration
+        expires_at = parse_datetime(token_data.get('expires_at'))
+        if not expires_at or now > expires_at:
+            raise HTTPException(status_code=400, detail="Token has expired")
+        
+        # Create user from invitation payload
+        user = User(
+            email=token_data['email'],
+            name=token_data['name'],
+            role="student",
+            has_full_access=token_data.get('has_full_access', False)
+        )
+        
+        user_dict = user.model_dump()
+        user_dict['password_hash'] = get_password_hash(password)
+        user_dict['created_at'] = user_dict['created_at'].isoformat()
+        user_dict['invited'] = True
+        user_dict['password_created'] = True
+        
+        await db.users.insert_one(user_dict)
+        
+        # Enroll in courses if not full access
+        if not token_data.get('has_full_access', False):
+            course_ids = token_data.get('course_ids', [])
+            # Support old format with single course_id
+            if not course_ids and token_data.get('course_id'):
+                course_ids = [token_data['course_id']]
+            
+            for course_id in course_ids:
+                enrollment = {
+                    "id": str(uuid.uuid4()),
+                    "user_id": user.id,
+                    "course_id": course_id,
+                    "enrolled_at": now.isoformat()
+                }
+                await db.enrollments.insert_one(enrollment)
+        
+        # Delete used token
+        await db.password_tokens.delete_one({"token": token})
+        
+        # Create access token
+        access_token = create_access_token(data={"sub": user.id})
+        return Token(access_token=access_token, token_type="bearer", user=user)
     
-    # Check expiration
-    expires_at = datetime.fromisoformat(token_data['expires_at'])
-    if datetime.now(timezone.utc) > expires_at:
-        raise HTTPException(status_code=400, detail="Token has expired")
-    
-    # Create user
-    user = User(
-        email=token_data['email'],
-        name=token_data['name'],
-        role="student",
-        has_full_access=token_data.get('has_full_access', False)
+    # Fallback: token attached directly to user document (e.g., Stripe checkout)
+    user_doc = await db.users.find_one(
+        {
+            "$or": [
+                {"password_creation_token": token},
+                {"password_token_history": token},
+            ]
+        }
     )
     
-    user_dict = user.model_dump()
-    user_dict['password_hash'] = get_password_hash(password)
-    user_dict['created_at'] = user_dict['created_at'].isoformat()
-    user_dict['invited'] = True
-    user_dict['password_created'] = True
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="Invalid or expired token")
     
-    await db.users.insert_one(user_dict)
+    current_token = user_doc.get("password_creation_token")
+    if current_token != token:
+        raise HTTPException(status_code=400, detail="Token has expired")
     
-    # Enroll in courses if not full access
-    if not token_data.get('has_full_access', False):
-        course_ids = token_data.get('course_ids', [])
-        # Support old format with single course_id
-        if not course_ids and token_data.get('course_id'):
-            course_ids = [token_data['course_id']]
-        
-        for course_id in course_ids:
-            enrollment = {
-                "id": str(uuid.uuid4()),
-                "user_id": user.id,
-                "course_id": course_id,
-                "enrolled_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.enrollments.insert_one(enrollment)
+    expires_at = parse_datetime(user_doc.get("password_token_expires"))
+    if not expires_at or now > expires_at:
+        raise HTTPException(status_code=400, detail="Token has expired")
     
-    # Delete used token
-    await db.password_tokens.delete_one({"token": token})
+    password_hash = get_password_hash(password)
+    update_doc = {
+        "$set": {
+            "password_hash": password_hash,
+            "password_created": True,
+            "invited": False,
+            "updated_at": now.isoformat(),
+        },
+        "$unset": {
+            "password_creation_token": "",
+            "password_token_expires": "",
+        },
+    }
     
-    # Create access token
-    access_token = create_access_token(data={"sub": user.id})
-    return Token(access_token=access_token, token_type="bearer", user=user)
+    await db.users.update_one({"id": user_doc.get("id")}, update_doc)
+    
+    updated_user = await db.users.find_one({"id": user_doc.get("id")}, {"_id": 0, "password_hash": 0})
+    if not updated_user:
+        raise HTTPException(status_code=500, detail="Erro ao atualizar usuário.")
+    
+    user_model = User(**updated_user)
+    access_token = create_access_token(data={"sub": user_model.id})
+    return Token(access_token=access_token, token_type="bearer", user=user_model)
+
+
+@api_router.post("/create-password/resend")
+async def resend_password_token(request: PasswordTokenResendRequest):
+    """Regenerate and resend a password creation token when the original has expired."""
+    match_query = {
+        "$or": [
+            {"token": request.token},
+            {"token_history": request.token},
+        ]
+    }
+
+    new_token = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    new_expiration = (now + timedelta(days=7)).isoformat()
+    now_iso = now.isoformat()
+
+    token_doc = await db.password_tokens.find_one(match_query)
+    if token_doc:
+        current_token = token_doc.get("token")
+        email = token_doc.get("email")
+        name = token_doc.get("name")
+
+        update_filter = {"_id": token_doc["_id"]} if "_id" in token_doc else {"token": current_token}
+        history_tokens = [new_token]
+        if current_token and current_token != new_token:
+            history_tokens.append(current_token)
+
+        update_result = await db.password_tokens.update_one(
+            update_filter,
+            {
+                "$set": {
+                    "token": new_token,
+                    "expires_at": new_expiration,
+                    "updated_at": now_iso,
+                },
+                "$addToSet": {
+                    "token_history": {"$each": history_tokens}
+                },
+            },
+        )
+
+        if update_result.modified_count == 0:
+            logger.error("Password token resend failed to update document for %s", email)
+            raise HTTPException(status_code=500, detail="Não foi possível gerar um novo token.")
+
+        try:
+            frontend_url = get_frontend_url()
+            password_link = f"{frontend_url}/create-password?token={new_token}"
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(
+                executor,
+                partial(
+                    send_password_creation_email,
+                    email,
+                    name,
+                    password_link,
+                ),
+            )
+            logger.info("Reenviado link de criação de senha para %s", email)
+        except Exception as exc:
+            logger.warning(f"Falha ao reenviar token de criação de senha para {email}: {exc}")
+
+        return {
+            "message": "Novo link enviado para o e-mail informado.",
+            "token": new_token,
+        }
+
+    # Fallback path: resend for existing user token (e.g., Stripe checkout)
+    user_doc = await db.users.find_one(
+        {
+            "$or": [
+                {"password_creation_token": request.token},
+                {"password_token_history": request.token},
+            ]
+        }
+    )
+
+    if not user_doc:
+        logger.info("Password token resend requested for unknown token.")
+        raise HTTPException(status_code=404, detail="Token não encontrado ou já utilizado.")
+
+    email = user_doc.get("email")
+    name = user_doc.get("name")
+    current_token = user_doc.get("password_creation_token")
+    history_tokens = [new_token]
+    if current_token:
+        history_tokens.append(current_token)
+
+    update_doc = {
+        "$set": {
+            "password_creation_token": new_token,
+            "password_token_expires": new_expiration,
+            "updated_at": now_iso,
+        },
+        "$addToSet": {
+            "password_token_history": {"$each": history_tokens},
+        },
+    }
+
+    update_result = await db.users.update_one({"id": user_doc.get("id")}, update_doc)
+    if update_result.modified_count == 0:
+        logger.error("Password token resend failed on user document for %s", email)
+        raise HTTPException(status_code=500, detail="Não foi possível gerar um novo token.")
+
+    try:
+        frontend_url = get_frontend_url()
+        password_link = f"{frontend_url}/create-password?token={new_token}"
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            executor,
+            partial(
+                send_password_creation_email,
+                email,
+                name,
+                password_link,
+            ),
+        )
+        logger.info("Reenviado link de criação de senha (user_doc) para %s", email)
+    except Exception as exc:
+        logger.warning(f"Falha ao reenviar token de criação de senha para {email}: {exc}")
+
+    return {
+        "message": "Novo link enviado para o e-mail informado.",
+        "token": new_token,
+    }
 
 # ==================== SOCIAL FEED ====================
 
@@ -2972,401 +3024,98 @@ async def get_post_detail(post_id: str, current_user: User = Depends(get_current
     }
 
 
-# ==================== ABACATE PAY INTEGRATION ====================
+# ==================== STRIPE BILLING ====================
 
-# Create billing for course purchase or subscription
 @api_router.post("/billing/create")
 async def create_billing(request: CreateBillingRequest, current_user: User = Depends(get_current_user)):
-    """Create a billing for course purchase or subscription plan"""
-    try:
-        # Verificar gateway ativo
-        gateway_cfg = await db.gateway_config.find_one({}, {"_id": 0})
-        active_gateway = (gateway_cfg or {}).get("active_gateway", "abacatepay")
-        # Determine what we're selling
-        if request.course_id:
-            # Buying course directly
-            course = await db.courses.find_one({"id": request.course_id}, {"_id": 0})
-            if not course:
-                raise HTTPException(status_code=404, detail="Course not found")
-            
-            amount_brl = course.get("price_brl", 0)
-            if amount_brl <= 0:
-                raise HTTPException(status_code=400, detail="Course price not set")
-            
-            product_name = course["title"]
-            product_description = f"Acesso ao curso: {course['title']}"
-        elif request.subscription_plan_id:
-            # Buying subscription plan
-            plan = await db.subscription_plans.find_one({"id": request.subscription_plan_id, "is_active": True}, {"_id": 0})
-            if not plan:
-                raise HTTPException(status_code=404, detail="Subscription plan not found or inactive")
+    """Create a Stripe Checkout session for subscription purchase."""
+    if not request.subscription_plan_id:
+        raise HTTPException(status_code=400, detail="Stripe billing requer um subscription_plan_id válido")
 
-            amount_brl = float(plan.get("price_brl", 0))
-            if amount_brl <= 0:
-                raise HTTPException(status_code=400, detail="Subscription price not set")
+    plan = await db.subscription_plans.find_one(
+        {"id": request.subscription_plan_id, "is_active": True},
+        {"_id": 0},
+    )
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plano de assinatura não encontrado ou inativo")
+    if not plan.get("stripe_price_id"):
+        raise HTTPException(status_code=400, detail="Plano de assinatura sem stripe_price_id configurado")
 
-            product_name = f"Assinatura: {plan['name']}"
-            product_description = f"Acesso à plataforma por {plan['duration_days']} dias"
-        else:
-            raise HTTPException(status_code=400, detail="Must specify course_id or subscription_plan_id")
+    stripe_key = await ensure_stripe_config()
+    if not stripe_key:
+        raise HTTPException(status_code=500, detail="Stripe não configurado no backend")
 
-        # Fluxo Stripe para assinaturas
-        if request.subscription_plan_id and active_gateway == "stripe":
-            stripe_key = await ensure_stripe_config()
-            if not stripe_key:
-                raise HTTPException(status_code=500, detail="Stripe not configured: missing STRIPE_SECRET_KEY")
-            if not plan.get("stripe_price_id"):
-                raise HTTPException(status_code=400, detail="Subscription plan missing stripe_price_id")
-
-            try:
-                frontend_url = get_frontend_url()
-                if not _is_valid_base_url(frontend_url):
-                    logger.error(f"Invalid FRONTEND_URL for Stripe: '{frontend_url}'")
-                    raise HTTPException(status_code=500, detail="Invalid FRONTEND_URL for Stripe checkout")
-                success_url = f"{frontend_url}/subscription-success?session_id={{CHECKOUT_SESSION_ID}}"
-                cancel_url = f"{frontend_url}/payment-cancelled"
-                logger.info(f"Stripe checkout URLs composed: success={success_url} cancel={cancel_url}")
-                session = await stripe_call_with_retry(
-                    stripe.checkout.Session.create,
-                    mode="subscription",
-                    customer_email=request.customer_email,
-                    line_items=[{
-                        "price": plan["stripe_price_id"],
-                        "quantity": 1,
-                    }],
-                    metadata={
-                        "user_id": current_user.id,
-                        "subscription_plan_id": request.subscription_plan_id,
-                        "access_scope": plan.get("access_scope", "full"),
-                        "course_ids": ",".join(plan.get("course_ids", [])),
-                        "duration_days": str(plan.get("duration_days", 0)),
-                    },
-                    client_reference_id=current_user.id,
-                    success_url=success_url,
-                    cancel_url=cancel_url,
-                )
-            except Exception as e:
-                logger.error(f"Stripe session creation failed: {e}", exc_info=True)
-                raise HTTPException(status_code=500, detail="Failed to create Stripe checkout session")
-
-            # Registrar pseudo-billing
-            billing_record = {
-                "billing_id": session.id,
-                "user_id": current_user.id,
-                "amount_brl": amount_brl,
-                "course_id": None,
-                "subscription_plan_id": request.subscription_plan_id,
-                "status": "pending",
-                "payment_url": session.url,
-                "gateway": "stripe",
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            }
-            await db.billings.insert_one(billing_record)
-            return {"payment_url": session.url, "billing_id": session.id}
-        
-        # Create billing with Abacate Pay
-        async with httpx.AsyncClient() as client:
-            billing_data = {
-                "frequency": "ONE_TIME",
-                "methods": ["PIX"],  # Only PIX for sandbox testing
-                "products": [{
-                    "externalId": request.course_id or request.subscription_plan_id,
-                    "name": product_name,
-                    "description": product_description,
-                    "quantity": 1,
-                    "price": int(amount_brl * 100)  # Convert to cents
-                }],
-                "customer": {
-                    "email": request.customer_email,
-                    "name": request.customer_name,
-                    "cellphone": "+5511999999999",  # Default test cellphone for sandbox
-                    "taxId": "11144477735"  # Valid test CPF for sandbox
-                },
-                "returnUrl": f"{get_frontend_url()}/payment-cancelled",
-                "completionUrl": f"{get_frontend_url()}/payment-success"
-            }
-            
-            headers = {
-                "Authorization": f"Bearer {ABACATEPAY_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            
-            response = await client.post(
-                f"{ABACATEPAY_BASE_URL}/billing/create",
-                json=billing_data,
-                headers=headers,
-                timeout=30.0
-            )
-            
-            if response.status_code != 200:
-                logger.error(f"Abacate Pay API error: {response.status_code} - {response.text}")
-                raise HTTPException(status_code=500, detail=f"Payment gateway error: {response.text}")
-            
-            billing_response = response.json()
-            logger.info(f"Abacate Pay response: {billing_response}")
-            
-            # Extract data from the response structure
-            data = billing_response.get("data", {})
-            billing_id = data.get("id")
-            payment_url = data.get("url")
-            
-            # Save billing to database
-            billing_record = {
-                "billing_id": billing_id,
-                "user_id": current_user.id,
-                "amount_brl": amount_brl,
-                "course_id": request.course_id,
-                "subscription_plan_id": request.subscription_plan_id,
-                "status": "pending",
-                "payment_url": payment_url,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "paid_at": None
-            }
-            await db.billings.insert_one(billing_record)
-            
-            logger.info(f"Created billing {billing_id} for user {current_user.email}")
-            
-            return {
-                "billing_id": billing_id,
-                "payment_url": payment_url,
-                "amount": amount_brl
-            }
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error creating billing: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create billing: {str(e)}")
-
-# Webhook endpoint for Abacate Pay payment notifications
-@api_router.post("/webhook/abacatepay")
-async def abacatepay_webhook(request: dict):
-    """Handle payment confirmation webhooks from Abacate Pay"""
-    try:
-        logger.info(f"Received webhook: {request}")
-        
-        # Extract event data
-        event_type = request.get("type")
-        billing_data = request.get("data", {})
-        billing_id = billing_data.get("id")
-        status = billing_data.get("status")
-        
-        if not billing_id:
-            logger.error("Webhook missing billing_id")
-            return {"status": "error", "message": "Missing billing_id"}
-        
-        # Get billing from database
-        billing = await db.billings.find_one({"billing_id": billing_id})
-        if not billing:
-            logger.error(f"Billing {billing_id} not found in database")
-            return {"status": "error", "message": "Billing not found"}
-        
-        # Process payment confirmation
-        if event_type == "billing.paid" or status == "PAID":
-            # Check if already processed
-            if billing.get("status") == "paid":
-                logger.warning(f"Billing {billing_id} already processed")
-                return {"status": "ok", "message": "Already processed"}
-            
-            # Update billing status
-            await db.billings.update_one(
-                {"billing_id": billing_id},
-                {"$set": {
-                    "status": "paid",
-                    "paid_at": datetime.now(timezone.utc).isoformat()
-                }}
-            )
-            
-            user_id = billing["user_id"]
-            
-            # Mark user as having made a purchase FIRST
-            # This is important for referral bonus logic
-            await db.users.update_one(
-                {"id": user_id},
-                {"$set": {"has_purchased": True}}
-            )
-            
-            # Process based on purchase type
-            if billing.get("course_id"):
-                # Direct course purchase - create enrollment
-                course_id = billing["course_id"]
-                
-                # Mark user as having made a purchase
-                await db.users.update_one(
-                    {"id": user_id},
-                    {"$set": {"has_purchased": True}}
-                )
-                
-                # Check if already enrolled
-                existing_enrollment = await db.enrollments.find_one({
-                    "user_id": user_id,
-                    "course_id": course_id
-                })
-                
-                if not existing_enrollment:
-                    enrollment = {
-                        "id": str(uuid.uuid4()),
-                        "user_id": user_id,
-                        "course_id": course_id,
-                        "enrolled_at": datetime.now(timezone.utc).isoformat()
-                    }
-                    await db.enrollments.insert_one(enrollment)
-                    logger.info(f"Enrolled user {user_id} in course {course_id} via direct purchase")
-            elif billing.get("subscription_plan_id"):
-                # Subscription purchase - set subscription validity on user
-                plan_id = billing.get("subscription_plan_id")
-                plan = await db.subscription_plans.find_one({"id": plan_id}, {"_id": 0})
-                if plan:
-                    duration_days = int(plan.get("duration_days", 0) or 0)
-                    valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
-                    await db.users.update_one(
-                        {"id": user_id},
-                        {"$set": {
-                            "has_purchased": True,
-                            "subscription_plan_id": plan_id,
-                            "subscription_valid_until": valid_until.isoformat(),
-                            "subscription_cancelled": False,
-                            "subscription_cancel_at_period_end": False
-                        }}
-                    )
-                    logger.info(f"Activated subscription {plan_id} for user {user_id} until {valid_until.isoformat()}")
-                    # Send activation email
-                    try:
-                        user_doc = await db.users.find_one({"id": user_id}, {"_id": 0, "email": 1, "name": 1})
-                        if user_doc and user_doc.get("email"):
-                            login_url = f"{get_frontend_url()}/login"
-                            loop = asyncio.get_event_loop()
-                            loop.run_in_executor(
-                                executor,
-                                send_subscription_activation_email,
-                                user_doc.get("email"),
-                                user_doc.get("name"),
-                                login_url,
-                                valid_until.isoformat(),
-                            )
-                    except Exception:
-                        pass
-
-            logger.info(f"Successfully processed payment for billing {billing_id}")
-            return {"status": "ok", "message": "Payment processed"}
-        
-        else:
-            logger.info(f"Webhook event {event_type} - no action needed")
-            return {"status": "ok", "message": "Event received"}
-            
-    except Exception as e:
-        logger.error(f"Error processing webhook: {e}", exc_info=True)
-        return {"status": "error", "message": str(e)}
-
-
-
-# Check payment status from Abacate Pay
-@api_router.get("/billing/{billing_id}/check-status")
-async def check_billing_status(billing_id: str, current_user: User = Depends(get_current_user)):
-    """Check billing status from Abacate Pay and update if paid"""
-    try:
-        # Get billing from database
-        billing = await db.billings.find_one(
-            {"billing_id": billing_id, "user_id": current_user.id},
-            {"_id": 0}
+    if request.customer_email.lower() != current_user.email.lower():
+        logger.info(
+            "Atualizando email de checkout para email do usuário autenticado. "
+            "customer_email=%s authenticated_email=%s",
+            request.customer_email,
+            current_user.email,
         )
-        
-        if not billing:
-            raise HTTPException(status_code=404, detail="Billing not found")
-        
-        # If already paid, return immediately
-        if billing.get("status") == "paid":
-            return {"status": "paid", "message": "Payment already confirmed"}
-        
-        # Check status with Abacate Pay
-        async with httpx.AsyncClient() as client:
-            headers = {
-                "Authorization": f"Bearer {ABACATEPAY_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            
-            response = await client.get(
-                f"{ABACATEPAY_BASE_URL}/billing/{billing_id}",
-                headers=headers,
-                timeout=30.0
-            )
-            
-            if response.status_code != 200:
-                logger.error(f"Abacate Pay API error: {response.status_code} - {response.text}")
-                return {"status": billing.get("status"), "message": "Could not check status"}
-            
-            billing_response = response.json()
-            data = billing_response.get("data", {})
-            status = data.get("status", "PENDING")
-            
-            logger.info(f"Billing {billing_id} status from API: {status}")
-            
-            # If paid, process the payment
-            if status == "PAID":
-                # Update billing status
-                await db.billings.update_one(
-                    {"billing_id": billing_id},
-                    {"$set": {
-                        "status": "paid",
-                        "paid_at": datetime.now(timezone.utc).isoformat()
-                    }}
-                )
-                
-                user_id = billing["user_id"]
-                
-                # Process based on purchase type
-                if billing.get("course_id"):
-                    # Direct course purchase - create enrollment
-                    course_id = billing["course_id"]
-                    
-                    # Mark user as having made a purchase
-                    await db.users.update_one(
-                        {"id": user_id},
-                        {"$set": {"has_purchased": True}}
-                    )
-                    
-                    # Check if already enrolled
-                    existing_enrollment = await db.enrollments.find_one({
-                        "user_id": user_id,
-                        "course_id": course_id
-                    })
-                    
-                    if not existing_enrollment:
-                        enrollment = {
-                            "id": str(uuid.uuid4()),
-                            "user_id": user_id,
-                            "course_id": course_id,
-                            "enrolled_at": datetime.now(timezone.utc).isoformat()
-                        }
-                        await db.enrollments.insert_one(enrollment)
-                        logger.info(f"Enrolled user {user_id} in course {course_id} via status check")
-                elif billing.get("subscription_plan_id"):
-                    # Subscription purchase - set subscription validity on user
-                    plan_id = billing.get("subscription_plan_id")
-                    plan = await db.subscription_plans.find_one({"id": plan_id}, {"_id": 0})
-                    if plan:
-                        duration_days = int(plan.get("duration_days", 0) or 0)
-                        valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
-                        await db.users.update_one(
-                            {"id": user_id},
-                            {"$set": {
-                                "has_purchased": True,
-                                "subscription_plan_id": plan_id,
-                                "subscription_valid_until": valid_until.isoformat(),
-                                "subscription_cancelled": False,
-                                "subscription_cancel_at_period_end": False
-                            }}
-                        )
-                        logger.info(f"Activated subscription {plan_id} for user {user_id} until {valid_until.isoformat()} via status check")
-                
-                return {"status": "paid", "message": "Payment confirmed! Benefits applied."}
-            
-            return {"status": "pending", "message": "Payment still pending"}
-            
-    except Exception as e:
-        logger.error(f"Error checking billing status: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to check status: {str(e)}")
+        customer_email = current_user.email
+    else:
+        customer_email = request.customer_email
 
+    amount_brl = float(plan.get("price_brl", 0) or 0)
+    if amount_brl <= 0:
+        raise HTTPException(status_code=400, detail="Plano de assinatura sem valor definido")
+
+    try:
+        frontend_url = get_frontend_url()
+        if not _is_valid_base_url(frontend_url):
+            logger.error("FRONTEND_URL inválido para Stripe: %s", frontend_url)
+            raise HTTPException(status_code=500, detail="FRONTEND_URL inválido para checkout Stripe")
+
+        metadata = {
+            "user_id": current_user.id,
+            "subscription_plan_id": request.subscription_plan_id,
+            "access_scope": plan.get("access_scope", "full"),
+            "course_ids": ",".join(plan.get("course_ids", [])),
+            "duration_days": str(plan.get("duration_days", 0)),
+        }
+
+        session = await stripe_call_with_retry(
+            stripe.checkout.Session.create,
+            mode="subscription",
+            customer_email=customer_email,
+            line_items=[
+                {
+                    "price": plan["stripe_price_id"],
+                    "quantity": 1,
+                }
+            ],
+            metadata=metadata,
+            client_reference_id=current_user.id,
+            success_url=f"{frontend_url}/subscription-success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{frontend_url}/payment-cancelled",
+            payment_method_types=["card"],
+        )
+
+        billing_record = {
+            "billing_id": session.id,
+            "user_id": current_user.id,
+            "amount_brl": amount_brl,
+            "course_id": None,
+            "subscription_plan_id": request.subscription_plan_id,
+            "status": "pending",
+            "payment_url": session.url,
+            "gateway": "stripe",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        await db.billings.update_one(
+            {"billing_id": session.id},
+            {"$set": billing_record},
+            upsert=True,
+        )
+
+        return {"payment_url": session.url, "billing_id": session.id}
+    except stripe.error.StripeError as e:
+        logger.error("Stripe error creating session: %s", e)
+        raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
+    except Exception as exc:
+        logger.exception("Erro criando checkout Stripe")
+        raise HTTPException(status_code=500, detail=f"Não foi possível criar o checkout: {exc}")
 
 # ==================== ADMIN PAYMENTS MANAGEMENT ====================
 
@@ -3388,70 +3137,56 @@ async def admin_get_all_billings(current_user: User = Depends(get_current_admin)
 # Admin: Get payment settings
 @api_router.get("/admin/payment-settings")
 async def get_payment_settings(current_user: User = Depends(get_current_admin)):
-    """Get payment gateway settings (admin only)"""
+    """Get Stripe payment settings (admin only)"""
     settings = await db.payment_settings.find_one({}, {"_id": 0})
-    
     if not settings:
-        # Return default settings
         return {
-            "abacatepay_api_key": ABACATEPAY_API_KEY or "",
-            "environment": os.environ.get('ABACATEPAY_ENVIRONMENT', 'sandbox')
+            "stripe_secret_key": os.environ.get("STRIPE_SECRET_KEY", ""),
+            "stripe_webhook_secret": os.environ.get("STRIPE_WEBHOOK_SECRET", ""),
+            "forward_webhook_url": os.environ.get("FORWARD_WEBHOOK_URL"),
+            "forward_test_events": os.environ.get("FORWARD_TEST_EVENTS") == "true",
         }
-    # Ensure optional fields exist for UI compatibility
     settings.setdefault("forward_webhook_url", None)
     settings.setdefault("forward_test_events", False)
     return settings
 
+
 # Admin: Update payment settings
 @api_router.post("/admin/payment-settings")
 async def update_payment_settings(
-    abacatepay_api_key: str,
-    environment: str,
     stripe_secret_key: Optional[str] = None,
     stripe_webhook_secret: Optional[str] = None,
     forward_webhook_url: Optional[str] = None,
     forward_test_events: Optional[bool] = False,
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_admin),
 ):
-    """Update payment gateway settings (admin only)"""
-    if environment not in ["sandbox", "production"]:
-        raise HTTPException(status_code=400, detail="Environment must be 'sandbox' or 'production'")
-    
+    """Update Stripe payment settings (admin only)"""
     settings = {
-        "abacatepay_api_key": abacatepay_api_key,
-        "environment": environment,
         "stripe_secret_key": stripe_secret_key,
         "stripe_webhook_secret": stripe_webhook_secret,
         "forward_webhook_url": forward_webhook_url,
         "forward_test_events": bool(forward_test_events or False),
         "updated_at": datetime.now(timezone.utc).isoformat(),
-        "updated_by": current_user.email
+        "updated_by": current_user.email,
     }
-    
-    await db.payment_settings.update_one(
-        {},
-        {"$set": settings},
-        upsert=True
-    )
-    
-    # Update environment variables (note: requires restart to take full effect)
-    os.environ['ABACATEPAY_API_KEY'] = abacatepay_api_key
-    os.environ['ABACATEPAY_ENVIRONMENT'] = environment
+
+    await db.payment_settings.update_one({}, {"$set": settings}, upsert=True)
+
     if stripe_secret_key:
-        os.environ['STRIPE_SECRET_KEY'] = stripe_secret_key
+        os.environ["STRIPE_SECRET_KEY"] = stripe_secret_key
         try:
             stripe.api_key = stripe_secret_key
         except Exception:
             pass
     if stripe_webhook_secret:
-        os.environ['STRIPE_WEBHOOK_SECRET'] = stripe_webhook_secret
-    if forward_webhook_url:
-        os.environ['FORWARD_WEBHOOK_URL'] = forward_webhook_url
-    os.environ['FORWARD_TEST_EVENTS'] = 'true' if (forward_test_events or False) else 'false'
-    
-    logger.info(f"Admin {current_user.email} updated payment settings to {environment}")
-    
-    return {"message": "Payment settings updated successfully. Restart backend to apply changes."}
+        os.environ["STRIPE_WEBHOOK_SECRET"] = stripe_webhook_secret
+    if forward_webhook_url is not None:
+        os.environ["FORWARD_WEBHOOK_URL"] = forward_webhook_url or ""
+    os.environ["FORWARD_TEST_EVENTS"] = "true" if (forward_test_events or False) else "false"
+
+    logger.info("Admin %s updated Stripe payment settings", current_user.email)
+
+    return {"message": "Stripe settings updated. Reinicie o backend para garantir que variáveis sejam recarregadas."}
 
 async def _forward_status_to_client(payload: dict):
     """Forward normalized payment/subscription status to external webhook if configured.
@@ -3568,10 +3303,48 @@ async def admin_mark_billing_paid(billing_id: str, current_user: User = Depends(
                 }
                 await db.enrollments.insert_one(enrollment)
                 logger.info(f"Admin {current_user.email} manually confirmed billing {billing_id} - enrolled user {user_id} in course {course_id}")
+        elif billing.get("subscription_plan_id"):
+            plan_id = billing["subscription_plan_id"]
+            plan = await db.subscription_plans.find_one(
+                {"id": plan_id},
+                {"_id": 0, "access_scope": 1, "course_ids": 1, "duration_days": 1},
+            )
+            if not plan:
+                raise HTTPException(status_code=404, detail="Subscription plan not found for billing")
+
+            duration_days = int(plan.get("duration_days", 0) or 0)
+            valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days) if duration_days > 0 else None
+            auto_renew = True
+            status_value = determine_subscription_status(plan_id, valid_until, auto_renew)
+            if valid_until is None:
+                status_value = SubscriptionStatus.ACTIVE_WITH_AUTO_RENEW.value
+
+            update_ops = {
+                "$set": {
+                    "has_purchased": True,
+                    "subscription_plan_id": plan_id,
+                    "subscription_valid_until": valid_until.isoformat() if valid_until else None,
+                    "subscription_auto_renew": auto_renew,
+                    "subscription_status": status_value,
+                },
+                "$unset": {
+                    "subscription_cancelled": "",
+                    "subscription_cancel_at_period_end": "",
+                },
+            }
+            if plan.get("access_scope", "full") == "full":
+                update_ops["$set"]["has_full_access"] = True
+            elif plan.get("access_scope") == "specific":
+                course_ids = [cid for cid in plan.get("course_ids", []) if cid]
+                if course_ids:
+                    update_ops.setdefault("$addToSet", {})["enrolled_courses"] = {"$each": course_ids}
+            await db.users.update_one({"id": user_id}, update_ops)
+            logger.info(f"Admin {current_user.email} manually activated subscription {plan_id} for user {user_id}")
         
         return {
             "message": "Billing marked as paid successfully",
-            "course_enrolled": billing.get("course_id")
+            "course_enrolled": billing.get("course_id"),
+            "subscription_plan_id": billing.get("subscription_plan_id"),
         }
         
     except HTTPException:
@@ -3580,180 +3353,6 @@ async def admin_mark_billing_paid(billing_id: str, current_user: User = Depends(
         logger.error(f"Error marking billing as paid: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to mark billing as paid: {str(e)}")
 
-
-# ==================== HOTMART INTEGRATION ====================
-
-# Get payment gateway configuration
-@api_router.get("/admin/gateway-config")
-async def get_gateway_config(current_user: User = Depends(get_current_admin)):
-    """Get payment gateway configuration (admin only)"""
-    config = await db.gateway_config.find_one({}, {"_id": 0})
-    
-    if not config:
-        # Return default config
-        return {
-            "active_gateway": "abacatepay",
-            "hotmart_token": None
-        }
-    
-    return config
-
-# Get active gateway (public endpoint for students)
-@api_router.get("/gateway/active")
-async def get_active_gateway():
-    """Get active payment gateway (public endpoint)"""
-    config = await db.gateway_config.find_one({}, {"_id": 0})
-    
-    if not config:
-        logger.info("No gateway config found, returning default: abacatepay")
-        return {"active_gateway": "abacatepay"}
-    
-    active = config.get("active_gateway", "abacatepay")
-    logger.info(f"Gateway config found, active gateway: {active}")
-    
-    # Return only the active gateway, not the token
-    return {"active_gateway": active}
-
-# Get support configuration (public endpoint)
-@api_router.get("/support/config")
-async def get_support_config():
-    """Get support configuration (public endpoint)"""
-    config = await db.support_config.find_one({}, {"_id": 0})
-    
-    if not config:
-        return {
-            "support_url": "https://wa.me/5511999999999",
-            "support_text": "Suporte",
-            "enabled": True
-        }
-    
-    return {
-        "support_url": config.get("support_url", "https://wa.me/5511999999999"),
-        "support_text": config.get("support_text", "Suporte"),
-        "enabled": config.get("enabled", True)
-    }
-
-# Update support configuration (admin only)
-@api_router.post("/admin/support/config")
-async def update_support_config(
-    support_url: str,
-    support_text: str = "Suporte",
-    enabled: bool = True,
-    current_user: User = Depends(get_current_admin)
-):
-    """Update support configuration (admin only)"""
-    config = {
-        "support_url": support_url,
-        "support_text": support_text,
-        "enabled": enabled,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        "updated_by": current_user.email
-    }
-    await db.support_config.update_one(
-        {},
-        {"$set": config},
-        upsert=True
-    )
-    logger.info(f"Admin {current_user.email} updated support config")
-    return {"message": "Support configuration updated successfully"}
-
-# (Feature flags removidos)
-
-# Debug endpoint to check user enrollment
-@api_router.get("/debug/user/{email}")
-async def debug_user(email: str, current_user: User = Depends(get_current_admin)):
-    """Debug endpoint to check user data"""
-    user = await db.users.find_one({"email": email}, {"_id": 0})
-    if not user:
-        return {"error": "User not found"}
-    
-    # Get course names
-    enrolled_course_ids = user.get("enrolled_courses", [])
-    courses = []
-    for course_id in enrolled_course_ids:
-        course = await db.courses.find_one({"id": course_id}, {"_id": 0, "id": 1, "title": 1})
-        if course:
-            courses.append(course)
-    
-    # Get subscription plan details if exists
-    subscription_plan = None
-    if user.get("subscription_plan_id"):
-        plan = await db.subscription_plans.find_one({"id": user["subscription_plan_id"]}, {"_id": 0})
-        if plan:
-            subscription_plan = plan
-    
-    return {
-        "user": {
-            "id": user.get("id"),
-            "email": user.get("email"),
-            "name": user.get("name"),
-            "has_purchased": user.get("has_purchased"),
-            "has_full_access": user.get("has_full_access"),
-            "subscription_plan_id": user.get("subscription_plan_id"),
-            "subscription_valid_until": user.get("subscription_valid_until"),
-            "enrolled_courses_count": len(enrolled_course_ids),
-            "enrolled_course_ids": enrolled_course_ids,
-            "password_hash_exists": bool(user.get("password_hash"))
-        },
-        "subscription_plan": subscription_plan,
-        "courses": courses
-    }
-
-# Test email endpoint
-@api_router.post("/debug/test-email")
-async def test_email(
-    recipient_email: str,
-    recipient_name: str,
-    current_user: User = Depends(get_current_admin)
-):
-    """Test email sending"""
-    try:
-        frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
-        password_token = secrets.token_urlsafe(32)
-        password_link = f"{frontend_url}/create-password?token={password_token}"
-        
-        # Send in thread pool
-        loop = asyncio.get_event_loop()
-        loop.run_in_executor(
-            executor,
-            send_password_creation_email,
-            recipient_email,
-            recipient_name,
-            password_link
-        )
-        
-        return {"message": "Email test started, check logs for results"}
-    except Exception as e:
-        logger.error(f"Failed to start email test: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Update payment gateway configuration
-@api_router.post("/admin/gateway-config")
-async def update_gateway_config(
-    active_gateway: str,
-    hotmart_token: Optional[str] = None,
-    current_user: User = Depends(get_current_admin)
-):
-    """Update payment gateway configuration (admin only)"""
-    if active_gateway not in ["abacatepay", "hotmart", "stripe"]:
-        raise HTTPException(status_code=400, detail="Invalid gateway. Must be 'abacatepay', 'hotmart' or 'stripe'")
-    
-    config = {
-        "active_gateway": active_gateway,
-        "hotmart_token": hotmart_token,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        "updated_by": current_user.email
-    }
-    
-    await db.gateway_config.update_one(
-        {},
-        {"$set": config},
-        upsert=True
-    )
-    
-    logger.info(f"Admin {current_user.email} updated gateway config to {active_gateway}")
-    
-    return {"message": "Gateway configuration updated successfully"}
 
 # ==================== ADMIN ROUTES - STRIPE ====================
 
@@ -3817,11 +3416,24 @@ async def admin_sync_user_subscription(email: EmailStr, current_user: User = Dep
         if not valid_until and plan_doc and int(plan_doc.get("duration_days", 0) or 0) > 0:
             valid_until = datetime.now(timezone.utc) + timedelta(days=int(plan_doc.get("duration_days", 0)))
 
+        auto_renew = None
+        if subscription.get("cancel_at_period_end") is not None:
+            auto_renew = not bool(subscription.get("cancel_at_period_end"))
+
+        status_value = determine_subscription_status(
+            plan_doc.get("id") if plan_doc else None,
+            valid_until,
+            auto_renew,
+        )
+
         # Prepare updates
         updates = {
             "has_purchased": True,
             "stripe_customer_id": customer.id,
+            "subscription_status": status_value,
         }
+        if auto_renew is not None:
+            updates["subscription_auto_renew"] = auto_renew
         if valid_until:
             updates["subscription_valid_until"] = valid_until.isoformat()
         if plan_doc:
@@ -3829,7 +3441,16 @@ async def admin_sync_user_subscription(email: EmailStr, current_user: User = Dep
             if plan_doc.get("access_scope", "full") == "full":
                 updates["has_full_access"] = True
 
-        await db.users.update_one({"id": user_id}, {"$set": updates})
+        await db.users.update_one(
+            {"id": user_id},
+            {
+                "$set": updates,
+                "$unset": {
+                    "subscription_cancelled": "",
+                    "subscription_cancel_at_period_end": "",
+                },
+            },
+        )
 
         try:
             replication_manager.audit.info(
@@ -4022,6 +3643,7 @@ async def stripe_webhook(request: Request):
                     currency = data_obj["currency"].upper()
 
             price_id = None
+            sub = None
             if event_type in invoice_success_events:
                 line_items = ((data_obj.get("lines") or {}).get("data") or [])
                 if line_items:
@@ -4032,6 +3654,37 @@ async def stripe_webhook(request: Request):
                         price_currency = price_data.get("currency")
                         if price_currency:
                             currency = price_currency.upper()
+
+            subscription_id = data_obj.get("subscription")
+            if not subscription_id and event_type == "checkout.session.completed":
+                session_id = data_obj.get("id")
+                if session_id:
+                    try:
+                        session_lookup = await stripe_call_with_retry(
+                            stripe.checkout.Session.retrieve,
+                            session_id,
+                            expand=["subscription"],
+                        )
+                        sub_obj = session_lookup.get("subscription")
+                        if sub_obj and isinstance(sub_obj, dict):
+                            subscription_id = sub_obj.get("id")
+                            sub = sub_obj
+                    except Exception as e:
+                        logger.warning(f"Stripe: failed to expand subscription from session {session_id}: {e}")
+            if subscription_id and sub is None:
+                try:
+                    sub = await stripe_call_with_retry(stripe.Subscription.retrieve, subscription_id)
+                except Exception as e:
+                    logger.warning(f"Could not retrieve Stripe subscription {subscription_id}: {e}")
+
+            if not price_id and sub is not None:
+                try:
+                    sub_items = ((sub or {}).get("items", {}) or {}).get("data", [])
+                    if sub_items:
+                        price_obj = sub_items[0].get("price") or {}
+                        price_id = price_obj.get("id") or price_obj.get("price_id")
+                except Exception:
+                    price_id = price_id
 
             plan_doc = None
             if plan_id:
@@ -4101,6 +3754,7 @@ async def stripe_webhook(request: Request):
                             "created_via": "stripe",
                             "password_creation_token": password_token,
                             "password_token_expires": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+                            "password_token_history": [password_token],
                             "stripe_customer_id": customer_id,
                         }
                         await db.users.insert_one(base_user)
@@ -4139,62 +3793,78 @@ async def stripe_webhook(request: Request):
 
             # Try to derive validity from Stripe subscription if available
             valid_until = None
-            subscription_id = data_obj.get("subscription")
-            if subscription_id:
-                try:
-                    sub = await stripe_call_with_retry(stripe.Subscription.retrieve, subscription_id)
-                    current_period_end = sub.get("current_period_end")
-                    if current_period_end:
+            if sub is not None:
+                current_period_end = sub.get("current_period_end")
+                if current_period_end:
+                    try:
                         valid_until = datetime.fromtimestamp(int(current_period_end), tz=timezone.utc)
                         logger.info(f"Stripe: derived valid_until from subscription {subscription_id}: {valid_until.isoformat()}")
-                except Exception as e:
-                    logger.warning(f"Could not retrieve Stripe subscription {subscription_id}: {e}")
+                    except Exception as e:
+                        logger.warning(f"Stripe: failed to parse current_period_end for {subscription_id}: {e}")
+
+            subscription_auto_renew = None
+            if sub is not None:
+                subscription_auto_renew = not bool(sub.get("cancel_at_period_end"))
+            elif subscription_id:
+                subscription_auto_renew = True
+
+            if not valid_until and duration_days > 0:
+                valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
+            status_value = determine_subscription_status(plan_id, valid_until, subscription_auto_renew)
+            update_payload_base = {
+                "has_purchased": True,
+                "subscription_plan_id": plan_id,
+                "subscription_auto_renew": subscription_auto_renew,
+                "subscription_status": status_value,
+                **({"stripe_customer_id": customer_id} if customer_id else {}),
+            }
+            if valid_until:
+                update_payload_base["subscription_valid_until"] = valid_until.isoformat()
 
             if access_scope == "full":
-                if not valid_until:
-                    valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
+                update_payload = {
+                    **update_payload_base,
+                    "has_full_access": True,
+                }
                 await db.users.update_one(
                     {"id": user_id},
-                    {"$set": {
-                        "has_purchased": True,
-                        "has_full_access": True,
-                        "subscription_plan_id": plan_id,
-                        "subscription_valid_until": valid_until.isoformat(),
-                        "subscription_cancelled": False,
-                        "subscription_cancel_at_period_end": False,
-                        **({"stripe_customer_id": customer_id} if customer_id else {})
-                    }}
+                    {
+                        "$set": update_payload,
+                        "$unset": {
+                            "subscription_cancelled": "",
+                            "subscription_cancel_at_period_end": "",
+                        },
+                    },
                 )
-                logger.info(f"Stripe: full access activated for user {user_id} until {valid_until.isoformat()}")
-                # Send activation email
+                logger.info(f"Stripe: full access activated for user {user_id} until {valid_until.isoformat() if valid_until else 'unknown'}")
                 try:
                     login_url = f"{get_frontend_url()}/login"
                     loop = asyncio.get_event_loop()
                     loop.run_in_executor(
                         executor,
-                        send_subscription_activation_email,
-                        customer_email or (user_doc.get("email") if 'user_doc' in locals() and user_doc else None),
-                        (user_doc.get("name") if 'user_doc' in locals() and user_doc else ""),
-                        login_url,
-                        valid_until.isoformat() if valid_until else None,
+                        partial(
+                            send_subscription_activation_email,
+                            customer_email or (user_doc.get("email") if 'user_doc' in locals() and user_doc else None),
+                            (user_doc.get("name") if 'user_doc' in locals() and user_doc else ""),
+                            login_url,
+                            valid_until_iso=valid_until.isoformat() if valid_until else None,
+                            auto_renew=subscription_auto_renew,
+                        ),
                     )
                 except Exception:
                     pass
             else:
+                update_payload = update_payload_base
+                update_ops = {
+                    "$set": update_payload,
+                    "$unset": {
+                        "subscription_cancelled": "",
+                        "subscription_cancel_at_period_end": "",
+                    },
+                }
                 if course_ids:
-                    await db.users.update_one(
-                        {"id": user_id},
-                        {
-                            "$addToSet": {"enrolled_courses": {"$each": course_ids}},
-                            "$set": {
-                                "has_purchased": True,
-                                "subscription_plan_id": plan_id,
-                                "subscription_cancelled": False,
-                                "subscription_cancel_at_period_end": False,
-                                **({"stripe_customer_id": customer_id} if customer_id else {})
-                            }
-                        }
-                    )
+                    update_ops["$addToSet"] = {"enrolled_courses": {"$each": course_ids}}
+                await db.users.update_one({"id": user_id}, update_ops)
                 logger.info(f"Stripe: specific courses granted to user {user_id}: {course_ids}")
 
             billing_id = data_obj.get("id") or data_obj.get("subscription") or data_obj.get("payment_intent")
@@ -4302,18 +3972,18 @@ async def stripe_webhook(request: Request):
                 return {"status": "ignored"}
 
             # Update user subscription flags and validity
-            updates = {
-                "subscription_cancel_at_period_end": bool(cancel_at_period_end)
-            }
-            if status == "canceled" or canceled_at_ts:
-                updates["subscription_cancelled"] = True
-                # Immediate cancellation should revoke full access
-                # If cancel_at_period_end is False, the subscription ends now
-                if not cancel_at_period_end:
-                    updates["has_full_access"] = False
-            else:
-                updates["subscription_cancelled"] = False
-            # Determine the effective end date for the subscription
+            lookup_filter = user_filter if user_filter else {"email": email}
+            existing_user = await db.users.find_one(
+                lookup_filter,
+                {"_id": 0, "subscription_plan_id": 1, "subscription_valid_until": 1, "has_full_access": 1},
+            )
+
+            auto_renew = None
+            if cancel_at_period_end is not None:
+                auto_renew = not bool(cancel_at_period_end)
+            if status == "canceled" and not cancel_at_period_end:
+                auto_renew = False
+
             effective_end_ts = None
             if status == "canceled" and canceled_at_ts and not cancel_at_period_end:
                 effective_end_ts = canceled_at_ts
@@ -4322,16 +3992,57 @@ async def stripe_webhook(request: Request):
             elif canceled_at_ts:
                 effective_end_ts = canceled_at_ts
 
+            valid_until_dt = None
             if effective_end_ts:
                 try:
-                    updates["subscription_valid_until"] = datetime.fromtimestamp(int(effective_end_ts), tz=timezone.utc).isoformat()
+                    valid_until_dt = datetime.fromtimestamp(int(effective_end_ts), tz=timezone.utc)
                 except Exception:
-                    pass
+                    valid_until_dt = None
+            elif existing_user:
+                valid_until_dt = parse_datetime(existing_user.get("subscription_valid_until"))
+
+            plan_id = (existing_user or {}).get("subscription_plan_id")
+            if not plan_id:
+                price_id = None
+                try:
+                    price_id = (((data_obj.get("items") or {}).get("data") or [{}])[0] or {}).get("price", {}).get("id")
+                except Exception:
+                    price_id = None
+                if price_id:
+                    plan_doc_lookup = await db.subscription_plans.find_one(
+                        {"stripe_price_id": price_id},
+                        {"_id": 0, "id": 1},
+                    )
+                    if plan_doc_lookup:
+                        plan_id = plan_doc_lookup.get("id")
+
+            status_value = determine_subscription_status(plan_id, valid_until_dt, auto_renew)
+
+            updates = {
+                "subscription_status": status_value,
+            }
+            if auto_renew is not None:
+                updates["subscription_auto_renew"] = auto_renew
+            if valid_until_dt:
+                updates["subscription_valid_until"] = valid_until_dt.isoformat()
+            if status == "canceled" and not cancel_at_period_end:
+                updates["has_full_access"] = False
+            if plan_id:
+                updates["subscription_plan_id"] = plan_id
 
             if updates:
                 # Prefer updating by internal user id if available, otherwise by email
-                update_target = user_filter if user_filter else {"email": email}
-                await db.users.update_one(update_target, {"$set": updates})
+                update_target = lookup_filter
+                await db.users.update_one(
+                    update_target,
+                    {
+                        "$set": updates,
+                        "$unset": {
+                            "subscription_cancelled": "",
+                            "subscription_cancel_at_period_end": "",
+                        },
+                    },
+                )
                 logger.info(f"Stripe: updated subscription for {(user_doc.get('email') if user_doc else email)} with {updates}")
 
                 # Send cancellation email when applicable
@@ -4348,10 +4059,13 @@ async def stripe_webhook(request: Request):
                         loop = asyncio.get_event_loop()
                         loop.run_in_executor(
                             executor,
-                            send_subscription_cancellation_email,
-                            email,
-                            (user_doc.get("name") if user_doc else ""),
-                            valid_iso,
+                            partial(
+                                send_subscription_cancellation_email,
+                                email,
+                                (user_doc.get("name") if user_doc else ""),
+                                valid_iso,
+                                immediate=not cancel_at_period_end,
+                            ),
                         )
                 except Exception:
                     pass
@@ -4460,331 +4174,6 @@ async def list_stripe_webhook_events(current_user: User = Depends(get_current_ad
         raise HTTPException(status_code=500, detail="Failed to list webhook events")
 
 # Hotmart Webhook Endpoint
-@api_router.post("/hotmart/webhook")
-async def hotmart_webhook(webhook_data: dict):
-    """
-    Process Hotmart webhook for purchase notifications
-    Supports both v1 and v2 webhook formats
-    """
-    try:
-        logger.info(f"🔔 Received Hotmart webhook: {webhook_data}")
-        
-        # Detect webhook version
-        version = webhook_data.get("version", "1.0.0")
-        
-        if version == "2.0.0":
-            # V2 format
-            hottok = webhook_data.get("hottok", "")
-            event = webhook_data.get("event", "")
-            data = webhook_data.get("data", {})
-            
-            product = data.get("product", {})
-            buyer = data.get("buyer", {})
-            purchase = data.get("purchase", {})
-            
-            # Use ucode (unique code) instead of id, as id can be 0 in tests
-            prod_id = product.get("ucode", "") or str(product.get("id", ""))
-            email = buyer.get("email", "")
-            name = buyer.get("name", "")
-            status = purchase.get("status", "")
-            transaction = purchase.get("transaction", "")
-            prod_name = product.get("name", "")
-            price = purchase.get("price", {}).get("value", 0)
-            currency = purchase.get("price", {}).get("currency_value", "BRL")
-            purchase_date = webhook_data.get("creation_date", "")
-            
-        else:
-            # V1 format (legacy)
-            hottok = webhook_data.get("hottok", "")
-            event = ""  # V1 uses callback_type instead
-            callback_type = webhook_data.get("callback_type", "")
-            status = webhook_data.get("status", "")
-            transaction = webhook_data.get("transaction", "")
-            prod_id = webhook_data.get("prod", "")
-            email = webhook_data.get("email", "")
-            name = webhook_data.get("name", "")
-            prod_name = webhook_data.get("prod_name", "")
-            price = webhook_data.get("price", "")
-            currency = webhook_data.get("currency", "")
-            purchase_date = webhook_data.get("purchase_date", "")
-        
-        # Validate hottok if configured
-        gateway_config = await db.gateway_config.find_one({})
-        if gateway_config and gateway_config.get("hotmart_token"):
-            if hottok != gateway_config.get("hotmart_token"):
-                logger.warning(f"❌ Invalid Hotmart token received")
-                raise HTTPException(status_code=403, detail="Invalid hotmart token")
-        
-        # Store webhook data
-        webhook_record = {
-            "id": str(uuid.uuid4()),
-            "version": version,
-            "event": event,
-            "transaction": transaction,
-            "prod": prod_id,
-            "prod_name": prod_name,
-            "status": status,
-            "email": email,
-            "name": name,
-            "purchase_date": str(purchase_date),
-            "price": str(price),
-            "currency": currency,
-            "raw_data": webhook_data,
-            "processed": False,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-        await db.hotmart_webhooks.insert_one(webhook_record)
-        
-        # Determine approval and blocking events
-        # Approvals
-        # V2: PURCHASE_APPROVED (APPROVED) or RECURRENCE_PAYMENT_CONFIRMED
-        # V1: callback_type = "1" (approved purchase)
-        is_approved_v2 = (
-            version == "2.0.0" and (
-                (event == "PURCHASE_APPROVED" and status == "APPROVED") or
-                (event == "RECURRENCE_PAYMENT_CONFIRMED")
-            )
-        )
-        is_approved_v1 = (version != "2.0.0" and callback_type == "1" and status == "approved")
-
-        # Blocking events for subscriptions (Hotmart v2 common events)
-        is_block_v2 = (
-            version == "2.0.0" and event in [
-                "PURCHASE_CANCELED",
-                "RECURRENCE_OVERDUE",
-                "RECURRENCE_CANCELED",
-                "PURCHASE_EXPIRED"
-            ]
-        )
-        # Minimal v1 handling: treat callback_type != "1" with status in canceled/expired as block
-        is_block_v1 = (
-            version != "2.0.0" and status in ["canceled", "expired", "chargeback"]
-        )
-
-        # If it's a blocking event, attempt to block subscription access
-        if (not is_approved_v2 and not is_approved_v1) and (is_block_v2 or is_block_v1):
-            logger.info(f"⛔ Handling blocking event - version: {version}, event: {event}, status: {status}")
-            # Try to find a subscription plan associated with this product
-            sub_plan = await db.subscription_plans.find_one({"hotmart_product_id": prod_id}, {"_id": 0})
-            if not sub_plan:
-                logger.info("No subscription plan found for blocking; skipping.")
-                return {"message": "Blocking event received but no subscription plan matched"}
-            # Find user
-            user = await db.users.find_one({"email": email})
-            if not user:
-                logger.info("Blocking event received but user not found; skipping.")
-                return {"message": "Blocking event received but user not found"}
-            # Block access by disabling full access and setting subscription validity to now
-            await db.users.update_one(
-                {"id": user["id"]},
-                {"$set": {
-                    "has_full_access": False,
-                    "subscription_plan_id": sub_plan.get("id", user.get("subscription_plan_id")),
-                    "subscription_valid_until": datetime.now(timezone.utc).isoformat()
-                }}
-            )
-            # Send cancellation email
-            try:
-                loop = asyncio.get_event_loop()
-                loop.run_in_executor(
-                    executor,
-                    send_subscription_cancellation_email,
-                    email,
-                    user.get("name"),
-                    datetime.now(timezone.utc).isoformat(),
-                )
-            except Exception:
-                pass
-            await db.hotmart_webhooks.update_one(
-                {"transaction": transaction},
-                {"$set": {"processed": True, "processed_at": datetime.now(timezone.utc).isoformat()}}
-            )
-            logger.info(f"🚫 Subscription access blocked for {email} due to event {event}.")
-            return {"message": "Subscription access blocked", "event": event, "status": status}
-
-        # For any non-approval/non-blocking, do not process further
-        if not (is_approved_v2 or is_approved_v1):
-            logger.info(f"⏭️  Skipping webhook - version: {version}, event: {event}, status: {status}")
-            return {"message": "Webhook received but not processed (not approved purchase)"}
-        
-        logger.info(f"✅ Processing approved purchase for {email}")
-        logger.info(f"🔍 Looking for product with ID/UCODE: {prod_id}")
-        
-        # Find subscription plan or course by Hotmart product ID
-        sub_plan = await db.subscription_plans.find_one({"hotmart_product_id": prod_id}, {"_id": 0})
-
-        # If a subscription plan is found, prefer it
-        # Otherwise fall back to course
-        if sub_plan:
-            logger.info(f"📅 Found subscription plan: {sub_plan.get('name')}")
-        
-        # Find course by Hotmart product ID (only if not a subscription plan)
-        course = await db.courses.find_one({"hotmart_product_id": prod_id})
-        if course:
-            logger.info(f"📚 Found course: {course.get('title')}")
-        
-        if not sub_plan and not course:
-            logger.warning(f"⚠️  No subscription plan or course found for Hotmart product ID/UCODE: {prod_id}")
-            logger.warning(f"📋 Product name from webhook: {prod_name}")
-            return {"message": "Product not found in system", "product_id": prod_id, "product_name": prod_name}
-        
-        # Get or create user
-        user = await db.users.find_one({"email": email})
-        
-        if not user:
-            # Create new user
-            logger.info(f"👤 Creating new user from Hotmart purchase: {email}")
-            
-            # Generate password creation token
-            password_token = secrets.token_urlsafe(32)
-            
-            # Extract first and last name
-            name_parts = name.split(" ", 1)
-            first_name = name_parts[0] if len(name_parts) > 0 else name
-            last_name = name_parts[1] if len(name_parts) > 1 else ""
-            
-            user_id = str(uuid.uuid4())
-            
-            # Prepare enrolled courses - add course ID if it's a course purchase
-            enrolled_courses = [course["id"]] if course else []
-            
-            new_user = {
-                "id": user_id,
-                "email": email,
-                "name": name,
-                "password": None,  # Will be set when user creates password
-                "role": "student",
-                "avatar": None,
-                "full_access": bool(sub_plan is not None),
-                "has_full_access": bool(sub_plan is not None),
-                "subscription_cancelled": False,
-                "subscription_cancel_at_period_end": False,
-                "enrolled_courses": enrolled_courses,
-                "has_purchased": True,  # Mark as purchased
-                "password_creation_token": password_token,
-                "password_token_expires": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "created_via": "hotmart",
-                "hotmart_transaction": transaction
-            }
-            
-            await db.users.insert_one(new_user)
-            user = new_user
-            
-            if course:
-                logger.info(f"🎓 Course access granted to NEW user: {course['title']} to {email}")
-            if sub_plan:
-                # Activate subscription for new user
-                duration_days = int(sub_plan.get("duration_days", 0) or 0)
-                valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
-                await db.users.update_one(
-                    {"id": user_id},
-                    {"$set": {
-                        "subscription_plan_id": sub_plan["id"],
-                        "subscription_valid_until": valid_until.isoformat(),
-                        "has_full_access": True,
-                        "subscription_cancelled": False,
-                        "subscription_cancel_at_period_end": False
-                    }}
-                )
-                logger.info(f"🟢 Subscription '{sub_plan['name']}' activated for NEW user until {valid_until.isoformat()}.")
-            
-            # Send welcome email with password creation link
-            try:
-                frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
-                password_link = f"{frontend_url}/create-password?token={password_token}"
-                
-                # Send email in background
-                loop = asyncio.get_event_loop()
-                loop.run_in_executor(
-                    executor,
-                    send_password_creation_email,
-                    email,
-                    name,
-                    password_link
-                )
-                logger.info(f"📧 Welcome email sent to {email}")
-            except Exception as e:
-                logger.error(f"❌ Failed to send welcome email: {e}")
-        else:
-            # Mark existing user as having purchased
-            await db.users.update_one(
-                {"id": user["id"]},
-                {"$set": {"has_purchased": True}}
-            )
-            user["has_purchased"] = True
-            
-            # If it's a course purchase, add course to user's enrolled courses
-            if course:
-                await db.users.update_one(
-                    {"id": user["id"]},
-                    {"$addToSet": {"enrolled_courses": course["id"]}}
-                )
-                logger.info(f"🎓 Course access granted to EXISTING user: {course['title']} to {email}")
-            # If it's a subscription plan purchase, grant full access and set validity
-            if sub_plan:
-                duration_days = int(sub_plan.get("duration_days", 0) or 0)
-                valid_until = datetime.now(timezone.utc) + timedelta(days=duration_days)
-                await db.users.update_one(
-                    {"id": user["id"]},
-                    {"$set": {
-                        "has_full_access": True,
-                        "subscription_plan_id": sub_plan["id"],
-                        "subscription_valid_until": valid_until.isoformat(),
-                        "subscription_cancelled": False,
-                        "subscription_cancel_at_period_end": False
-                    }}
-                )
-                logger.info(f"🟢 Subscription '{sub_plan['name']}' activated for EXISTING user until {valid_until.isoformat()}.")
-        
-        user_id = user["id"]
-        
-        # Add transaction record
-        if course:
-            # Record course purchase
-            transaction_record = {
-                "id": str(uuid.uuid4()),
-                "user_id": user_id,
-                "transaction_type": "course_purchase",
-                "description": f"Curso comprado via Hotmart: {course['title']}",
-                "reference_id": course["id"],
-                "hotmart_transaction": transaction,
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.purchase_transactions.insert_one(transaction_record)
-            
-            logger.info(f"✅ Course purchase recorded for transaction {transaction}")
-        elif sub_plan:
-            # Record subscription activation
-            transaction_record = {
-                "id": str(uuid.uuid4()),
-                "user_id": user_id,
-                "transaction_type": "subscription_purchase",
-                "description": f"Assinatura ativada via Hotmart: {sub_plan['name']}",
-                "reference_id": sub_plan["id"],
-                "hotmart_transaction": transaction,
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.purchase_transactions.insert_one(transaction_record)
-            logger.info(f"✅ Subscription activation recorded for transaction {transaction}")
-        
-        # Mark webhook as processed
-        await db.hotmart_webhooks.update_one(
-            {"transaction": transaction},
-            {
-                "$set": {
-                    "processed": True,
-                    "processed_at": datetime.now(timezone.utc).isoformat()
-                }
-            }
-        )
-        
-        return {"message": "Webhook processed successfully", "user_created": user.get("created_via") == "hotmart"}
-        
-    except Exception as e:
-        logger.error(f"❌ Error processing Hotmart webhook: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error processing webhook: {str(e)}")
-
 # Helper function to send password creation email
 def send_password_creation_email(email: str, name: str, password_link: str):
     """Send password creation email to new user via SMTP"""
@@ -4881,17 +4270,24 @@ async def resend_password_email(user_id: str, current_user: User = Depends(get_c
     
     # Generate new token
     password_token = secrets.token_urlsafe(32)
-    
-    # Update user with new token
-    await db.users.update_one(
-        {"id": user_id},
-        {
-            "$set": {
-                "password_creation_token": password_token,
-                "password_token_expires": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
-            }
-        }
-    )
+    now_iso = datetime.now(timezone.utc).isoformat()
+    previous_token = user.get("password_creation_token")
+
+    # Update user with new token and track history
+    update_doc = {
+        "$set": {
+            "password_creation_token": password_token,
+            "password_token_expires": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+            "updated_at": now_iso,
+        },
+        "$addToSet": {
+            "password_token_history": {"$each": [password_token]},
+        },
+    }
+    if previous_token:
+        update_doc["$addToSet"]["password_token_history"]["$each"].append(previous_token)
+
+    await db.users.update_one({"id": user_id}, update_doc)
     
     # Send email
     try:
@@ -4926,18 +4322,25 @@ async def reset_user_password(user_id: str, current_user: User = Depends(get_cur
     
     # Generate new token
     password_token = secrets.token_urlsafe(32)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    previous_token = user.get("password_creation_token")
     
-    # Clear current password and set token
-    await db.users.update_one(
-        {"id": user_id},
-        {
-            "$set": {
-                "password": None,
-                "password_creation_token": password_token,
-                "password_token_expires": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
-            }
-        }
-    )
+    # Clear current password and set token with history tracking
+    update_doc = {
+        "$set": {
+            "password": None,
+            "password_creation_token": password_token,
+            "password_token_expires": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+            "updated_at": now_iso,
+        },
+        "$addToSet": {
+            "password_token_history": {"$each": [password_token]},
+        },
+    }
+    if previous_token:
+        update_doc["$addToSet"]["password_token_history"]["$each"].append(previous_token)
+    
+    await db.users.update_one({"id": user_id}, update_doc)
     
     # Send email
     try:
@@ -5045,7 +4448,13 @@ def send_password_reset_email(email: str, name: str, password_link: str):
 
 
 # Helper: send subscription activation email
-def send_subscription_activation_email(email: str, name: str, login_url: str, valid_until_iso: Optional[str] = None):
+def send_subscription_activation_email(
+    email: str,
+    name: str,
+    login_url: str,
+    valid_until_iso: Optional[str] = None,
+    auto_renew: Optional[bool] = None,
+):
     """Send subscription activation email via SMTP"""
     try:
         import smtplib
@@ -5085,12 +4494,13 @@ def send_subscription_activation_email(email: str, name: str, login_url: str, va
         msg['From'] = f"{sender_name} <{sender_email}>"
         msg['To'] = email
 
-        valid_text = ''
-        try:
-            if valid_until_iso:
-                valid_text = f"<p>Validade da assinatura: {valid_until_iso}</p>"
-        except Exception:
-            valid_text = ''
+        renewal_text = ''
+        formatted_date = format_datetime_human(valid_until_iso)
+        if formatted_date:
+            if auto_renew:
+                renewal_text = f"<p>Renovação automática em: <strong>{formatted_date}</strong></p>"
+            else:
+                renewal_text = f"<p>Seu acesso atual vai até: <strong>{formatted_date}</strong></p>"
 
         html_content = f"""
         <html>
@@ -5098,7 +4508,7 @@ def send_subscription_activation_email(email: str, name: str, login_url: str, va
             <h2 style="color: #10b981;">Assinatura ativa! 🎉</h2>
             <p>Olá {name or ''},</p>
             <p>Sua assinatura foi ativada com sucesso. Agora você já pode acessar a plataforma.</p>
-            {valid_text}
+            {renewal_text}
             <p style="margin: 30px 0;">
                 <a href="{login_url}" 
                    style="background-color: #10b981; color: white; padding: 12px 30px; 
@@ -5126,7 +4536,12 @@ def send_subscription_activation_email(email: str, name: str, login_url: str, va
 
 
 # Helper: send subscription cancellation email
-def send_subscription_cancellation_email(email: str, name: str, valid_until_iso: Optional[str] = None):
+def send_subscription_cancellation_email(
+    email: str,
+    name: str,
+    valid_until_iso: Optional[str] = None,
+    immediate: bool = False,
+):
     """Send subscription cancellation email via SMTP"""
     try:
         import smtplib
@@ -5165,20 +4580,26 @@ def send_subscription_cancellation_email(email: str, name: str, valid_until_iso:
         msg['From'] = f"{sender_name} <{sender_email}>"
         msg['To'] = email
 
-        valid_text = ''
-        try:
-            if valid_until_iso:
-                valid_text = f"<p>Você terá acesso até: {valid_until_iso}</p>"
-        except Exception:
-            valid_text = ''
+        formatted_date = format_datetime_human(valid_until_iso)
+        subscribe_url = f"{get_frontend_url().rstrip('/')}/subscribe"
+
+        if immediate or not formatted_date:
+            status_paragraph = (
+                "<p>Sua assinatura foi cancelada e o acesso foi encerrado imediatamente.</p>"
+                f"<p>Para voltar a estudar, faça uma nova assinatura em <a href=\"{subscribe_url}\">{subscribe_url}</a>.</p>"
+            )
+        else:
+            status_paragraph = (
+                f"<p>Sua assinatura foi cancelada. Você ainda terá acesso até <strong>{formatted_date}</strong>.</p>"
+                f"<p>Se desejar continuar após essa data, renove em <a href=\"{subscribe_url}\">{subscribe_url}</a>.</p>"
+            )
 
         html_content = f"""
         <html>
         <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h2 style="color: #ef4444;">Assinatura cancelada</h2>
             <p>Olá {name or ''},</p>
-            <p>Sua assinatura foi cancelada. {valid_text}</p>
-            <p>Você pode reativar sua assinatura a qualquer momento acessando a plataforma.</p>
+            {status_paragraph}
         </body>
         </html>
         """

@@ -476,7 +476,15 @@
         "activeBadge": "Activo",
         "limitedBadge": "Limitado",
         "loading": "Cargando información de la suscripción...",
-        "lifetimeMessage": "¡Felicidades! Tienes acceso vitalicio a la plataforma."
+        "lifetimeMessage": "¡Felicidades! Tienes acceso vitalicio a la plataforma.",
+        "statusTag": {
+          "ativa": "Suscripción activa",
+          "inativa": "Suscripción inactiva",
+          "ativa_ate_final_do_periodo": "Activa hasta el final del período",
+          "ativa_com_renovacao_automatica": "Activa con renovación automática",
+          "cancelada": "Suscripción cancelada",
+          "expirada": "Suscripción expirada"
+        }
       },
       "plans": {
         "title": "Planes Disponibles",

@@ -10,7 +10,6 @@ const API = `${BACKEND_URL}/api`;
 
 export default function SubscribePage() {
   const [plans, setPlans] = useState([]);
-  const [gatewayConfig, setGatewayConfig] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [creatingBilling, setCreatingBilling] = useState(false);
@@ -19,20 +18,11 @@ export default function SubscribePage() {
   const { t } = useI18n();
 
   useEffect(() => {
-    fetchGatewayConfig();
     fetchUserData();
     fetchPlans();
   }, []);
 
-  const fetchGatewayConfig = async () => {
-    try {
-      const response = await axios.get(`${API}/gateway/active`);
-      setGatewayConfig(response.data);
-    } catch (error) {
-      console.error('Error fetching gateway config:', error);
-      setGatewayConfig({ active_gateway: 'abacatepay' });
-    }
-  };
+
 
   const fetchUserData = async () => {
     try {
@@ -61,17 +51,6 @@ export default function SubscribePage() {
     if (!currentUser) {
       alert('Você precisa estar logado para assinar');
       navigate('/login');
-      return;
-    }
-
-    if (gatewayConfig?.active_gateway === 'hotmart') {
-      const plan = plans.find((p) => p.id === planId);
-      if (plan?.hotmart_checkout_url) {
-        // Redireciona para checkout da Hotmart
-        window.location.href = plan.hotmart_checkout_url;
-      } else {
-        alert('Este plano está configurado para Hotmart, mas não possui URL de checkout. Entre em contato com o administrador.');
-      }
       return;
     }
 
