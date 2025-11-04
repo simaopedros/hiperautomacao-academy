@@ -568,7 +568,22 @@
     "notAvailableForPurchase": "Este curso no está disponible para compra en este momento.",
     "courseContent": "Contenido del Curso",
     "noContentAvailable": "Este curso aún no tiene contenido disponible.",
-    "module": "Módulo"
+    "module": "Módulo",
+    "upsell": {
+      "heading": "Suscríbete para acceder",
+      "subtitle": "Desbloquea este curso y más.",
+      "benefitsTitle": "Obtienes",
+      "benefit1": "Cursos del plan",
+      "benefit2": "Comunidad",
+      "benefit3": "Progreso y certificado",
+      "benefit4": "Gamificación y créditos",
+      "choosePlan": "Elige tu plan",
+      "instantAccessNote": "Acceso inmediato, pago seguro",
+      "loadingPlans": "Cargando planes",
+      "noPlans": "No hay planes disponibles",
+      "cta": "Suscríbete ahora",
+      "viewPlans": "Ver planes"
+    }
   },
   "lesson": {
     "confirmDeleteComment": "¿Eliminar este comentario?",

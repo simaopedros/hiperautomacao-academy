@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Check, Star, Zap, Crown, Shield } from 'lucide-react';
+import { Check, Sparkles, CreditCard, Zap, Shield } from 'lucide-react';
 import UnifiedHeader from '../components/UnifiedHeader';
-import LottieAnimation from '@/components/animations/LottieAnimation';
+import { useI18n } from '@/hooks/useI18n';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -14,7 +14,9 @@ export default function SubscribePage() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [creatingBilling, setCreatingBilling] = useState(false);
+  const [showAllPlans, setShowAllPlans] = useState(false);
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   useEffect(() => {
     fetchGatewayConfig();
@@ -96,6 +98,10 @@ export default function SubscribePage() {
     }
   };
 
+  // Seleciona plano recomendado: segundo ativo (se existir), senão o primeiro
+  const activePlans = (plans || []).filter((p) => p.is_active);
+  const recommendedPlan = activePlans[1] || activePlans[0];
+
   return (
     <div className="min-h-screen bg-[#02060f] text-white relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_60%)] pointer-events-none" />
@@ -112,21 +118,68 @@ export default function SubscribePage() {
       />
 
       <div className="max-w-7xl mx-auto px-6 py-10 relative z-10">
-        <h1 className="text-3xl font-bold gradient-text mb-2">Planos de Assinatura</h1>
-        <p className="text-gray-400 mb-8">Assine para ter acesso completo aos cursos por um período determinado.</p>
-
-        {/* Animação de introdução divertida (opcional) */}
-        <div className="mb-8 flex items-center justify-center">
-          <LottieAnimation src="/lottie/subscribe-intro.json" loop autoplay className="w-64 h-64" />
+        {/* Header minimalista com CTA único */}
+        <div className="glass-panel rounded-3xl border border-white/10 shadow-[0_25px_90px_rgba(0,0,0,0.35)] mb-8">
+          <div className="p-6 border-b border-white/10 flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold gradient-text whitespace-nowrap truncate">
+                {t('course.upsell.title', 'Acesso total para aprender mais rápido')}
+              </h1>
+              <p className="text-gray-300 text-sm whitespace-nowrap truncate">
+                {t('course.upsell.subtitle', 'Assine para liberar tudo')}
+              </p>
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="flex flex-wrap items-center gap-3 mb-6 text-sm text-gray-300">
+              <div className="flex items-center gap-2 whitespace-nowrap truncate">
+                <Check className="w-4 h-4 text-emerald-400" />
+                {t('course.upsell.benefits.fullAccess', 'Acesso total a todos os cursos')}
+              </div>
+              <div className="flex items-center gap-2 whitespace-nowrap truncate">
+                <Check className="w-4 h-4 text-emerald-400" />
+                {t('course.upsell.benefits.newContent', 'Novos conteúdos e atualizações')}
+              </div>
+              <div className="flex items-center gap-2 whitespace-nowrap truncate">
+                <Check className="w-4 h-4 text-emerald-400" />
+                {t('course.upsell.benefits.support', 'Suporte e comunidade')}
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <button
+                onClick={() => recommendedPlan && handleSubscribe(recommendedPlan.id)}
+                disabled={!recommendedPlan || creatingBilling}
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {creatingBilling ? t('course.upsell.ctaLoading', 'Processando...') : t('course.upsell.cta', 'Assinar agora')}
+              </button>
+              <button
+                onClick={() => setShowAllPlans((v) => !v)}
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all"
+              >
+                {t('course.upsell.viewPlansCta', 'Ver planos')}
+              </button>
+            </div>
+            <p className="text-emerald-300 text-xs mt-3 whitespace-nowrap truncate">
+              {t('course.upsell.instantAccessNote', 'Acesso imediato após o pagamento')}
+            </p>
+          </div>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <LottieAnimation src="/lottie/loading.json" loop autoplay className="w-36 h-36" />
+            <Sparkles className="w-10 h-10 text-emerald-400" />
+            <span className="ml-3 text-gray-300">{t('course.upsell.loading', 'Carregando...')}</span>
           </div>
         ) : plans.length === 0 ? (
-          <div className="text-gray-400">Nenhum plano disponível no momento.</div>
-        ) : (
+          <div className="text-center py-12">
+            <Sparkles className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+            <p className="text-gray-400 whitespace-nowrap truncate">{t('course.upsell.noneAvailable', 'Nenhum plano disponível no momento')}</p>
+          </div>
+        ) : showAllPlans ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {plans.map((plan, index) => (
               <div
@@ -135,10 +188,10 @@ export default function SubscribePage() {
               >
                 {index === 1 && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="bg-emerald-600 text-white px-4 py-1 rounded-full text-xs font-semibold">RECOMENDADO</span>
+                    <span className="bg-emerald-600 text-white px-4 py-1 rounded-full text-xs font-semibold whitespace-nowrap truncate">{t('course.upsell.recommendedBadge', 'Recomendado')}</span>
                   </div>
                 )}
-                <h3 className="text-2xl font-semibold mb-2">{plan.name}</h3>
+                <h3 className="text-2xl font-semibold mb-2 whitespace-nowrap truncate">{plan.name}</h3>
                 <p className="text-gray-400 mb-4 text-sm">{plan.description}</p>
                 <div className="mb-6 space-y-1">
                   <p className="text-emerald-400 text-4xl font-bold">R$ {Number(plan.price_brl).toFixed(2)}</p>
@@ -176,23 +229,25 @@ export default function SubscribePage() {
                   disabled={creatingBilling || !plan.is_active}
                   className={`w-full py-3 rounded-lg font-semibold ${index === 1 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-gray-800 hover:bg-gray-700'} text-white disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  {plan.is_active ? (creatingBilling ? 'Processando...' : 'Assinar agora') : 'Indisponível'}
+                  {plan.is_active
+                    ? (creatingBilling ? t('profile.subscription.plans.subscribeLoading', 'Processando...') : t('profile.subscription.plans.subscribeCta', 'Assinar agora'))
+                    : t('profile.subscription.plans.unavailable', 'Indisponível')}
                 </button>
               </div>
             ))}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Overlay de processamento de cobrança */}
       {creatingBilling && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-[#0f172a] border border-emerald-700/40 rounded-xl p-8 text-center w-[90%] max-w-md">
-            <div className="mb-4">
-              <LottieAnimation src="/lottie/processing.json" loop autoplay className="w-48 h-48 mx-auto" />
+            <div className="mb-4 flex items-center justify-center">
+              <CreditCard className="w-12 h-12 text-emerald-400" />
             </div>
-            <h2 className="text-2xl font-semibold text-white mb-2">Gerando cobrança…</h2>
-            <p className="text-emerald-200">Você será redirecionado para o pagamento em instantes.</p>
+            <h2 className="text-xl font-semibold text-white mb-2 whitespace-nowrap truncate">{t('course.upsell.ctaLoading', 'Processando...')}</h2>
+            <p className="text-emerald-200 text-sm whitespace-nowrap truncate">{t('course.upsell.instantAccessNote', 'Acesso imediato após o pagamento')}</p>
           </div>
         </div>
       )}
