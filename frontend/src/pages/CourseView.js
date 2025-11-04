@@ -4,6 +4,7 @@ import axios from 'axios';
 import { ArrowLeft, Play, FileText, Download, CheckCircle, Circle, Clock, BookOpen, Users, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import useI18n from '@/hooks/useI18n';
+import { Sparkles } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -17,6 +18,8 @@ export default function CourseView({ user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(true);
   const [courseInfo, setCourseInfo] = useState(null);
+  const [plans, setPlans] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
 
   useEffect(() => {
     fetchCourseData();
@@ -53,9 +56,50 @@ export default function CourseView({ user, onLogout }) {
       const foundCourse = response.data.find(c => c.id === courseId);
       if (foundCourse) {
         setCourseInfo(foundCourse);
+        // After we know which course is restricted, fetch available subscription plans
+        fetchSubscriptionPlans();
       }
     } catch (error) {
       console.error('Error fetching basic course info:', error);
+    }
+  };
+
+  const fetchSubscriptionPlans = async () => {
+    try {
+      setLoadingPlans(true);
+      const response = await axios.get(`${API}/subscriptions/plans`);
+      setPlans(response.data || []);
+    } catch (error) {
+      console.error('Erro ao buscar planos:', error);
+    } finally {
+      setLoadingPlans(false);
+    }
+  };
+
+  const handleSubscribePlan = async (planId) => {
+    if (!user) {
+      alert('Você precisa estar logado para assinar');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API}/billing/create`,
+        {
+          subscription_plan_id: planId,
+          customer_name: user.name,
+          customer_email: user.email,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      localStorage.setItem('last_billing_id', response.data.billing_id);
+      window.location.href = response.data.payment_url;
+    } catch (error) {
+      console.error('Error creating subscription billing:', error);
+      alert(error.response?.data?.detail || 'Erro ao criar assinatura');
     }
   };
 
@@ -157,76 +201,75 @@ export default function CourseView({ user, onLogout }) {
     );
   }
 
-  // If user doesn't have access, show purchase page
+  // If user doesn't have access, show minimalist subscription upsell
   if (!hasAccess && courseInfo) {
+    const recommendedPlan = plans.length > 1 ? plans[1] : (plans[0] || null);
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#01030a] via-[#050b16] to-[#02060f]">
-        {/* Header */}
-        <header className="glass-panel border-b border-white/10 sticky top-0 z-50 backdrop-blur-xl">
-          <div className="max-w-7xl mx-auto px-6 py-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/dashboard')}
-              className="text-gray-400 hover:text-white hover:bg-white/10"
-            >
-              <ArrowLeft size={20} className="mr-2" />
-              {t('course.backToCourses')}
-            </Button>
-          </div>
-        </header>
+      <div className="min-h-screen bg-[#02060f] text-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_60%)] pointer-events-none" />
+        <div className="absolute -top-24 -right-10 w-80 h-80 bg-emerald-500/20 blur-[140px] pointer-events-none" />
+        <div className="absolute -bottom-20 -left-8 w-72 h-72 bg-blue-500/15 blur-[130px] pointer-events-none" />
 
-        <div className="max-w-4xl mx-auto px-6 py-12">
-          <div className="glass-panel rounded-3xl border border-white/10 p-8 shadow-[0_25px_90px_rgba(0,0,0,0.55)]">
-            <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-10 h-10 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
+        <div className="relative z-10 w-full max-w-md mx-auto px-4 py-10">
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl shadow-[0_25px_90px_rgba(0,0,0,0.55)]">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
+            >
+              <ArrowLeft size={18} />
+              {t('course.backToCourses')}
+            </button>
+
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 border border-white/10 flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="w-8 h-8 text-emerald-300" />
               </div>
-              <h1 className="text-4xl font-bold text-white mb-4">{courseInfo.title}</h1>
-              <p className="text-gray-300 text-lg max-w-2xl mx-auto">{courseInfo.description}</p>
-              
-              {courseInfo.category && (
-                <span className="inline-block bg-emerald-500/20 text-emerald-400 text-sm font-semibold px-4 py-2 rounded-full mt-4">
-                  {courseInfo.category}
-                </span>
+              <h1 className="text-xl font-semibold text-white mb-1 truncate">{t('course.upsell.heading')}</h1>
+              <p className="text-gray-300 text-xs whitespace-nowrap truncate">{t('course.upsell.subtitle')}</p>
+              {courseInfo?.title && (
+                <p className="text-gray-400 text-[11px] mt-2 whitespace-nowrap truncate">{courseInfo.title}</p>
               )}
             </div>
 
-            <div className="space-y-6 mb-8">
-              <div className="bg-white/5 rounded-2xl border border-white/10 p-6">
-                <h2 className="text-2xl font-bold text-white mb-3 flex items-center gap-3">
-                  <Users size={24} className="text-emerald-400" />
-                  {t('course.enrollmentRequired')}
-                </h2>
-                <p className="text-gray-300 text-lg leading-relaxed">
-                  {t('course.enrollmentDescription')}
-                </p>
-              </div>
+            <div className="bg-black/30 border border-white/10 rounded-xl p-4 mb-6">
+              <p className="text-[11px] uppercase tracking-[0.25em] text-emerald-200 mb-1 whitespace-nowrap truncate">{t('course.upsell.benefitsTitle')}</p>
+              <ul className="text-gray-300 text-xs space-y-1 list-disc list-inside">
+                <li className="whitespace-nowrap truncate">{t('course.upsell.benefit1')}</li>
+                <li className="whitespace-nowrap truncate">{t('course.upsell.benefit2')}</li>
+                <li className="whitespace-nowrap truncate">{t('course.upsell.benefit3')}</li>
+                <li className="whitespace-nowrap truncate">{t('course.upsell.benefit4')}</li>
+              </ul>
             </div>
 
-            {courseInfo.price_brl > 0 && (
-              <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-2xl border border-blue-400/30 p-8">
-                <div className="text-center">
-                  <h3 className="text-2xl font-semibold text-white mb-2">{t('course.directPurchase')}</h3>
-                  <div className="text-5xl font-bold text-blue-400 mb-6">
-                    R$ {courseInfo.price_brl.toFixed(2)}
-                  </div>
-                  <button
-                    onClick={handleBuyCourse}
-                    className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white py-4 px-8 rounded-2xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
-                  >
-                    {t('course.buyCourse')}
-                  </button>
-                </div>
+            {loadingPlans ? (
+              <div className="flex items-center justify-center py-6">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400" aria-label={t('course.upsell.loadingPlans')} />
               </div>
-            )}
-
-            {(!courseInfo.price_brl || courseInfo.price_brl === 0) && (
-              <div className="text-center bg-white/5 rounded-2xl border border-white/10 p-8">
-                <p className="text-gray-400 mb-4 text-lg">{t('course.notAvailableForPurchase')}</p>
-                <Button onClick={() => navigate('/dashboard')} className="bg-emerald-500 hover:bg-emerald-600">
-                  {t('course.backToCourses')}
+            ) : recommendedPlan ? (
+              <div className="space-y-3 text-center">
+                <p className="text-gray-400 text-[11px] whitespace-nowrap truncate">{t('course.upsell.instantAccessNote')}</p>
+                <Button
+                  onClick={() => handleSubscribePlan(recommendedPlan.id)}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-emerald-400 text-white py-3 px-6 rounded-xl font-semibold text-sm hover:from-emerald-600 hover:to-emerald-500 transition-all duration-200 shadow-[0_12px_30px_rgba(16,185,129,0.35)]"
+                >
+                  {t('course.upsell.cta')} · {recommendedPlan.name} · R$ {Number(recommendedPlan.price_brl).toFixed(2)}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/subscribe')}
+                  className="text-emerald-300 hover:text-emerald-200 text-xs whitespace-nowrap"
+                >
+                  {t('course.upsell.viewPlans')}
+                </button>
+              </div>
+            ) : (
+              <div className="text-center space-y-3">
+                <p className="text-gray-400 text-sm">{t('course.upsell.noPlans')}</p>
+                <Button
+                  onClick={() => navigate('/subscribe')}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-emerald-400"
+                >
+                  {t('course.upsell.viewPlans')}
                 </Button>
               </div>
             )}

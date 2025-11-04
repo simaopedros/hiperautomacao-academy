@@ -1,6 +1,15 @@
 // craco.config.js
 const path = require("path");
 require("dotenv").config();
+// Inject app version from package.json into client env for central maintenance
+try {
+  const pkg = require("./package.json");
+  if (pkg && pkg.version) {
+    process.env.REACT_APP_VERSION = pkg.version;
+  }
+} catch (e) {
+  // noop: keep going without version if package.json cannot be read
+}
 
 // Environment variable overrides
 const config = {
