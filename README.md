@@ -43,7 +43,7 @@ Hiperautomação Academy is a full-stack educational platform that allows admini
 - **Framework**: [FastAPI](https://fastapi.tiangolo.com/) - High-performance Python web framework
 - **Database**: [MongoDB](https://www.mongodb.com/) with [Motor](https://motor.readthedocs.io/) async driver
 - **Authentication**: JWT tokens with [bcrypt](https://github.com/pyca/bcrypt/) password hashing
-- **Payment Processing**: Integration with Abacate Pay and Hotmart
+- **Payment Processing**: Stripe-based checkout with automatic renewal and cancellation management
 - **Email Service**: SMTP-based using Brevo
 
 ### Frontend
@@ -70,7 +70,7 @@ Hiperautomação Academy is a full-stack educational platform that allows admini
 
 ### Credits & Payments
 - Credit-based economy system
-- Multiple payment gateways (Abacate Pay PIX, Hotmart)
+- Assinaturas com Stripe Checkout e sincronização por webhooks
 - Configurable credit packages
 - Transaction history
 
@@ -146,7 +146,8 @@ Note: MongoDB installation is optional - our scripts can automatically set up a 
    MONGO_URL=mongodb://127.0.0.1:27017
    DB_NAME=hiperautomacao_db
    SECRET_KEY=your-secret-key
-   ABACATEPAY_API_KEY=your-api-key
+   STRIPE_SECRET_KEY=sk_test_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
    FRONTEND_URL=http://localhost:3000
    ```
 
@@ -189,7 +190,7 @@ The repository now ships with curated `.env.<environment>.sample` files so that 
 
 ### Backend
 1. Copy `backend/.env.development.sample` to `backend/.env.development` and adjust only if you are not using the default local stack.
-2. Copy `backend/.env.production.sample` to `backend/.env.production` and replace the placeholders (MongoDB URI, AbacatePay keys, `FRONTEND_URL`, etc.) with your secure production values. Store the filled file in a secrets manager or deployment vault.
+2. Copy `backend/.env.production.sample` to `backend/.env.production` and replace the placeholders (MongoDB URI, Stripe keys, `FRONTEND_URL`, etc.) with your secure production values. Store the filled file in a secrets manager or deployment vault.
 3. When the API boots it first loads `backend/.env` (legacy compatibility) and then overlays `backend/.env.<APP_ENV>`. Set `APP_ENV` to `development`, `staging`, or `production` via your process manager (Docker, systemd, etc.) to pick the right file.
 
 ### Frontend
@@ -280,8 +281,8 @@ Our automation scripts can automatically download and configure a local MongoDB 
    FRONTEND_URL=http://localhost:3000
    
    # Payment Configuration (optional for local testing)
-   ABACATEPAY_API_KEY=your_abacatepay_api_key_here
-   ABACATEPAY_ENVIRONMENT=sandbox
+   STRIPE_SECRET_KEY=sk_test_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
    
    # CORS Configuration
    CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
@@ -510,7 +511,7 @@ Plataforma de ensino com foco em automação que combina um backend em FastAPI e
 
 ## Visão geral
 
-O backend fornece APIs para autenticação com JWT, convites, recuperação de senha, gestão de cursos/matrículas e relatórios administrativos utilizando MongoDB como banco de dados principal.【F:backend/server.py†L35-L344】【F:backend/server.py†L437-L843】 Além do catálogo de cursos, a aplicação traz feed social, gamificação e um sistema de créditos que permite comprar pacotes via Abacate Pay ou liberar acesso direto a cursos.【F:backend/server.py†L1084-L1712】【F:backend/server.py†L1721-L2119】【F:backend/server.py†L3034-L3114】 O frontend criado com React, React Router e Tailwind CSS consome essas APIs para entregar experiências diferenciadas para administradores e estudantes, incluindo dashboards, player de aulas, comunidade e fluxo de pagamento.【F:frontend/src/App.js†L1-L200】【F:frontend/tailwind.config.js†L1-L82】
+O backend fornece APIs para autenticação com JWT, convites, recuperação de senha, gestão de cursos/matrículas e relatórios administrativos utilizando MongoDB como banco de dados principal.【F:backend/server.py†L35-L344】【F:backend/server.py†L437-L843】 Além do catálogo de cursos, a aplicação traz feed social, gamificação e um sistema de assinaturas integrado à Stripe para liberação automática de acesso aos cursos.【F:backend/server.py†L1010-L1410】【F:backend/server.py†L2920-L3660】 O frontend criado com React, React Router e Tailwind CSS consome essas APIs para entregar experiências diferenciadas para administradores e estudantes, incluindo dashboards, player de aulas, comunidade e fluxo de pagamento.【F:frontend/src/App.js†L1-L200】【F:frontend/tailwind.config.js†L1-L82】
 
 ## Principais funcionalidades
 
@@ -518,7 +519,7 @@ O backend fornece APIs para autenticação com JWT, convites, recuperação de s
 - **Gestão de conteúdo educacional**: CRUD de cursos, módulos e lições, controle de publicação e checagem de acesso retrocompatível com dados legados.【F:backend/server.py†L600-L976】
 - **Progresso e engajamento**: rastreamento de progresso por lição, feed social com posts/comentários, curtidas e recompensas de gamificação configuráveis.【F:backend/server.py†L985-L1234】【F:backend/server.py†L1544-L1597】【F:backend/server.py†L3068-L3114】
 - **Sistema de créditos**: saldo individual, histórico de transações, compra de pacotes e matrícula com créditos.【F:backend/server.py†L1602-L2094】【F:backend/server.py†L3034-L3064】
-- **Integrações de pagamento**: criação e conciliação de cobranças via Abacate Pay, configuração de gateway ativo (Abacate Pay ou Hotmart) e importação de webhooks da Hotmart.【F:backend/server.py†L1774-L2083】【F:backend/server.py†L2330-L2520】
+- **Integrações de pagamento**: checkout de assinaturas via Stripe, cancelamento programado e conciliação automática através de webhooks.【F:backend/server.py†L2920-L3660】
 - **Configurações administrativas**: ajustes de e-mail SMTP, gamificação, pacotes de créditos, botões de suporte e estatísticas consolidadas para gestão financeira.【F:backend/server.py†L1235-L1399】【F:backend/server.py†L2150-L2405】
 - **Frontend responsivo**: roteamento com áreas protegidas para admin e estudante, páginas de login/registro, dashboards, player de aulas, histórico de créditos e configurações de pagamento.【F:frontend/src/App.js†L1-L200】
 
@@ -553,10 +554,10 @@ README.md          # Este documento
    SECRET_KEY=change-me
    FRONTEND_URL=http://localhost:3000
    CORS_ORIGINS=http://localhost:3000
-   ABACATEPAY_API_KEY=seu-token
-   ABACATEPAY_ENVIRONMENT=sandbox
+   STRIPE_SECRET_KEY=sk_test_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
    ```
-   Estas variáveis controlam a conexão com o MongoDB, assinatura JWT, URLs do frontend e integrações com Abacate Pay e CORS.【F:backend/server.py†L35-L90】【F:backend/server.py†L3230-L3235】 Configure também credenciais SMTP e chaves adicionais conforme necessário para envio de e-mails administrativos.【F:backend/server.py†L200-L208】【F:backend/server.py†L532-L559】
+   Estas variáveis controlam a conexão com o MongoDB, assinatura JWT, URLs do frontend e credenciais da Stripe utilizadas no checkout e webhooks.【F:backend/server.py†L35-L210】【F:backend/server.py†L2920-L3660】 Configure também credenciais SMTP conforme necessário para envio de e-mails administrativos.【F:backend/server.py†L200-L208】
 3. Inicie o servidor de desenvolvimento:
    ```bash
    uvicorn backend.server:app --reload --host 0.0.0.0 --port 8001

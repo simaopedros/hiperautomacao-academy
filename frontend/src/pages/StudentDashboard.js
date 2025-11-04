@@ -30,7 +30,6 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
   const [loading, setLoading] = useState(true);
   const [continueItems, setContinueItems] = useState([]);
   const [loadingContinue, setLoadingContinue] = useState(false);
-  const [gatewayConfig, setGatewayConfig] = useState(null);
   const [supportConfig, setSupportConfig] = useState(null);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -45,7 +44,6 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
 
   useEffect(() => {
     fetchCourses();
-    fetchGatewayConfig();
     fetchSupportConfig();
     fetchCategories();
   }, []);
@@ -71,15 +69,7 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
     }
   }, [getCurrentLanguage, currentLanguage]);
 
-  const fetchGatewayConfig = async () => {
-    try {
-      const response = await axios.get(`${API}/gateway/active`);
-      setGatewayConfig(response.data);
-    } catch (error) {
-      console.error('Error fetching gateway config:', error);
-      setGatewayConfig({ active_gateway: 'abacatepay' });
-    }
-  };
+
 
   const fetchSupportConfig = async () => {
     try {
@@ -237,36 +227,10 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
   }, [courses]);
 
   const handleBuyCourse = async (courseId) => {
-    if (gatewayConfig?.active_gateway === 'hotmart') {
-      const course = courses.find((c) => c.id === courseId);
-      if (course?.hotmart_checkout_url) {
-        window.location.href = course.hotmart_checkout_url;
-        return;
-      }
-
-      alert('Link de checkout da Hotmart nao configurado para este curso');
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API}/billing/create`,
-        {
-          course_id: courseId,
-          customer_name: user.name,
-          customer_email: user.email,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      localStorage.setItem('last_billing_id', response.data.billing_id);
-      window.location.href = response.data.payment_url;
-    } catch (error) {
-      console.error('Error creating billing:', error);
-      alert(error.response?.data?.detail || 'Erro ao criar pagamento');
-    }
+    navigate('/subscribe');
   };
+
+
 
   const enrolledCourses = courses.filter((course) => course.is_enrolled).length;
   const availableCourses = courses.length;

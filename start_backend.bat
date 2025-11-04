@@ -58,8 +58,6 @@ if not exist ".env" (
     echo FRONTEND_URL=http://localhost:3000>>.env
     echo.>>.env
     echo # Configuração de Pagamento (opcional para testes locais)>>.env
-    echo ABACATEPAY_API_KEY=your_abacatepay_api_key_here>>.env
-    echo ABACATEPAY_ENVIRONMENT=sandbox>>.env
     echo.>>.env
     echo # Configuração CORS>>.env
     echo CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000>>.env

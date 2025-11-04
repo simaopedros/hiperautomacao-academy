@@ -302,8 +302,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES=10080
 FRONTEND_URL=http://localhost:3000
 
 # Configuração de Pagamento (opcional para testes locais)
-ABACATEPAY_API_KEY=your_abacatepay_api_key_here
-ABACATEPAY_ENVIRONMENT=sandbox
 
 # Configuração CORS
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000

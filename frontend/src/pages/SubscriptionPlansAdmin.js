@@ -18,8 +18,6 @@ export default function SubscriptionPlansAdmin({ user, onLogout }) {
     price_brl: 0,
     duration_days: 30,
     is_active: true,
-    hotmart_product_id: '',
-    hotmart_checkout_url: '',
     // Stripe
     stripe_price_id: '',
     stripe_product_id: '',
@@ -69,7 +67,7 @@ export default function SubscriptionPlansAdmin({ user, onLogout }) {
       }
       setShowDialog(false);
       setEditingPlan(null);
-      setFormData({ name: '', description: '', price_brl: 0, duration_days: 30, is_active: true, hotmart_product_id: '', hotmart_checkout_url: '', stripe_price_id: '', stripe_product_id: '', access_scope: 'full', course_ids: '' });
+      setFormData({ name: '', description: '', price_brl: 0, duration_days: 30, is_active: true, stripe_price_id: '', stripe_product_id: '', access_scope: 'full', course_ids: '' });
       fetchPlans();
     } catch (error) {
       console.error('Error saving plan:', error);
@@ -85,8 +83,6 @@ export default function SubscriptionPlansAdmin({ user, onLogout }) {
       price_brl: plan.price_brl || 0,
       duration_days: plan.duration_days || 30,
       is_active: !!plan.is_active,
-      hotmart_product_id: plan.hotmart_product_id || '',
-      hotmart_checkout_url: plan.hotmart_checkout_url || '',
       stripe_price_id: plan.stripe_price_id || '',
       stripe_product_id: plan.stripe_product_id || '',
       access_scope: plan.access_scope || 'full',
@@ -129,9 +125,7 @@ export default function SubscriptionPlansAdmin({ user, onLogout }) {
                 price_brl: 0,
                 duration_days: 30,
                 is_active: true,
-                hotmart_product_id: '',
-                hotmart_checkout_url: '',
-                // Stripe
+                                        // Stripe
                 stripe_price_id: '',
                 stripe_product_id: '',
                 // Access scope
@@ -192,14 +186,6 @@ export default function SubscriptionPlansAdmin({ user, onLogout }) {
                       <p className="text-emerald-400 text-xs">Economize R$ {savings.toFixed(2)} ({pct.toFixed(0)}%) vs mensal</p>
                     ) : null;
                   })()}
-              {(plan.hotmart_product_id || plan.hotmart_checkout_url) && (
-                <div className="pt-2 mt-2 border-t border-[#2a2a2a] text-xs text-gray-400 space-y-1">
-                  {plan.hotmart_product_id && (
-                    <p>Hotmart Product ID: {plan.hotmart_product_id}</p>
-                  )}
-                  {plan.hotmart_checkout_url && (
-                    <p className="truncate">Checkout URL: {plan.hotmart_checkout_url}</p>
-                  )}
                 </div>
               )}
               {(plan.stripe_price_id || plan.stripe_product_id) && (
@@ -214,8 +200,7 @@ export default function SubscriptionPlansAdmin({ user, onLogout }) {
                   <p className="truncate">Cursos: {(plan.course_ids || []).join(', ') || '-'}</p>
                 )}
               </div>
-                </div>
-                <div className="mt-6 flex gap-3">
+              <div className="mt-6 flex gap-3">
                   <button
                     onClick={() => handleEdit(plan)}
                     className="flex items-center gap-2 px-3 py-2 rounded bg-gray-800 hover:bg-gray-700 text-gray-200"
@@ -280,26 +265,6 @@ export default function SubscriptionPlansAdmin({ user, onLogout }) {
                       required
                     />
                   </div>
-                </div>
-                <div>
-                  <label className="text-gray-300 text-sm">Hotmart Product ID (UCODE)</label>
-                  <input
-                    type="text"
-                    value={formData.hotmart_product_id}
-                    onChange={(e) => setFormData({ ...formData, hotmart_product_id: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 rounded bg-[#1a1a1a] border border-[#2a2a2a] text-white"
-                    placeholder="Ex: UCODE do produto na Hotmart"
-                  />
-                </div>
-                <div>
-                  <label className="text-gray-300 text-sm">Hotmart Checkout URL</label>
-                  <input
-                    type="url"
-                    value={formData.hotmart_checkout_url}
-                    onChange={(e) => setFormData({ ...formData, hotmart_checkout_url: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 rounded bg-[#1a1a1a] border border-[#2a2a2a] text-white"
-                    placeholder="https://pay.hotmart.com/..."
-                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>

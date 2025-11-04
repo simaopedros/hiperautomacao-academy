@@ -258,7 +258,15 @@
         "activeBadge": "Active",
         "limitedBadge": "Limited",
         "loading": "Loading subscription information...",
-        "lifetimeMessage": "Congratulations! You have lifetime access to the platform."
+        "lifetimeMessage": "Congratulations! You have lifetime access to the platform.",
+        "statusTag": {
+          "ativa": "Active subscription",
+          "inativa": "Inactive subscription",
+          "ativa_ate_final_do_periodo": "Active until the end of the period",
+          "ativa_com_renovacao_automatica": "Active with automatic renewal",
+          "cancelada": "Subscription cancelled",
+          "expirada": "Subscription expired"
+        }
       },
       "plans": {
         "title": "Available Plans",
