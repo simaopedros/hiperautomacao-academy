@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request, UploadFile, File, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -11,7 +11,7 @@ import logging
 import json
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr, ValidationError
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict, Any
 from functools import partial
 from enum import Enum
 import uuid
@@ -31,6 +31,7 @@ import random
 import string
 import stripe
 from urllib.parse import urlparse
+import unicodedata
 
 ROOT_DIR = Path(__file__).parent
 
@@ -156,6 +157,59 @@ def format_datetime_human(value: Optional[Union[str, datetime]]) -> Optional[str
         return display
     except Exception:
         return None
+
+
+async def get_bunny_config() -> Dict[str, Any]:
+    """Fetch Bunny integration settings from database."""
+    config = await db.bunny_config.find_one({}, {"_id": 0})
+    if not config:
+        return {}
+    return config
+
+
+def sanitize_filename(filename: str) -> str:
+    """Return a safe filename by keeping only ascii letters, digits, dash and underscore."""
+    base_name = Path(filename or "").name  # Drop any directory traversal
+    stem = "".join(ch if ch.isalnum() else "-" for ch in Path(base_name).stem)
+    stem = stem or datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    suffix = Path(base_name).suffix.lower()
+    if not suffix or len(suffix) > 12:
+        suffix = ""
+    return f"{stem}{suffix}"
+
+def sanitize_slug(value: Optional[str]) -> str:
+    """Sanitize a human name into an ASCII slug: lowercase, hyphens, no special chars."""
+    if not value:
+        return ""
+    # Normalize and strip accents
+    normalized = unicodedata.normalize("NFKD", value)
+    ascii_only = normalized.encode("ascii", "ignore").decode("ascii")
+    # Replace non-alnum with hyphen
+    chars = [ch if ch.isalnum() else '-' for ch in ascii_only]
+    slug = "".join(chars).lower()
+    # Collapse multiple hyphens
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    # Trim hyphens
+    return slug.strip('-')
+
+
+def build_bunny_embed_html(library_id: str, video_guid: str, player_domain: Optional[str] = None) -> str:
+    """Generate Bunny.net iframe embed snippet."""
+    embed_base = "https://iframe.mediadelivery.net"
+    if player_domain:
+        # Allow using custom domains like https://myplayer.mydomain.com
+        embed_base = player_domain.rstrip("/")
+    src = f"{embed_base}/embed/{library_id}/{video_guid}"
+    return (
+        '<div style="position:relative;width:100%;padding-top:56.25%;">'
+        f'<iframe src="{src}" loading="lazy" '
+        'allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;" '
+        'allowfullscreen '
+        'style="border:none;position:absolute;top:0;left:0;width:100%;height:100%;">'
+        "</iframe>"
+        "</div>"
+    )
 
 
 def is_invite_id(user_id: str) -> bool:
@@ -455,6 +509,10 @@ class CourseBase(BaseModel):
     published: bool = False
     price_brl: Optional[float] = 0.0  # Price in BRL (R$)
     language: Optional[str] = None  # Course language (pt, en, es, etc.) - None means available for all languages
+    # Bunny Stream per-course overrides (optional)
+    bunny_stream_library_id: Optional[str] = None
+    bunny_stream_api_key: Optional[str] = None
+    bunny_stream_player_domain: Optional[str] = None
 
 class CourseCreate(CourseBase):
     pass
@@ -468,6 +526,9 @@ class CourseUpdate(BaseModel):
     published: Optional[bool] = None
     price_brl: Optional[float] = None
     language: Optional[str] = None  # Course language (pt, en, es, etc.) - None means available for all languages
+    bunny_stream_library_id: Optional[str] = None
+    bunny_stream_api_key: Optional[str] = None
+    bunny_stream_player_domain: Optional[str] = None
 
 class Course(CourseBase):
     model_config = ConfigDict(extra="ignore")
@@ -501,6 +562,8 @@ class ModuleBase(BaseModel):
     title: str
     description: Optional[str] = None
     order: int = 0
+    # Bunny Stream per-module collection (optional)
+    bunny_stream_collection_id: Optional[str] = None
 
 class ModuleCreate(ModuleBase):
     course_id: str
@@ -527,6 +590,25 @@ class EmailConfig(BaseModel):
     smtp_port: int = 587  # SMTP port
     sender_email: Optional[str] = None
     sender_name: Optional[str] = None
+
+
+class BunnyConfig(BaseModel):
+    """Configuration to integrate Bunny stream/storage services."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    stream_library_id: Optional[str] = None
+    stream_api_key: Optional[str] = None
+    stream_collection_id: Optional[str] = None
+    stream_player_domain: Optional[str] = None
+
+    storage_zone_name: Optional[str] = None
+    storage_api_key: Optional[str] = None
+    storage_base_url: Optional[str] = None
+    storage_directory: Optional[str] = None
+    storage_host: Optional[str] = None
+
+    default_upload_prefix: str = "uploads"
 
 # Bulk Import Models
 class BulkImportRequest(BaseModel):
@@ -555,6 +637,7 @@ class LessonBase(BaseModel):
     duration: Optional[int] = 0  # in seconds
     order: int = 0
     links: List[LinkItem] = []  # Additional links for the lesson
+    post_to_social: bool = True  # Control if lesson creation posts to community
 
 class LessonCreate(LessonBase):
     module_id: str
@@ -1780,8 +1863,9 @@ async def create_lesson(lesson_data: LessonCreate, current_user: User = Depends(
     
     await db.lessons.insert_one(lesson_dict)
     
-    # Create automatic social post for the new lesson
-    await create_lesson_social_post(lesson, current_user)
+    # Create automatic social post for the new lesson if enabled
+    if lesson.post_to_social:
+        await create_lesson_social_post(lesson, current_user)
     
     return lesson
 
@@ -2786,6 +2870,480 @@ async def save_email_config(config: EmailConfig, current_user: User = Depends(ge
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to save email configuration",
         ) from exc
+
+# ==================== BUNNY MEDIA CONFIGURATION ====================
+
+@api_router.get("/admin/media/bunny/config")
+async def get_bunny_media_config(current_user: User = Depends(get_current_admin)):
+    config = await get_bunny_config()
+    if not config:
+        return BunnyConfig().model_dump()
+    try:
+        return BunnyConfig(**config).model_dump()
+    except ValidationError as exc:
+        logger.warning("Stored Bunny configuration is invalid: %s", exc)
+        return BunnyConfig().model_dump()
+
+
+@api_router.post("/admin/media/bunny/config")
+async def save_bunny_media_config(config: BunnyConfig, current_user: User = Depends(get_current_admin)):
+    config_dict = config.model_dump()
+
+    sanitized_log_payload = {
+        key: "***" if "key" in key.lower() else value
+        for key, value in config_dict.items()
+    }
+
+    logger.info("Admin %s updating Bunny media configuration: %s", current_user.email, sanitized_log_payload)
+
+    await db.bunny_config.replace_one({}, config_dict, upsert=True)
+    return {"message": "Configurações do Bunny salvas com sucesso"}
+
+
+def _ensure_bunny_stream_ready(config: Dict[str, Any]) -> Dict[str, Any]:
+    if not config.get("stream_library_id") or not config.get("stream_api_key"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Configurações da Bunny Stream incompletas. Defina o Library ID e a API Key."
+        )
+    return config
+
+
+def _ensure_bunny_storage_ready(config: Dict[str, Any]) -> Dict[str, Any]:
+    if not config.get("storage_zone_name") or not config.get("storage_api_key"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Configurações de armazenamento Bunny incompletas. Defina Storage Zone e Access Key."
+        )
+    return config
+
+
+async def _chunked_file_reader(upload_file: UploadFile, chunk_size: int = 1024 * 1024):
+    """Async generator that yields chunks from an UploadFile."""
+    await upload_file.seek(0)
+    while True:
+        chunk = await upload_file.read(chunk_size)
+        if not chunk:
+            break
+        yield chunk
+
+
+@api_router.post("/admin/media/bunny/upload/video")
+async def upload_bunny_video(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
+    collection_id: Optional[str] = Form(None),
+    course_name: Optional[str] = Form(None),
+    module_name: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_admin),
+):
+    config = await get_bunny_config()
+    config = _ensure_bunny_stream_ready(config)
+
+    library_id = config["stream_library_id"]
+    access_key = config["stream_api_key"]
+    resolved_title = title or (Path(file.filename or "video").stem or "Aula em vídeo")
+    resolved_collection = collection_id or config.get("stream_collection_id")
+
+    # Determine target collection based on course/module names if none provided
+    course_slug = sanitize_slug(course_name)
+    module_slug = sanitize_slug(module_name)
+    derived_collection_name = None
+    if course_slug and module_slug:
+        derived_collection_name = f"{course_slug}/{module_slug}"
+    elif course_slug:
+        derived_collection_name = course_slug
+
+    async def _ensure_stream_collection(library_id: str, access_key: str, name: str) -> Optional[str]:
+        headers_local = {"AccessKey": access_key, "Accept": "application/json"}
+        timeout_local = httpx.Timeout(30.0, connect=10.0)
+        try:
+            async with httpx.AsyncClient(timeout=timeout_local) as client_local:
+                list_url = f"https://video.bunnycdn.com/library/{library_id}/collections"
+                list_resp = await client_local.get(list_url, headers=headers_local)
+                list_resp.raise_for_status()
+                data = list_resp.json() or []
+                # Bunny Stream may return { items: [...] } or a raw list
+                if isinstance(data, dict):
+                    collections_list = data.get("items") or []
+                elif isinstance(data, list):
+                    collections_list = data
+                else:
+                    collections_list = []
+
+                for c in collections_list:
+                    if isinstance(c, dict):
+                        n = (c.get("name") or "")
+                        if isinstance(n, str) and n.lower() == name.lower():
+                            return c.get("id") or c.get("collectionId") or c.get("guid")
+                # Not found, create
+                create_resp = await client_local.post(list_url, headers=headers_local, json={"name": name})
+                create_resp.raise_for_status()
+                created = create_resp.json() or {}
+                return created.get("id") or created.get("collectionId") or created.get("guid")
+        except httpx.HTTPError as exc:
+            logger.warning("Bunny Stream collection ensure failed for '%s': %s", name, exc)
+            return None
+
+    headers = {
+        "AccessKey": access_key,
+        "Accept": "application/json",
+    }
+
+    # Resolve collection id: existing configured id, or dynamically ensured by course/module
+    if not resolved_collection and derived_collection_name:
+        maybe_collection_id = await _ensure_stream_collection(library_id, access_key, derived_collection_name)
+        if maybe_collection_id:
+            resolved_collection = maybe_collection_id
+
+    payload = {"title": resolved_title}
+    if resolved_collection:
+        payload["collectionId"] = resolved_collection
+
+    timeout = httpx.Timeout(120.0, connect=30.0)
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            create_url = f"https://video.bunnycdn.com/library/{library_id}/videos"
+            create_resp = await client.post(create_url, json=payload, headers=headers)
+            create_resp.raise_for_status()
+            video_meta = create_resp.json()
+            video_guid = (
+                video_meta.get("guid")
+                or video_meta.get("videoGuid")
+                or video_meta.get("video_id")
+                or video_meta.get("id")
+            )
+            if not video_guid:
+                logger.error("Unexpected Bunny video response payload: %s", video_meta)
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Bunny não retornou o identificador do vídeo."
+                )
+
+            upload_url = f"https://video.bunnycdn.com/library/{library_id}/videos/{video_guid}"
+            upload_headers = {
+                **headers,
+                "Content-Type": "application/octet-stream",
+            }
+
+            upload_resp = await client.put(
+                upload_url,
+                headers=upload_headers,
+                data=_chunked_file_reader(file),
+            )
+            upload_resp.raise_for_status()
+
+            metadata = {}
+            duration_seconds = None
+            try:
+                metadata_url = f"https://video.bunnycdn.com/library/{library_id}/videos/{video_guid}"
+                metadata_resp = await client.get(metadata_url, headers=headers)
+                metadata_resp.raise_for_status()
+                metadata = metadata_resp.json()
+                duration_val = metadata.get("length") or metadata.get("lengthInSeconds")
+                if isinstance(duration_val, (int, float)):
+                    duration_seconds = int(duration_val)
+            except httpx.HTTPError as meta_exc:
+                logger.warning("Failed to fetch Bunny video metadata for %s: %s", video_guid, meta_exc)
+
+    except httpx.HTTPStatusError as exc:
+        logger.error("Bunny video upload failed (status=%s response=%s)", exc.response.status_code, exc.response.text)
+        # Provide clearer message for auth/credential issues
+        if exc.response.status_code in (401, 403):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Falha ao enviar vídeo para Bunny. Verifique as credenciais nas configurações.",
+            ) from exc
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=f"Falha ao enviar vídeo para Bunny: {exc.response.text}",
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.exception("Network error uploading video to Bunny: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Não foi possível comunicar com Bunny para upload do vídeo.",
+        ) from exc
+    finally:
+        await file.close()
+
+    embed_html = build_bunny_embed_html(
+        library_id=library_id,
+        video_guid=video_guid,
+        player_domain=config.get("stream_player_domain"),
+    )
+    playback_url = f"https://iframe.mediadelivery.net/embed/{library_id}/{video_guid}"
+
+    return {
+        "message": "Upload de vídeo concluído com sucesso",
+        "video_guid": video_guid,
+        "library_id": library_id,
+        "title": resolved_title,
+        "collection_id": resolved_collection,
+        "embed_html": embed_html,
+        "playback_url": playback_url,
+        "duration_seconds": duration_seconds,
+        "video_metadata": metadata,
+    }
+
+
+@api_router.post("/admin/media/bunny/upload/file")
+async def upload_bunny_file(
+    file: UploadFile = File(...),
+    directory: Optional[str] = Form(None),
+    course_name: Optional[str] = Form(None),
+    module_name: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_admin),
+):
+    config = await get_bunny_config()
+    config = _ensure_bunny_storage_ready(config)
+
+    zone_name = config["storage_zone_name"]
+    access_key = config["storage_api_key"]
+    content_type = file.content_type or "application/octet-stream"
+    storage_host = config.get("storage_host") or "storage.bunnycdn.com"
+
+    default_prefix = config.get("storage_directory") or config.get("default_upload_prefix") or "uploads"
+
+    # Build path prefix: default/uploads + sanitized course/module OR sanitized provided directory
+    if directory:
+        parts = [p for p in directory.split("/") if p.strip()]
+        sanitized_parts = [sanitize_slug(p) for p in parts]
+        requested_prefix = "/".join(sanitized_parts)
+    else:
+        course_slug = sanitize_slug(course_name)
+        module_slug = sanitize_slug(module_name)
+        path_parts = [default_prefix]
+        if course_slug:
+            path_parts.append(course_slug)
+        if module_slug:
+            path_parts.append(module_slug)
+        requested_prefix = "/".join(path_parts)
+
+    safe_prefix = "/".join(part.strip("/ ").replace("..", "") for part in requested_prefix.split("/") if part.strip())
+
+    sanitized_original = sanitize_filename(file.filename or "material")
+    extension = Path(sanitized_original).suffix
+    unique_name = f"{uuid.uuid4().hex[:12]}{extension}"
+
+    relative_path_parts = [safe_prefix, unique_name] if safe_prefix else [unique_name]
+    relative_path = "/".join(relative_path_parts)
+
+    if storage_host.startswith("http://") or storage_host.startswith("https://"):
+        storage_base_endpoint = storage_host.rstrip("/")
+    else:
+        storage_base_endpoint = f"https://{storage_host.rstrip('/')}"
+
+    storage_url = f"{storage_base_endpoint}/{zone_name}/{relative_path}"
+    headers = {
+        "AccessKey": access_key,
+        "Content-Type": content_type,
+    }
+
+    timeout = httpx.Timeout(120.0, connect=30.0)
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            upload_resp = await client.put(
+                storage_url,
+                headers=headers,
+                data=_chunked_file_reader(file),
+            )
+            upload_resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        logger.error("Bunny file upload failed (status=%s response=%s)", exc.response.status_code, exc.response.text)
+        detail_message = exc.response.text
+        if exc.response.status_code in (401, 403):
+            detail_message = (
+                "Credenciais da Bunny Storage rejeitadas. "
+                "Confirme o nome da Storage Zone e a Storage Password (AccessKey) configurados na Bunny."
+            )
+        else:
+            detail_message = f"Falha ao enviar arquivo para Bunny: {exc.response.text}"
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=detail_message,
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.exception("Network error uploading file to Bunny: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Não foi possível comunicar com Bunny para upload do arquivo.",
+        ) from exc
+    finally:
+        await file.close()
+
+    base_url = config.get("storage_base_url")
+    if base_url:
+        base_url = base_url.rstrip("/")
+        public_url = f"{base_url}/{relative_path}"
+    else:
+        public_url = f"https://{zone_name}.b-cdn.net/{relative_path}"
+
+    return {
+        "message": "Upload de arquivo concluído com sucesso",
+        "path": relative_path,
+        "public_url": public_url,
+        "content_type": content_type,
+    }
+
+@api_router.post("/admin/media/bunny/sync-collection")
+async def sync_bunny_collection(
+    module_id: str = Form(...),
+    collection_id: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_admin),
+):
+    """Synchronize Bunny Stream videos from a collection into lessons of a module.
+
+    - Lists videos in the specified Bunny collection.
+    - Creates lessons for videos not yet present in the module (by GUID).
+    - Uses Bunny embed HTML and duration when available.
+    """
+    # Validate module
+    module_doc = await db.modules.find_one({"id": module_id}, {"_id": 0})
+    if not module_doc:
+        raise HTTPException(status_code=404, detail="Module not found")
+
+    # Ensure Bunny Stream config
+    config = await get_bunny_config()
+    config = _ensure_bunny_stream_ready(config)
+
+    # Load course to check for per-course overrides
+    course_doc = await db.courses.find_one({"id": module_doc["course_id"]}, {"_id": 0})
+
+    # Determine effective library and access key (course overrides if provided)
+    library_id = (course_doc or {}).get("bunny_stream_library_id") or config["stream_library_id"]
+    access_key = (course_doc or {}).get("bunny_stream_api_key") or config["stream_api_key"]
+    player_domain = (course_doc or {}).get("bunny_stream_player_domain") or config.get("stream_player_domain")
+
+    # Determine effective collection (explicit form > module override > global default)
+    effective_collection_id = (
+        collection_id
+        or module_doc.get("bunny_stream_collection_id")
+        or config.get("stream_collection_id")
+    )
+    if not effective_collection_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Nenhuma Collection ID fornecida e nenhuma coleção padrão configurada. "
+                "Informe o Collection ID ou defina uma coleção padrão em Configurações do Bunny."
+            ),
+        )
+
+    headers = {"AccessKey": access_key, "Accept": "application/json"}
+    timeout = httpx.Timeout(60.0, connect=20.0)
+
+    videos: List[Dict[str, Any]] = []
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            list_url = f"https://video.bunnycdn.com/library/{library_id}/videos"
+            # Try with collection filter param; fall back to local filtering if API ignores param
+            resp = await client.get(list_url, headers=headers, params={"collectionId": effective_collection_id, "itemsPerPage": 1000})
+            resp.raise_for_status()
+            payload = resp.json() or {}
+            if isinstance(payload, dict) and "items" in payload:
+                videos = payload.get("items") or []
+            elif isinstance(payload, list):
+                videos = payload
+            else:
+                videos = []
+
+            # If API ignored the collection filter and returned mixed videos,
+            # enforce filtering client-side by matching collectionId
+            if videos and any(isinstance(v, dict) for v in videos):
+                # If any item has a different collectionId than requested, filter explicitly
+                has_mixed_collections = any(
+                    v.get("collectionId") is not None and v.get("collectionId") != effective_collection_id
+                    for v in videos
+                    if isinstance(v, dict)
+                )
+                if has_mixed_collections:
+                    videos = [
+                        v for v in videos
+                        if isinstance(v, dict) and v.get("collectionId") == effective_collection_id
+                    ]
+    except httpx.HTTPStatusError as exc:
+        logger.error("Bunny list videos failed (status=%s response=%s)", exc.response.status_code, exc.response.text)
+        detail_message = exc.response.text
+        if exc.response.status_code in (401, 403):
+            detail_message = (
+                "Credenciais da Bunny Stream rejeitadas. Verifique o Library ID e Access Key nas configurações."
+            )
+        raise HTTPException(status_code=exc.response.status_code, detail=detail_message) from exc
+    except httpx.HTTPError as exc:
+        logger.exception("Network error listing Bunny videos: %s", exc)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Falha ao listar vídeos na Bunny Stream.") from exc
+
+    # Load existing lessons and collect GUIDs already present
+    existing_lessons = await db.lessons.find({"module_id": module_id}, {"_id": 0}).to_list(1000)
+    import re
+    guid_pattern = re.compile(r"/embed/[^/]+/([a-zA-Z0-9-]+)")
+    existing_guids: set[str] = set()
+    for lesson in existing_lessons:
+        content = lesson.get("content") or ""
+        if isinstance(content, str):
+            match = guid_pattern.search(content)
+            if match:
+                existing_guids.add(match.group(1))
+
+    next_order = 1 + max([int(l.get("order") or 0) for l in existing_lessons] or [0])
+
+    created_count = 0
+    skipped_count = 0
+    created_lessons: List[Dict[str, Any]] = []
+
+    for v in videos:
+        if not isinstance(v, dict):
+            continue
+        video_guid = v.get("guid") or v.get("videoGuid") or v.get("id")
+        if not video_guid:
+            continue
+        if video_guid in existing_guids:
+            skipped_count += 1
+            continue
+        title = v.get("title") or "Aula em vídeo"
+        duration_val = v.get("length") or v.get("lengthInSeconds")
+        try:
+            duration_seconds = int(duration_val) if isinstance(duration_val, (int, float)) else 0
+        except Exception:
+            duration_seconds = 0
+
+        embed_html = build_bunny_embed_html(
+            library_id=library_id,
+            video_guid=video_guid,
+            player_domain=player_domain,
+        )
+
+        lesson_obj = Lesson(
+            title=title,
+            type="video",
+            content=embed_html,
+            duration=duration_seconds,
+            order=next_order,
+            links=[],
+            post_to_social=False,
+            module_id=module_id,
+        )
+        # Prepare insert data
+        lesson_dict = lesson_obj.model_dump()
+        lesson_dict["created_at"] = lesson_dict["created_at"].isoformat()
+
+        await db.lessons.insert_one(lesson_dict)
+
+        created_count += 1
+        next_order += 1
+        created_lessons.append({"id": lesson_obj.id, "title": title, "video_guid": video_guid})
+
+    return {
+        "message": "Sincronização concluída",
+        "collection_id": effective_collection_id,
+        "total_videos": len(videos),
+        "created_count": created_count,
+        "skipped_count": skipped_count,
+        "created_lessons": created_lessons,
+    }
 
 # ==================== ANALYTICS CONFIGURATION ====================
 

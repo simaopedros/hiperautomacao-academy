@@ -18,6 +18,7 @@ import SubscriptionSuccess from '@/pages/SubscriptionSuccess';
 import AdminFinance from '@/pages/AdminFinance';
 import PaymentSettings from '@/pages/PaymentSettings';
 import ProfileSettings from '@/pages/ProfileSettings';
+import PdfViewer from '@/pages/PdfViewer';
 
 import GamificationSettings from '@/pages/GamificationSettings';
 import GatewaySettings from '@/pages/GatewaySettings';
@@ -341,6 +342,16 @@ function App() {
             element={
               user ? (
                 <SubscribePage />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/pdf-viewer"
+            element={
+              user ? (
+                <PdfViewer />
               ) : (
                 <Navigate to="/login" replace />
               )

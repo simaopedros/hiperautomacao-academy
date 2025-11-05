@@ -35,6 +35,20 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export default function LessonPlayer({ user, onLogout }) {
+  const [embeddedPdfUrl, setEmbeddedPdfUrl] = useState(null);
+
+  const isPdfLink = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const lower = url.toLowerCase();
+    return lower.includes('.pdf');
+  };
+
+  const handleResourceClick = (link, e) => {
+    if (isPdfLink(link?.url)) {
+      e.preventDefault();
+      setEmbeddedPdfUrl(link.url);
+    }
+  };
   const { lessonId } = useParams();
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -724,7 +738,7 @@ export default function LessonPlayer({ user, onLogout }) {
     });
   };
 
-  const showDesktopOutline = outlineOpen && isDesktop && !isImmersive;
+  const showDesktopOutline = outlineOpen && isDesktop && !isImmersive && !embeddedPdfUrl;
   const showMobileOutline = outlineOpen && !isDesktop && !isImmersive;
 
   if (loading) {
@@ -859,7 +873,7 @@ export default function LessonPlayer({ user, onLogout }) {
         )}
 
         <main className="flex-1">
-          <div className="mx-auto w-full max-w-7xl px-4 pb-16 pt-8 sm:px-6 lg:px-8">
+          <div className={`mx-auto w-full ${embeddedPdfUrl ? 'max-w-none' : 'max-w-7xl'} px-4 pb-16 pt-8 sm:px-6 lg:px-8`}>
             {/* Mobile Navigation */}
             <div className="mb-6 flex items-center gap-3 md:hidden">
               <Button
@@ -920,38 +934,112 @@ export default function LessonPlayer({ user, onLogout }) {
                   </div>
 
                   <div className="space-y-8">
-                    {/* Video Content */}
+                    {/* Video Content with optional PDF split-view */}
                     {lesson.type === 'video' && (
                       <>
-                        <div>
-                          <div
-                            className={`group relative overflow-hidden rounded-[28px] border border-white/10 bg-black/70 shadow-[0_20px_60px_rgba(10,20,40,0.65)] transition-all duration-500 ${
-                              isImmersive ? 'ring-2 ring-emerald-400/40' : ''
-                            }`}
-                          >
-                            {isImmersive && (
-                              <div className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full border border-emerald-400/40 bg-black/60 px-3 py-1 text-xs text-emerald-100 backdrop-blur">
-                                <Sparkles className="h-3 w-3 text-emerald-300" />
-                                Modo imersivo ativo
-                              </div>
-                            )}
-                            <div
-                              className="video-embed-container aspect-video w-full"
-                              dangerouslySetInnerHTML={{ __html: lesson.content }}
-                            />
-                            {isImmersive && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={handleImmersiveToggle}
-                                className="absolute right-4 top-4 z-30 border-white/20 bg-black/40 text-white hover:bg-black/60"
+                        {embeddedPdfUrl ? (
+                          <div className="grid gap-4 md:grid-cols-2">
+                            {/* Left: Video */}
+                            <div>
+                              <div
+                                className={`group relative overflow-hidden rounded-[28px] border border-white/10 bg-black/70 shadow-[0_20px_60px_rgba(10,20,40,0.65)] transition-all duration-500 ${
+                                  isImmersive ? 'ring-2 ring-emerald-400/40' : ''
+                                }`}
                               >
-                                <Minimize2 className="mr-2 h-4 w-4" />
-                                Sair
-                              </Button>
-                            )}
+                                {isImmersive && (
+                                  <div className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full border border-emerald-400/40 bg-black/60 px-3 py-1 text-xs text-emerald-100 backdrop-blur">
+                                    <Sparkles className="h-3 w-3 text-emerald-300" />
+                                    Modo imersivo ativo
+                                  </div>
+                                )}
+                                <div
+                                  className="video-embed-container aspect-video w-full"
+                                  dangerouslySetInnerHTML={{ __html: lesson.content }}
+                                />
+                                {isImmersive && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleImmersiveToggle}
+                                    className="absolute right-4 top-4 z-30 border-white/20 bg-black/40 text-white hover:bg-black/60"
+                                  >
+                                    <Minimize2 className="mr-2 h-4 w-4" />
+                                    Sair
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                            {/* Right: PDF Embed */}
+                            <div>
+                              <div className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-black/40 shadow-[0_20px_60px_rgba(10,20,40,0.35)]">
+                                <div className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full border border-white/20 bg-black/60 px-3 py-1 text-xs text-gray-200 backdrop-blur">
+                                  <FileText className="h-3 w-3 text-emerald-300" />
+                                  Arquivo PDF
+                                </div>
+                                <div className="absolute right-4 top-4 z-30 flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      if (embeddedPdfUrl) {
+                                        window.open(embeddedPdfUrl, '_blank', 'noopener,noreferrer');
+                                        setEmbeddedPdfUrl(null);
+                                      }
+                                    }}
+                                    className="border-white/20 bg-black/40 text-white hover:bg-black/60"
+                                  >
+                                    <ExternalLink className="mr-2 h-4 w-4" />
+                                    Destacar
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setEmbeddedPdfUrl(null)}
+                                    className="border-white/20 bg-black/40 text-white hover:bg-black/60"
+                                  >
+                                    <X className="mr-2 h-4 w-4" />
+                                    Fechar
+                                  </Button>
+                                </div>
+                                <iframe
+                                  src={embeddedPdfUrl}
+                                  title="PDF da aula"
+                                  className="w-full aspect-video"
+                                />
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div>
+                            <div
+                              className={`group relative overflow-hidden rounded-[28px] border border-white/10 bg-black/70 shadow-[0_20px_60px_rgba(10,20,40,0.65)] transition-all duration-500 ${
+                                isImmersive ? 'ring-2 ring-emerald-400/40' : ''
+                              }`}
+                            >
+                              {isImmersive && (
+                                <div className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full border border-emerald-400/40 bg-black/60 px-3 py-1 text-xs text-emerald-100 backdrop-blur">
+                                  <Sparkles className="h-3 w-3 text-emerald-300" />
+                                  Modo imersivo ativo
+                                </div>
+                              )}
+                              <div
+                                className="video-embed-container aspect-video w-full"
+                                dangerouslySetInnerHTML={{ __html: lesson.content }}
+                              />
+                              {isImmersive && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={handleImmersiveToggle}
+                                  className="absolute right-4 top-4 z-30 border-white/20 bg-black/40 text-white hover:bg-black/60"
+                                >
+                                  <Minimize2 className="mr-2 h-4 w-4" />
+                                  Sair
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </>
                     )}
 
@@ -1060,28 +1148,60 @@ export default function LessonPlayer({ user, onLogout }) {
                       </div>
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
-                      {lesson.links.map((link, index) => (
-                        <a
-                          key={`${link.url}-${index}`}
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group glass-panel p-4 transition-all duration-300 hover:scale-[1.02] hover:border-emerald-400/30"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 group-hover:from-emerald-500/30 group-hover:to-blue-500/30 transition-all">
-                              <ExternalLink className="h-6 w-6 text-emerald-400" />
+                      {lesson.links.map((link, index) => {
+                        const isPdf = isPdfLink(link.url);
+                        return (
+                          <a
+                            key={`${link.url}-${index}`}
+                            href={link.url}
+                            onClick={(e) => handleResourceClick(link, e)}
+                            target={isPdf ? undefined : '_blank'}
+                            rel={isPdf ? undefined : 'noopener noreferrer'}
+                            className="group glass-panel p-4 transition-all duration-300 hover:scale-[1.02] hover:border-emerald-400/30"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 group-hover:from-emerald-500/30 group-hover:to-blue-500/30 transition-all">
+                                {isPdf ? (
+                                  <FileText className="h-6 w-6 text-emerald-400" />
+                                ) : (
+                                  <ExternalLink className="h-6 w-6 text-emerald-400" />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-semibold text-white group-hover:text-emerald-200 transition-colors">
+                                  {link.title || 'Recurso Adicional'}
+                                </p>
+                                <p className="truncate text-sm text-gray-400">{link.url}</p>
+                              </div>
+                              <ArrowLeft className="h-4 w-4 rotate-180 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate font-semibold text-white group-hover:text-emerald-200 transition-colors">
-                                {link.title || 'Recurso Adicional'}
-                              </p>
-                              <p className="truncate text-sm text-gray-400">{link.url}</p>
-                            </div>
-                            <ArrowLeft className="h-4 w-4 rotate-180 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
-                        </a>
-                      ))}
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+
+                {/* Course Map pushed below when PDF is embedded */}
+                {embeddedPdfUrl && outlineOpen && isDesktop && !isImmersive && (
+                  <section className="glass-panel p-6 sm:p-8 transition-all">
+                    <div className="mb-6 flex items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-bold text-white">Mapa do Curso</h3>
+                        {moduleInfo && (
+                          <p className="text-sm text-gray-400">{moduleInfo.courseTitle}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        onClick={() => setOutlineOpen(false)}
+                        className="text-gray-400 hover:text-white"
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                    <div className="space-y-4">
+                      {renderOutline()}
                     </div>
                   </section>
                 )}
