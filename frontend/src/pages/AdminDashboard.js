@@ -39,6 +39,7 @@ import LeadSettings from './LeadSettings';
 import ReplicationSettings from './ReplicationSettings';
 import AnalyticsSettings from './AnalyticsSettings';
 import BunnySettings from './BunnySettings';
+import AdminNavigation from '../components/AdminNavigation';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -60,7 +61,10 @@ function CourseList({ onLogout, user }) {
     categories: [],
     published: false,
     price_brl: 0,
-    language: null
+    language: null,
+    bunny_stream_library_id: '',
+    bunny_stream_api_key: '',
+    bunny_stream_player_domain: ''
   });
   const navigate = useNavigate();
 
@@ -68,6 +72,7 @@ function CourseList({ onLogout, user }) {
     fetchCourses();
     fetchAllCategories();
   }, []);
+
 
   useEffect(() => {
     // Close dropdowns when clicking outside
@@ -134,7 +139,18 @@ function CourseList({ onLogout, user }) {
       alert('Curso salvo com sucesso!');
       setShowDialog(false);
       setEditingCourse(null);
-      setFormData({ title: '', description: '', thumbnail_url: '', categories: [], published: false, price_brl: 0, language: null });
+      setFormData({
+        title: '',
+        description: '',
+        thumbnail_url: '',
+        categories: [],
+        published: false,
+        price_brl: 0,
+        language: null,
+        bunny_stream_library_id: '',
+        bunny_stream_api_key: '',
+        bunny_stream_player_domain: ''
+      });
       fetchCourses();
     } catch (error) {
       console.error('Error saving course:', error);
@@ -176,7 +192,10 @@ function CourseList({ onLogout, user }) {
       categories: categories,
       published: course.published,
       price_brl: course.price_brl || 0,
-      language: course.language || null
+      language: course.language || null,
+      bunny_stream_library_id: course.bunny_stream_library_id || '',
+      bunny_stream_api_key: course.bunny_stream_api_key || '',
+      bunny_stream_player_domain: course.bunny_stream_player_domain || ''
     });
     setShowDialog(true);
   };
@@ -202,279 +221,7 @@ function CourseList({ onLogout, user }) {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      <header className="bg-[#111111] border-b border-[#252525] sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <h1 className="text-2xl font-bold gradient-text">Hiperautomação Admin</h1>
-            <nav className="flex gap-6">
-              {/* Conteúdo Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowContentMenu(!showContentMenu);
-                    setShowUsersMenu(false);
-                    setShowFinanceMenu(false);
-                    setShowConfigMenu(false);
-                  }}
-                  className={`flex items-center gap-2 transition-colors ${
-                    location.pathname === '/admin' || location.pathname.includes('/admin/categories')
-                      ? 'text-emerald-400 hover:text-emerald-300'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <GraduationCap size={20} />
-                  Conteúdo
-                  <ChevronDown size={16} />
-                </button>
-                {showContentMenu && (
-                  <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin');
-                        setShowContentMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-t-lg"
-                    >
-                      <GraduationCap size={16} />
-                      Cursos & Aulas
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/categories');
-                        setShowContentMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
-                    >
-                      <FolderOpen size={16} />
-                      Categorias
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Usuários & Comunidade Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowUsersMenu(!showUsersMenu);
-                    setShowContentMenu(false);
-                    setShowFinanceMenu(false);
-                    setShowConfigMenu(false);
-                  }}
-                  className={`flex items-center gap-2 transition-colors ${
-                    location.pathname.includes('/admin/users') || location.pathname.includes('/admin/community')
-                      ? 'text-emerald-400 hover:text-emerald-300'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <UserCheck size={20} />
-                  Usuários & Comunidade
-                  <ChevronDown size={16} />
-                </button>
-                {showUsersMenu && (
-                  <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/users');
-                        setShowUsersMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-t-lg"
-                    >
-                      <Users size={16} />
-                      Gerenciar Usuários
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/community');
-                        setShowUsersMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
-                    >
-                      <MessageCircle size={16} />
-                      Comunidade
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/gamification');
-                        setShowUsersMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
-                    >
-                      <Gift size={16} />
-                      Gamificação
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              {/* Financeiro Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowFinanceMenu(!showFinanceMenu);
-                    setShowContentMenu(false);
-                    setShowUsersMenu(false);
-                    setShowConfigMenu(false);
-                  }}
-                  className={`flex items-center gap-2 transition-colors ${
-                    location.pathname.includes('/admin/finance') || 
-                    location.pathname.includes('/admin/gateway') || 
-                    location.pathname.includes('/admin/payment') ||
-                    location.pathname.includes('/admin/subscription')
-                      ? 'text-emerald-400 hover:text-emerald-300'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <BarChart3 size={20} />
-                  Financeiro
-                  <ChevronDown size={16} />
-                </button>
-                {showFinanceMenu && (
-                  <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[220px] z-50">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/finance');
-                        setShowFinanceMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-t-lg"
-                    >
-                      <DollarSign size={16} />
-                      Relatórios Financeiros
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/subscription-plans');
-                        setShowFinanceMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
-                    >
-                      <CreditCard size={16} />
-                      Planos & Preços
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/gateway');
-                        setShowFinanceMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
-                    >
-                      <Settings size={16} />
-                      Gateway Pagamento
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/payment-settings');
-                        setShowFinanceMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
-                    >
-                      <Settings size={16} />
-                      Config. Pagamentos
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Configurações Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowConfigMenu(!showConfigMenu);
-                    setShowContentMenu(false);
-                    setShowUsersMenu(false);
-                    setShowFinanceMenu(false);
-                  }}
-                  className={`flex items-center gap-2 transition-colors ${
-                    location.pathname.includes('/admin/email') || 
-                    location.pathname.includes('/admin/lead') || 
-                    location.pathname.includes('/admin/support') ||
-                    location.pathname.includes('/admin/analytics')
-                      ? 'text-emerald-400 hover:text-emerald-300'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  <Settings size={20} />
-                  Configurações
-                  <ChevronDown size={16} />
-                </button>
-                {showConfigMenu && (
-                  <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/email-settings');
-                        setShowConfigMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-t-lg"
-                    >
-                      <Mail size={16} />
-                      Configurar Email
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/lead-settings');
-                        setShowConfigMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
-                    >
-                      <UserCheck size={16} />
-                      Captura de Leads
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/analytics');
-                        setShowConfigMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
-                    >
-                      <BarChart3 size={16} />
-                      Configurar Analytics
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate('/admin/support');
-                        setShowConfigMenu(false);
-                      }}
-                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
-                    >
-                      <HeadphonesIcon size={16} />
-                      Configurar Suporte
-                    </button>
-                  </div>
-                )}
-              </div>
-            </nav>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm text-gray-400">Administrador</p>
-              <p className="font-semibold text-white">{user.name}</p>
-            </div>
-            <button
-              onClick={onLogout}
-              className="p-2 hover:bg-[#1a1a1a] rounded-lg transition-colors"
-            >
-              <LogOut size={20} className="text-gray-400 hover:text-red-400" />
-            </button>
-          </div>
-        </div>
-      </header>
+      <AdminNavigation user={user} onLogout={onLogout} />
 
       <main className="max-w-7xl mx-auto px-6 py-12">
         {/* Header Section - Inspired by README.md structure */}
@@ -621,6 +368,36 @@ function CourseList({ onLogout, user }) {
                     className="w-4 h-4"
                   />
                   <Label htmlFor="published">Publicar curso</Label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Bunny Stream Library ID (override)</Label>
+                    <Input
+                      value={formData.bunny_stream_library_id || ''}
+                      onChange={(e) => setFormData({ ...formData, bunny_stream_library_id: e.target.value })}
+                      placeholder="Library ID (opcional)"
+                      className="bg-[#111111] border-[#2a2a2a]"
+                    />
+                  </div>
+                  <div>
+                    <Label>Bunny Stream API Key (override)</Label>
+                    <Input
+                      type="password"
+                      value={formData.bunny_stream_api_key || ''}
+                      onChange={(e) => setFormData({ ...formData, bunny_stream_api_key: e.target.value })}
+                      placeholder="API Key (opcional)"
+                      className="bg-[#111111] border-[#2a2a2a]"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Bunny Stream Player Domain (override)</Label>
+                    <Input
+                      value={formData.bunny_stream_player_domain || ''}
+                      onChange={(e) => setFormData({ ...formData, bunny_stream_player_domain: e.target.value })}
+                      placeholder="player.mydomain.com (opcional)"
+                      className="bg-[#111111] border-[#2a2a2a]"
+                    />
+                  </div>
                 </div>
                 </form>
               </div>
@@ -825,12 +602,12 @@ function CourseManagement({ user, onLogout }) {
   // Module dialog state
   const [showModuleDialog, setShowModuleDialog] = useState(false);
   const [editingModule, setEditingModule] = useState(null);
-  const [moduleForm, setModuleForm] = useState({ title: '', description: '', order: 0 });
+  const [moduleForm, setModuleForm] = useState({ title: '', description: '', order: 0, bunny_stream_collection_id: '' });
 
   // Lesson dialog state
   const [showLessonDialog, setShowLessonDialog] = useState(false);
   const [editingLesson, setEditingLesson] = useState(null);
-  const [lessonForm, setLessonForm] = useState({ title: '', type: 'video', content: '', duration: 0, order: 0, links: [] });
+  const [lessonForm, setLessonForm] = useState({ title: '', type: 'video', content: '', duration: 0, order: 0, links: [], post_to_social: true });
   const [draggingModuleId, setDraggingModuleId] = useState(null);
   const [dragOverModuleId, setDragOverModuleId] = useState(null);
   const [moduleOrderSaving, setModuleOrderSaving] = useState(false);
@@ -845,6 +622,9 @@ function CourseManagement({ user, onLogout }) {
   const fileInputRef = useRef(null);
   const attachmentInputRef = useRef(null);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [bunnyCollectionId, setBunnyCollectionId] = useState('');
+  const [syncingBunny, setSyncingBunny] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState(null);
 
   useEffect(() => {
     fetchCourseData();
@@ -856,6 +636,16 @@ function CourseManagement({ user, onLogout }) {
     }
   }, [selectedModule?.id]);
 
+  // Reflect module-level Bunny collection override when switching selected module
+  useEffect(() => {
+    if (!selectedModule) return;
+    if (selectedModule.bunny_stream_collection_id) {
+      setBunnyCollectionId(selectedModule.bunny_stream_collection_id);
+    } else if (bunnyConfig?.stream_collection_id && !bunnyCollectionId) {
+      setBunnyCollectionId(bunnyConfig.stream_collection_id);
+    }
+  }, [selectedModule?.id]);
+
   useEffect(() => {
     const loadBunnyConfig = async () => {
       try {
@@ -864,6 +654,10 @@ function CourseManagement({ user, onLogout }) {
           headers: { Authorization: `Bearer ${token}` }
         });
         setBunnyConfig(response.data);
+        const defaultCollection = response.data?.stream_collection_id;
+        if (defaultCollection && !bunnyCollectionId) {
+          setBunnyCollectionId(defaultCollection);
+        }
       } catch (error) {
         console.error('Erro ao carregar configuração Bunny:', error);
       }
@@ -937,6 +731,13 @@ function CourseManagement({ user, onLogout }) {
       const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('file', selected);
+      // Enviar nomes de curso e módulo para organização nas pastas Bunny
+      if (course?.title) {
+        formData.append('course_name', course.title);
+      }
+      if (selectedModule?.title) {
+        formData.append('module_name', selectedModule.title);
+      }
 
       const response = await axios.post(`${API}/admin/media/bunny/upload/file`, formData, {
         headers: {
@@ -971,6 +772,13 @@ function CourseManagement({ user, onLogout }) {
       formData.append('file', selected);
       const resolvedTitle = (lessonForm.title || selected.name || 'Aula em vídeo').trim();
       formData.append('title', resolvedTitle);
+      // Enviar nomes de curso e módulo para organizar a coleção na Bunny Stream
+      if (course?.title) {
+        formData.append('course_name', course.title);
+      }
+      if (selectedModule?.title) {
+        formData.append('module_name', selectedModule.title);
+      }
 
       const response = await axios.post(`${API}/admin/media/bunny/upload/video`, formData, {
         headers: {
@@ -1059,6 +867,36 @@ function CourseManagement({ user, onLogout }) {
     }
   };
 
+  const handleSyncBunnyCollection = async () => {
+    if (!selectedModule) return;
+    if (!streamConfigured) {
+      setSyncFeedback({ type: 'error', text: 'Bunny Stream não configurado. Defina Library ID e Access Key.' });
+      return;
+    }
+    setSyncFeedback(null);
+    setSyncingBunny(true);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('module_id', selectedModule.id);
+      if (bunnyCollectionId) {
+        formData.append('collection_id', bunnyCollectionId);
+      }
+      const response = await axios.post(`${API}/admin/media/bunny/sync-collection`, formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const created = response.data?.created_count ?? 0;
+      const skipped = response.data?.skipped_count ?? 0;
+      setSyncFeedback({ type: 'success', text: `Sincronização concluída. Criadas: ${created}. Já existentes: ${skipped}.` });
+      await fetchLessons(selectedModule.id);
+    } catch (error) {
+      console.error('Erro ao sincronizar coleção Bunny:', error);
+      setSyncFeedback({ type: 'error', text: error.response?.data?.detail || 'Falha ao sincronizar vídeos da Bunny.' });
+    } finally {
+      setSyncingBunny(false);
+    }
+  };
+
   const handleModuleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -1072,10 +910,10 @@ function CourseManagement({ user, onLogout }) {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
-      setShowModuleDialog(false);
-      setEditingModule(null);
-      setModuleForm({ title: '', description: '', order: 0 });
-      fetchCourseData();
+          setShowModuleDialog(false);
+          setEditingModule(null);
+          setModuleForm({ title: '', description: '', order: 0, bunny_stream_collection_id: '' });
+          fetchCourseData();
     } catch (error) {
       console.error('Error saving module:', error);
     }
@@ -1097,7 +935,7 @@ function CourseManagement({ user, onLogout }) {
       }
       setShowLessonDialog(false);
       setEditingLesson(null);
-      setLessonForm({ title: '', type: 'video', content: '', duration: 0, order: 0, links: [] });
+      setLessonForm({ title: '', type: 'video', content: '', duration: 0, order: 0, links: [], post_to_social: true });
       fetchLessons(selectedModule.id);
     } catch (error) {
       console.error('Error saving lesson:', error);
@@ -1294,15 +1132,21 @@ function CourseManagement({ user, onLogout }) {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-      <div className="text-center">
-        <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-emerald-500 border-t-transparent"></div>
+    return (
+      <div className="min-h-screen bg-[#0a0a0a]">
+        <AdminNavigation user={user} onLogout={onLogout} />
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-emerald-500 border-t-transparent"></div>
+          </div>
+        </div>
       </div>
-    </div>;
+    );
   }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
+      <AdminNavigation user={user} onLogout={onLogout} />
       <header className="bg-[#111111] border-b border-[#252525]">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -1383,6 +1227,15 @@ function CourseManagement({ user, onLogout }) {
                         className="bg-[#111111] border-[#2a2a2a]"
                       />
                     </div>
+                    <div>
+                      <Label>Coleção Bunny (override)</Label>
+                      <Input
+                        value={moduleForm.bunny_stream_collection_id}
+                        onChange={(e) => setModuleForm({ ...moduleForm, bunny_stream_collection_id: e.target.value })}
+                        placeholder="Collection ID do módulo (opcional)"
+                        className="bg-[#111111] border-[#2a2a2a]"
+                      />
+                    </div>
                     <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600">
                       {editingModule ? 'Atualizar' : 'Criar'}
                     </Button>
@@ -1451,7 +1304,8 @@ function CourseManagement({ user, onLogout }) {
                             setModuleForm({
                               title: module.title,
                               description: module.description || '',
-                              order: module.order
+                              order: module.order,
+                              bunny_stream_collection_id: module.bunny_stream_collection_id || ''
                             });
                             setShowModuleDialog(true);
                           }}
@@ -1515,74 +1369,88 @@ function CourseManagement({ user, onLogout }) {
                         Nova Aula
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="bg-[#1a1a1a] border-[#252525] text-white">
-                      <DialogHeader>
+                    <DialogContent className="bg-[#1a1a1a] border-[#252525] text-white max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+                      <DialogHeader className="flex-shrink-0">
                         <DialogTitle>{editingLesson ? 'Editar' : 'Nova'} Aula</DialogTitle>
                       </DialogHeader>
-                      <form onSubmit={handleLessonSubmit} className="space-y-4">
-                        <div>
-                          <Label>Título</Label>
-                          <Input
-                            value={lessonForm.title}
-                            onChange={(e) => setLessonForm({ ...lessonForm, title: e.target.value })}
-                            required
-                            className="bg-[#111111] border-[#2a2a2a]"
-                          />
+                      <div className="flex-1 overflow-y-auto pr-2">
+                      <form onSubmit={handleLessonSubmit} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label>Título</Label>
+                            <Input
+                              value={lessonForm.title}
+                              onChange={(e) => setLessonForm({ ...lessonForm, title: e.target.value })}
+                              required
+                              className="bg-[#111111] border-[#2a2a2a]"
+                            />
+                          </div>
+                          <div>
+                            <Label>Tipo</Label>
+                            <select
+                              value={lessonForm.type}
+                              onChange={(e) => setLessonForm({ ...lessonForm, type: e.target.value })}
+                              className="w-full bg-[#111111] border border-[#2a2a2a] text-white py-2 px-3 rounded-lg"
+                            >
+                              <option value="video">Vídeo</option>
+                              <option value="text">Texto</option>
+                              <option value="file">Arquivo</option>
+                            </select>
+                          </div>
+                          <div>
+                            <Label>Duração (segundos)</Label>
+                            <Input
+                              type="number"
+                              value={lessonForm.duration}
+                              onChange={(e) => setLessonForm({ ...lessonForm, duration: parseInt(e.target.value) || 0 })}
+                              className="bg-[#111111] border-[#2a2a2a]"
+                            />
+                          </div>
+                          <div>
+                            <Label>Ordem</Label>
+                            <Input
+                              type="number"
+                              value={lessonForm.order}
+                              onChange={(e) => setLessonForm({ ...lessonForm, order: parseInt(e.target.value) })}
+                              className="bg-[#111111] border-[#2a2a2a]"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <Label>Tipo</Label>
-                          <select
-                            value={lessonForm.type}
-                            onChange={(e) => setLessonForm({ ...lessonForm, type: e.target.value })}
-                            className="w-full bg-[#111111] border border-[#2a2a2a] text-white py-2 px-3 rounded-lg"
-                          >
-                            <option value="video">Vídeo</option>
-                            <option value="text">Texto</option>
-                            <option value="file">Arquivo</option>
-                          </select>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="post_to_social"
+                            checked={!!lessonForm.post_to_social}
+                            onChange={(e) => setLessonForm({ ...lessonForm, post_to_social: e.target.checked })}
+                            className="w-4 h-4"
+                          />
+                          <Label htmlFor="post_to_social">Postar na comunidade</Label>
                         </div>
                         <div>
                           <Label>
                             {lessonForm.type === 'video' ? 'Código HTML Embed (Bunny.net)' : 
                              lessonForm.type === 'text' ? 'Conteúdo de Texto' : 'URL do Arquivo'}
                           </Label>
-                          {lessonForm.type === 'video' || lessonForm.type === 'text' ? (
-                            <Textarea
-                              value={lessonForm.content}
-                              onChange={(e) => {
-                                setLessonForm({ ...lessonForm, content: e.target.value });
-                                if (uploadFeedback) setUploadFeedback(null);
-                              }}
-                              required
-                              rows={lessonForm.type === 'video' ? 4 : 6}
-                              placeholder={lessonForm.type === 'video' 
-                                ? '<div style="position:relative;padding-top:56.25%;"><iframe src="..." ... ></iframe></div>'
-                                : 'Digite o conteúdo da aula...'
-                              }
-                              className="bg-[#111111] border-[#2a2a2a] font-mono text-sm"
-                            />
-                          ) : (
-                            <Input
-                              value={lessonForm.content}
-                              onChange={(e) => {
-                                setLessonForm({ ...lessonForm, content: e.target.value });
-                                if (uploadFeedback) setUploadFeedback(null);
-                              }}
-                              required
-                              placeholder="https://..."
-                              className="bg-[#111111] border-[#2a2a2a]"
-                            />
-                          )}
                           {lessonForm.type === 'video' && (
-                            <>
+                            <div className="space-y-3">
+                              <Textarea
+                                value={lessonForm.content}
+                                onChange={(e) => {
+                                  setLessonForm({ ...lessonForm, content: e.target.value });
+                                  if (uploadFeedback) setUploadFeedback(null);
+                                }}
+                                required
+                                rows={6}
+                                placeholder={'<div style="position:relative;padding-top:56.25%"><iframe src="..." ...></iframe></div>'}
+                                className="bg-[#111111] border-[#2a2a2a] font-mono text-sm"
+                              />
                               <p className="text-xs text-gray-500 mt-1">
-                                Cole o código embed completo do Bunny.net (incluindo as tags &lt;div&gt; e &lt;iframe&gt;) ou envie o arquivo
-                                direto para gerar automaticamente.
+                                Cole o embed completo do Bunny.net ou envie o arquivo para gerar automaticamente.
                               </p>
-                              <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
+                              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                   <p className="text-xs text-emerald-100/80">
-                                    Envie arquivos em MP4 ou MOV. O embed será preenchido automaticamente após o upload.
+                                    Envie arquivos em MP4 ou MOV. O embed será preenchido automaticamente.
                                   </p>
                                   <Button
                                     type="button"
@@ -1610,42 +1478,69 @@ function CourseManagement({ user, onLogout }) {
                                 accept="video/*"
                                 onChange={handleVideoFileSelected}
                               />
-                            </>
+                            </div>
+                          )}
+                          {lessonForm.type === 'text' && (
+                            <Textarea
+                              value={lessonForm.content}
+                              onChange={(e) => {
+                                setLessonForm({ ...lessonForm, content: e.target.value });
+                                if (uploadFeedback) setUploadFeedback(null);
+                              }}
+                              required
+                              rows={8}
+                              placeholder={'Digite o conteúdo da aula...'}
+                              className="bg-[#111111] border-[#2a2a2a]"
+                            />
                           )}
                           {lessonForm.type === 'file' && (
-                            <>
-                              <div className="mt-3 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 space-y-2">
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                  <p className="text-xs text-blue-100/80">
-                                    Faça upload de PDFs, slides ou planilhas para armazenar na Bunny Storage automaticamente.
-                                  </p>
-                                  <Button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={!storageConfigured || uploadingFile}
-                                    className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    <Upload size={16} className="mr-2" />
-                                    {uploadingFile ? 'Enviando arquivo...' : 'Enviar arquivo via Bunny'}
-                                  </Button>
-                                </div>
-                                {!storageConfigured && (
-                                  <p className="text-xs text-yellow-200/80">
-                                    Configure a Storage Zone em Configurações &gt; Bunny para habilitar o upload.
-                                  </p>
-                                )}
-                                {uploadingFile && (
-                                  <p className="text-xs text-blue-100/80 animate-pulse">Upload em andamento, aguarde...</p>
-                                )}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                              <div>
+                                <Input
+                                  value={lessonForm.content}
+                                  onChange={(e) => {
+                                    setLessonForm({ ...lessonForm, content: e.target.value });
+                                    if (uploadFeedback) setUploadFeedback(null);
+                                  }}
+                                  required
+                                  placeholder="https://..."
+                                  className="bg-[#111111] border-[#2a2a2a]"
+                                />
                               </div>
-                              <input
-                                ref={fileInputRef}
-                                type="file"
-                                className="hidden"
-                                onChange={handleMaterialFileSelected}
-                                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,application/pdf,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                              />
-                            </>
+                              <div>
+                                <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 space-y-2">
+                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                    <p className="text-xs text-blue-100/80">
+                                      Faça upload de PDFs, slides ou planilhas para armazenar na Bunny Storage.
+                                    </p>
+                                    <Button
+                                      type="button"
+                                      onClick={() => fileInputRef.current?.click()}
+                                      disabled={!storageConfigured || uploadingFile}
+                                      className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <Upload size={16} className="mr-2" />
+                                      {uploadingFile ? 'Enviando arquivo...' : 'Enviar arquivo via Bunny'}
+                                    </Button>
+                                  </div>
+                                  {!storageConfigured && (
+                                    <p className="text-xs text-yellow-200/80">
+                                      Configure a Storage Zone em Configurações &gt; Bunny para habilitar o upload.
+                                    </p>
+                                  )}
+                                  {uploadingFile && (
+                                    <p className="text-xs text-blue-100/80 animate-pulse">Upload em andamento, aguarde...</p>
+                                  )}
+                                </div>
+                                <input
+                                  ref={fileInputRef}
+                                  type="file"
+                                  className="hidden"
+                                  onChange={handleMaterialFileSelected}
+                                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,application/pdf,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                                />
+                              </div>
+                            </div>
                           )}
                         </div>
                         {uploadFeedback && (
@@ -1659,24 +1554,6 @@ function CourseManagement({ user, onLogout }) {
                             {uploadFeedback.text}
                           </div>
                         )}
-                        <div>
-                          <Label>Duração (segundos)</Label>
-                          <Input
-                            type="number"
-                            value={lessonForm.duration}
-                            onChange={(e) => setLessonForm({ ...lessonForm, duration: parseInt(e.target.value) || 0 })}
-                            className="bg-[#111111] border-[#2a2a2a]"
-                          />
-                        </div>
-                        <div>
-                          <Label>Ordem</Label>
-                          <Input
-                            type="number"
-                            value={lessonForm.order}
-                            onChange={(e) => setLessonForm({ ...lessonForm, order: parseInt(e.target.value) })}
-                            className="bg-[#111111] border-[#2a2a2a]"
-                          />
-                        </div>
 
                         {/* Links Section */}
                         <div className="border-t border-[#2a2a2a] pt-4">
@@ -1778,15 +1655,49 @@ function CourseManagement({ user, onLogout }) {
                           )}
                         </div>
 
-                        <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600">
-                          {editingLesson ? 'Atualizar' : 'Criar'}
-                        </Button>
+                        <div className="sticky bottom-0 bg-[#1a1a1a] pt-2">
+                          <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600">
+                            {editingLesson ? 'Atualizar' : 'Criar'}
+                          </Button>
+                        </div>
                       </form>
-                    </DialogContent>
-                  </Dialog>
-                </div>
+                      </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
 
-                <div className="space-y-3">
+              {/* Bunny Collection Sync Controls */}
+              <div className="bg-[#1a1a1a] border border-[#252525] rounded-lg p-4 mb-4">
+                <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
+                  <div className="flex-1">
+                    <Label>Coleção Bunny (Collection ID)</Label>
+                    <Input
+                      value={bunnyCollectionId}
+                      onChange={(e) => setBunnyCollectionId(e.target.value)}
+                      placeholder={streamConfigured ? 'Digite o Collection ID ou use o padrão' : 'Bunny Stream não configurado'}
+                      className="bg-[#111111] border-[#2a2a2a] text-white"
+                      disabled={!streamConfigured}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={handleSyncBunnyCollection}
+                      disabled={!streamConfigured || syncingBunny}
+                      className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/40"
+                    >
+                      <Upload size={16} className="mr-2" />
+                      {syncingBunny ? 'Sincronizando...' : 'Sincronizar vídeos'}
+                    </Button>
+                  </div>
+                </div>
+                {syncFeedback && (
+                  <p className={`mt-2 text-sm ${syncFeedback.type === 'error' ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {syncFeedback.text}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3">
                   {lessonOrderSaving && (
                     <p className="text-xs text-emerald-300">Salvando ordem das aulas...</p>
                   )}
@@ -1851,7 +1762,8 @@ function CourseManagement({ user, onLogout }) {
                                     content: lesson.content,
                                     duration: lesson.duration,
                                     order: lesson.order,
-                                    links: lesson.links || []
+                                    links: lesson.links || [],
+                                    post_to_social: lesson.post_to_social ?? true
                                   });
                                   setShowLessonDialog(true);
                                 }}

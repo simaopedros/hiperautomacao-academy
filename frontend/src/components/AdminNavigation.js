@@ -45,10 +45,10 @@ const AdminNavigation = ({ user, onLogout }) => {
 
   return (
     <header className="bg-[#111111] border-b border-[#252525] sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-8">
+      <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex items-start md:items-center gap-3 md:gap-8 w-full">
           <h1 className="text-2xl font-bold gradient-text">Hiperautomação Admin</h1>
-          <nav className="flex gap-6">
+          <nav className="flex items-center gap-4 md:gap-6 flex-wrap">
             {/* Conteúdo Dropdown */}
             <div className="relative">
               <button
@@ -59,7 +59,7 @@ const AdminNavigation = ({ user, onLogout }) => {
                   setShowFinanceMenu(false);
                   setShowConfigMenu(false);
                 }}
-                className={`flex items-center gap-2 transition-colors ${
+                className={`flex items-center gap-2 transition-colors whitespace-nowrap text-sm md:text-base ${
                   location.pathname === '/admin' || location.pathname.includes('/admin/categories')
                     ? 'text-emerald-400 hover:text-emerald-300'
                     : 'text-gray-400 hover:text-white'
@@ -70,7 +70,7 @@ const AdminNavigation = ({ user, onLogout }) => {
                 <ChevronDown size={16} />
               </button>
               {showContentMenu && (
-                <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
+                <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[220px] z-50">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -107,7 +107,7 @@ const AdminNavigation = ({ user, onLogout }) => {
                   setShowFinanceMenu(false);
                   setShowConfigMenu(false);
                 }}
-                className={`flex items-center gap-2 transition-colors ${
+                className={`flex items-center gap-2 transition-colors whitespace-nowrap text-sm md:text-base ${
                   location.pathname.includes('/admin/users') || 
                   location.pathname.includes('/admin/community') ||
                   location.pathname.includes('/admin/gamification')
@@ -120,7 +120,7 @@ const AdminNavigation = ({ user, onLogout }) => {
                 <ChevronDown size={16} />
               </button>
               {showUsersMenu && (
-                <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
+                <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[240px] z-50">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -168,7 +168,7 @@ const AdminNavigation = ({ user, onLogout }) => {
                   setShowUsersMenu(false);
                   setShowConfigMenu(false);
                 }}
-                className={`flex items-center gap-2 transition-colors ${
+                className={`flex items-center gap-2 transition-colors whitespace-nowrap text-sm md:text-base ${
                   location.pathname.includes('/admin/finance') || 
                   location.pathname.includes('/admin/gateway') || 
                   location.pathname.includes('/admin/payment') ||
@@ -182,7 +182,7 @@ const AdminNavigation = ({ user, onLogout }) => {
                 <ChevronDown size={16} />
               </button>
               {showFinanceMenu && (
-                <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[240px] z-50">
+                <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[280px] z-50">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -252,10 +252,11 @@ const AdminNavigation = ({ user, onLogout }) => {
                   setShowUsersMenu(false);
                   setShowFinanceMenu(false);
                 }}
-                className={`flex items-center gap-2 transition-colors ${
+                className={`flex items-center gap-2 transition-colors whitespace-nowrap text-sm md:text-base ${
                   location.pathname.includes('/admin/email') || 
                   location.pathname.includes('/admin/lead') || 
                   location.pathname.includes('/admin/support') ||
+                  location.pathname.includes('/admin/analytics') ||
                   location.pathname.includes('/admin/media')
                     ? 'text-emerald-400 hover:text-emerald-300'
                     : 'text-gray-400 hover:text-white'
@@ -266,7 +267,7 @@ const AdminNavigation = ({ user, onLogout }) => {
                 <ChevronDown size={16} />
               </button>
               {showConfigMenu && (
-                <div className="absolute top-full left-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[200px] z-50">
+                <div className="absolute top-full right-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg min-w-[280px] z-50">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -310,6 +311,17 @@ const AdminNavigation = ({ user, onLogout }) => {
                   >
                     <HeadphonesIcon size={16} />
                     Configurar Suporte
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate('/admin/analytics');
+                      setShowConfigMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
+                  >
+                    <BarChart3 size={16} />
+                    Configurar Analytics
                   </button>
                   <button
                     onClick={(e) => {
