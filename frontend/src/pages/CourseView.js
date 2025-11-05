@@ -5,6 +5,7 @@ import { ArrowLeft, Play, FileText, Download, CheckCircle, Circle, Clock, BookOp
 import { Button } from '@/components/ui/button';
 import useI18n from '@/hooks/useI18n';
 import { Sparkles } from 'lucide-react';
+import UnifiedHeader from '@/components/UnifiedHeader';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -173,6 +174,20 @@ export default function CourseView({ user, onLogout }) {
     return Math.round((completedLessons / totalLessons) * 100);
   };
 
+  // Helper: map course language to flag emoji for compact indication
+  const getLanguageFlag = (lang) => {
+    switch ((lang || '').toLowerCase()) {
+      case 'pt':
+        return '🇧🇷';
+      case 'en':
+        return '🇺🇸';
+      case 'es':
+        return '🇪🇸';
+      default:
+        return '🌐'; // Fallback for undefined/other languages
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#01030a] via-[#050b16] to-[#02060f] flex items-center justify-center">
@@ -206,19 +221,17 @@ export default function CourseView({ user, onLogout }) {
     const recommendedPlan = plans.length > 1 ? plans[1] : (plans[0] || null);
     return (
       <div className="min-h-screen bg-[#02060f] text-white relative overflow-hidden">
+        <UnifiedHeader
+          user={user}
+          onLogout={onLogout}
+        />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_60%)] pointer-events-none" />
         <div className="absolute -top-24 -right-10 w-80 h-80 bg-emerald-500/20 blur-[140px] pointer-events-none" />
         <div className="absolute -bottom-20 -left-8 w-72 h-72 bg-blue-500/15 blur-[130px] pointer-events-none" />
 
         <div className="relative z-10 w-full max-w-md mx-auto px-4 py-10">
           <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-xl shadow-[0_25px_90px_rgba(0,0,0,0.55)]">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
-            >
-              <ArrowLeft size={18} />
-              {t('course.backToCourses')}
-            </button>
+            {/* Back button removido conforme solicitação */}
 
             <div className="text-center mb-6">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 border border-white/10 flex items-center justify-center mx-auto mb-4">
@@ -226,6 +239,14 @@ export default function CourseView({ user, onLogout }) {
               </div>
               <h1 className="text-xl font-semibold text-white mb-1 truncate">{t('course.upsell.heading')}</h1>
               <p className="text-gray-300 text-xs whitespace-nowrap truncate">{t('course.upsell.subtitle')}</p>
+              {courseInfo?.language && (
+                <div className="mt-2 flex items-center justify-center">
+                  <span className="inline-flex items-center gap-1 bg-white/5 border border-white/10 text-gray-300 px-2 py-1 rounded-full">
+                    <span className="text-base leading-none">{getLanguageFlag(courseInfo.language)}</span>
+                    <span className="text-[10px] uppercase tracking-wider">{(courseInfo.language || '').toUpperCase()}</span>
+                  </span>
+                </div>
+              )}
               {courseInfo?.title && (
                 <p className="text-gray-400 text-[11px] mt-2 whitespace-nowrap truncate">{courseInfo.title}</p>
               )}
@@ -286,83 +307,56 @@ export default function CourseView({ user, onLogout }) {
   const totalProgress = getTotalProgress();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#01030a] via-[#050b16] to-[#02060f]">
-      {/* Header */}
-      <header className="glass-panel border-b border-white/10 sticky top-0 z-50 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <Button
-              data-testid="back-button"
-              variant="ghost"
-              onClick={() => navigate('/dashboard')}
-              className="text-gray-400 hover:text-white hover:bg-white/10"
-            >
-              <ArrowLeft size={20} className="mr-2" />
-              {t('course.backToCourses')}
-            </Button>
-            
+    <div className="min-h-screen bg-[#02060f]">
+      <UnifiedHeader
+        user={user}
+        onLogout={onLogout}
+      />
+
+      {/* Course Header - Minimal */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="glass-panel p-6 rounded-2xl border border-white/10">
+          <div className="flex items-start justify-between gap-6">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-3">
+                {course.category && (
+                  <span className="inline-flex items-center gap-1 chip border-white/15 text-gray-300">
+                    {course.category}
+                  </span>
+                )}
+                {course.language && (
+                  <span className="inline-flex items-center gap-1 bg-white/5 border border-white/10 text-gray-300 px-2 py-1 rounded-full">
+                    <span className="text-base leading-none">{getLanguageFlag(course.language)}</span>
+                    <span className="text-[10px] uppercase tracking-wider">{(course.language || '').toUpperCase()}</span>
+                  </span>
+                )}
+              </div>
+              <h1 className="text-2xl font-bold text-white">{course.title}</h1>
+              {course.description && (
+                <p className="text-sm text-gray-400 mt-2 line-clamp-2">{course.description}</p>
+              )}
+            </div>
             <div className="flex items-center gap-4">
               <div className="text-right">
-                <p className="text-xs text-gray-400 uppercase tracking-wider">Progresso</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wider">{t('course.courseContent')}</p>
                 <p className="text-lg font-semibold text-white">{totalProgress}%</p>
               </div>
-              <div className="w-16 h-2 bg-white/10 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 transition-all duration-500"
+              <div className="w-20 h-2 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500"
                   style={{ width: `${totalProgress}%` }}
                 />
               </div>
             </div>
           </div>
         </div>
-      </header>
-
-      {/* Course Hero */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/40 via-cyan-900/40 to-blue-900/40">
-          {course.thumbnail_url && (
-            <img
-              src={course.thumbnail_url}
-              alt={course.title}
-              className="w-full h-full object-cover opacity-20"
-            />
-          )}
-        </div>
-        <div className="relative max-w-7xl mx-auto px-6 py-16">
-          <div className="glass-panel rounded-3xl border border-white/10 p-8 shadow-[0_25px_90px_rgba(0,0,0,0.55)]">
-            <div className="flex flex-col lg:flex-row gap-8 items-start">
-              <div className="flex-1">
-                {course.category && (
-                  <span className="inline-block bg-emerald-500/20 text-emerald-400 text-sm font-semibold px-4 py-2 rounded-full mb-4">
-                    {course.category}
-                  </span>
-                )}
-                <h1 className="text-4xl lg:text-5xl font-bold text-white mb-4 leading-tight">{course.title}</h1>
-                <p className="text-xl text-gray-300 leading-relaxed max-w-3xl">{course.description}</p>
-              </div>
-              
-              <div className="flex-shrink-0">
-                <div className="bg-white/5 rounded-2xl border border-white/10 p-6 min-w-[200px]">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <BookOpen size={32} className="text-emerald-400" />
-                    </div>
-                    <p className="text-sm text-gray-400 mb-1">Módulos</p>
-                    <p className="text-2xl font-bold text-white">{course.modules?.length || 0}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Course Content */}
-      <main className="max-w-7xl mx-auto px-6 py-12">
-        <div className="mb-8">
-          <p className="text-xs uppercase tracking-[0.35em] text-emerald-200 mb-3">{t('course.courseContent')}</p>
-          <h2 className="text-3xl font-bold text-white">Módulos e Aulas</h2>
-          <p className="text-gray-400 mt-2">Navegue pelo conteúdo do curso e acompanhe seu progresso</p>
+      {/* Course Content - Minimal */}
+      <main className="max-w-7xl mx-auto px-6 pb-12">
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-white">Módulos e aulas</h2>
+          <p className="text-xs text-gray-400">Visualize rapidamente os módulos e suas respectivas aulas</p>
         </div>
 
         {course.modules && course.modules.length === 0 ? (
@@ -374,91 +368,69 @@ export default function CourseView({ user, onLogout }) {
             <p className="text-gray-400 text-lg">{t('course.noContentAvailable')}</p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {course.modules?.map((module, moduleIndex) => {
               const moduleProgress = getModuleProgress(module);
               return (
                 <div
                   key={module.id}
                   data-testid={`module-${module.id}`}
-                  className="glass-panel rounded-3xl border border-white/10 overflow-hidden animate-fade-in shadow-[0_25px_90px_rgba(0,0,0,0.35)]"
-                  style={{ animationDelay: `${moduleIndex * 0.1}s` }}
+                  className="glass-panel rounded-2xl border border-white/10 overflow-hidden"
+                  style={{ animationDelay: `${moduleIndex * 0.08}s` }}
                 >
-                  {/* Module Header */}
-                  <div className="bg-gradient-to-r from-white/5 to-white/10 p-6 border-b border-white/10">
+                  {/* Module Header - Minimal */}
+                  <div className="p-4 border-b border-white/10">
                     <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-4 mb-2">
-                          <div className="w-10 h-10 bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 rounded-xl flex items-center justify-center">
-                            <span className="text-emerald-400 font-bold">{moduleIndex + 1}</span>
-                          </div>
-                          <h3 className="text-2xl font-bold text-white">
-                            {module.title}
-                          </h3>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-white/5 rounded-lg flex items-center justify-center">
+                          <span className="text-emerald-400 font-semibold text-sm">{moduleIndex + 1}</span>
                         </div>
-                        {module.description && (
-                          <p className="text-gray-300 ml-14">{module.description}</p>
-                        )}
+                        <h3 className="text-lg font-semibold text-white">{module.title}</h3>
                       </div>
-                      
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="text-xs text-gray-400 uppercase tracking-wider">Progresso</p>
-                          <p className="text-lg font-semibold text-white">{moduleProgress}%</p>
-                        </div>
-                        <div className="w-16 h-2 bg-white/10 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 transition-all duration-500"
-                            style={{ width: `${moduleProgress}%` }}
-                          />
-                        </div>
-                      </div>
+                      <div className="text-xs text-gray-400">{module.lessons?.length || 0} aulas · {moduleProgress}%</div>
                     </div>
+                    {module.description && (
+                      <p className="text-sm text-gray-400 mt-2">{module.description}</p>
+                    )}
                   </div>
 
-                  {/* Module Lessons */}
-                  <div className="p-6">
-                    <div className="grid gap-4">
+                  {/* Module Lessons - Minimal */}
+                  <div className="p-4">
+                    <div className="grid gap-2">
                       {module.lessons?.map((lesson, lessonIndex) => {
                         const isCompleted = isLessonCompleted(lesson.id);
                         return (
                           <button
                             key={lesson.id}
                             data-testid={`lesson-${lesson.id}`}
-                            className="group bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-400/30 rounded-2xl p-4 transition-all duration-300 cursor-pointer text-left"
+                            className="group bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 transition-colors cursor-pointer text-left"
                             onClick={() => navigate(`/lesson/${lesson.id}`)}
                           >
-                            <div className="flex items-center gap-4">
-                              <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-white/10 to-white/5 rounded-xl flex items-center justify-center group-hover:from-emerald-500/20 group-hover:to-cyan-500/20 transition-all duration-300">
+                            <div className="flex items-center gap-3">
+                              <div className="flex-shrink-0 w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center">
                                 {getLessonIcon(lesson.type)}
                               </div>
-                              
                               <div className="flex-1 min-w-0">
-                                <h4 className="text-white font-semibold group-hover:text-emerald-400 transition-colors text-lg">
+                                <h4 className="text-white font-semibold text-sm">
                                   {lessonIndex + 1}. {lesson.title}
                                 </h4>
-                                <div className="flex items-center gap-4 mt-1">
-                                  <span className="text-xs text-gray-400 uppercase tracking-wider bg-white/5 px-2 py-1 rounded-full">
+                                <div className="flex items-center gap-3 mt-1">
+                                  <span className="text-[11px] text-gray-400 uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded-full">
                                     {lesson.type}
                                   </span>
                                   {lesson.duration > 0 && (
-                                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                                    <span className="text-[11px] text-gray-400 flex items-center gap-1">
                                       <Clock size={12} />
                                       {Math.floor(lesson.duration / 60)}:{(lesson.duration % 60).toString().padStart(2, '0')}
                                     </span>
                                   )}
                                 </div>
                               </div>
-                              
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center">
                                 {isCompleted ? (
-                                  <div className="w-8 h-8 bg-emerald-500/20 rounded-full flex items-center justify-center">
-                                    <CheckCircle size={20} className="text-emerald-400" />
-                                  </div>
+                                  <CheckCircle size={18} className="text-emerald-400" />
                                 ) : (
-                                  <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center group-hover:bg-emerald-500/20 transition-colors">
-                                    <Circle size={20} className="text-gray-500 group-hover:text-emerald-400" />
-                                  </div>
+                                  <Circle size={18} className="text-gray-500 group-hover:text-emerald-400" />
                                 )}
                               </div>
                             </div>
