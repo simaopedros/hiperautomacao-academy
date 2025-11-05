@@ -1374,6 +1374,40 @@ function CourseManagement({ user, onLogout }) {
                         <DialogTitle>{editingLesson ? 'Editar' : 'Nova'} Aula</DialogTitle>
                       </DialogHeader>
                       <div className="flex-1 overflow-y-auto pr-2">
+                      {lessonForm.type === 'video' && (
+                        <div className="mb-4 rounded-lg border border-[#2a2a2a] bg-[#111111] p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm text-gray-300">Bunny Stream: {streamConfigured ? 'Ativo' : 'Incompleto'}</p>
+                              <p className="text-xs text-gray-500">
+                                {streamConfigured ? `Library ID: ${bunnyConfig?.stream_library_id || '-'}` : 'Configure em Configurações > Bunny'}
+                              </p>
+                              {streamConfigured && (
+                                <p className="text-xs text-gray-500">Coleção padrão: {bunnyConfig?.stream_collection_id || '—'}</p>
+                              )}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={() => navigate('/admin/media')}
+                              className="text-gray-400 hover:text-white"
+                            >
+                              <Settings size={16} className="mr-2" />
+                              Abrir Configurações Bunny
+                            </Button>
+                          </div>
+                          <div className="mt-3">
+                            <Label>Coleção Bunny (Collection ID)</Label>
+                            <Input
+                              value={bunnyCollectionId}
+                              onChange={(e) => setBunnyCollectionId(e.target.value)}
+                              placeholder={streamConfigured ? 'Use a padrão ou defina uma' : 'Bunny Stream não configurado'}
+                              className="bg-[#111111] border-[#2a2a2a]"
+                              disabled={!streamConfigured}
+                            />
+                          </div>
+                        </div>
+                      )}
                       <form onSubmit={handleLessonSubmit} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
