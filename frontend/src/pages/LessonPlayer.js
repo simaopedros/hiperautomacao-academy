@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   ArrowLeft,
+  ArrowRight,
   MessageCircle,
   ThumbsUp,
   Send,
@@ -17,7 +18,14 @@ import {
   ExternalLink,
   Clock,
   Users,
-  Star
+  Maximize2,
+  Minimize2,
+  ChevronRight,
+  ChevronDown,
+  Sparkles,
+  LayoutDashboard,
+  ChevronLeft,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,6 +43,7 @@ export default function LessonPlayer({ user, onLogout }) {
   const [courseData, setCourseData] = useState(null);
   const [moduleInfo, setModuleInfo] = useState(null);
   const [nextLesson, setNextLesson] = useState(null);
+  const [nextModuleEntry, setNextModuleEntry] = useState(null);
   const [previousLesson, setPreviousLesson] = useState(null);
   const [isCompleted, setIsCompleted] = useState(false);
   const [comments, setComments] = useState([]);
@@ -43,6 +52,121 @@ export default function LessonPlayer({ user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [expandedModules, setExpandedModules] = useState({});
+  const [progressSummary, setProgressSummary] = useState({
+    totalLessons: 0,
+    totalCompleted: 0,
+    coursePercent: 0,
+    modulePercentMap: {}
+  });
+  const [isImmersive, setIsImmersive] = useState(false);
+  const [motivationMessage, setMotivationMessage] = useState(null);
+  const [completionPulse, setCompletionPulse] = useState(false);
+  const [isQuickMenuCollapsed, setIsQuickMenuCollapsed] = useState(false);
+
+  const motivationTimeoutRef = useRef(null);
+  const completionPulseTimeoutRef = useRef(null);
+  const discussionRef = useRef(null);
+
+  const calculateProgress = (detail) => {
+    const modules = detail?.modules ?? [];
+    let totalLessons = 0;
+    let totalCompleted = 0;
+    const modulePercentMap = {};
+
+    modules.forEach((module) => {
+      const lessons = module?.lessons ?? [];
+      const moduleKey = module.id ?? module.title;
+      const completedCount = lessons.filter(
+        (lessonItem) => lessonItem.completed || lessonItem.progress === 100
+      ).length;
+
+      totalLessons += lessons.length;
+      totalCompleted += completedCount;
+      const percent = lessons.length ? Math.round((completedCount / lessons.length) * 100) : 0;
+      modulePercentMap[moduleKey] = {
+        completed: completedCount,
+        total: lessons.length,
+        percent: Math.min(100, Math.max(0, percent))
+      };
+    });
+
+    const coursePercent = totalLessons
+      ? Math.min(100, Math.max(0, Math.round((totalCompleted / totalLessons) * 100)))
+      : 0;
+
+    return { totalLessons, totalCompleted, coursePercent, modulePercentMap };
+  };
+
+  const enhanceCourseWithProgress = (detail, progressList) => {
+    if (!detail?.modules) return detail;
+
+    const progressMap = new Map();
+    (progressList || []).forEach((item) => {
+      if (!item) return;
+      const key = String(item.lesson_id ?? item.lessonId ?? item.id);
+      if (!key) return;
+      progressMap.set(key, item);
+    });
+
+    const modules = detail.modules.map((module) => {
+      const lessons = module?.lessons ?? [];
+      if (!lessons.length) return module;
+
+      return {
+        ...module,
+        lessons: lessons.map((lessonItem) => {
+          const progress = progressMap.get(String(lessonItem.id));
+          if (!progress) {
+            return {
+              ...lessonItem,
+              completed: Boolean(lessonItem.completed || lessonItem.progress === 100),
+              progress: lessonItem.progress ?? (lessonItem.completed ? 100 : 0)
+            };
+          }
+
+          const resolvedProgress =
+            progress.progress ??
+            progress.progress_percent ??
+            progress.progressPercentage ??
+            (progress.completed ? 100 : lessonItem.progress ?? 0);
+
+          return {
+            ...lessonItem,
+            completed: Boolean(progress.completed),
+            progress: resolvedProgress,
+            estimated_time:
+              lessonItem.estimated_time ??
+              progress.estimated_time ??
+              progress.duration ??
+              lessonItem.duration,
+            duration: lessonItem.duration
+          };
+        })
+      };
+    });
+
+    return { ...detail, modules };
+  };
+
+  const handleImmersiveToggle = () => {
+    setIsImmersive((prev) => {
+      const next = !prev;
+      if (next) {
+        setOutlineOpen(false);
+      } else if (isDesktop) {
+        setOutlineOpen(true);
+      }
+      return next;
+    });
+  };
+
+  const scrollToDiscussion = () => {
+    if (discussionRef.current) {
+      discussionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
 
   useEffect(() => {
     fetchLesson();
@@ -68,6 +192,22 @@ export default function LessonPlayer({ user, onLogout }) {
     query.addEventListener('change', handleChange);
     return () => query.removeEventListener('change', handleChange);
   }, []);
+
+  useEffect(() => {
+    setMotivationMessage(null);
+  }, [lessonId]);
+
+  useEffect(
+    () => () => {
+      if (motivationTimeoutRef.current) {
+        clearTimeout(motivationTimeoutRef.current);
+      }
+      if (completionPulseTimeoutRef.current) {
+        clearTimeout(completionPulseTimeoutRef.current);
+      }
+    },
+    []
+  );
 
   const fetchLesson = async () => {
     try {
@@ -96,27 +236,77 @@ export default function LessonPlayer({ user, onLogout }) {
           headers: { Authorization: `Bearer ${token}` }
         });
 
-        const detail = detailResponse.data;
+        let detail = detailResponse.data;
         const modules = detail.modules || [];
 
         const moduleFound = modules.find((module) => module.id === moduleId);
         if (!moduleFound) continue;
 
+        let progressItems = [];
+        try {
+          const progressResponse = await axios.get(`${API}/progress/${detail.id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          progressItems = Array.isArray(progressResponse.data) ? progressResponse.data : [];
+        } catch (progressError) {
+          console.error('Error fetching progress data:', progressError);
+        }
+
+        detail = enhanceCourseWithProgress(detail, progressItems);
+        const enhancedModules = detail.modules || [];
+        const enhancedModule = enhancedModules.find((module) => module.id === moduleId) ?? moduleFound;
+
         setCourseData(detail);
+        setProgressSummary(calculateProgress(detail));
         setModuleInfo({
           courseId: detail.id,
           courseTitle: detail.title,
-          moduleId: moduleFound.id,
-          moduleTitle: moduleFound.title
+          moduleId: enhancedModule.id,
+          moduleTitle: enhancedModule.title
+        });
+
+        const currentLessonData = enhancedModules
+          .flatMap((moduleItem) => moduleItem.lessons || [])
+          .find((lessonItem) => String(lessonItem.id) === String(lessonId));
+        if (currentLessonData) {
+          setIsCompleted(Boolean(currentLessonData.completed || currentLessonData.progress === 100));
+        }
+
+        setExpandedModules((previous) => {
+          const modulesState = { ...(previous || {}) };
+          const modulesList = enhancedModules || [];
+          const activeKey = enhancedModule.id ?? enhancedModule.title;
+
+          // Remove modules that no longer exist
+          Object.keys(modulesState).forEach((key) => {
+            const exists = modulesList.some((item) => (item.id ?? item.title) === key);
+            if (!exists) delete modulesState[key];
+          });
+
+          // Ensure all modules have an entry
+          modulesList.forEach((moduleItem) => {
+            const key = moduleItem.id ?? moduleItem.title;
+            if (!(key in modulesState)) {
+              modulesState[key] = moduleItem.id === enhancedModule.id;
+            }
+          });
+
+          if (activeKey != null) {
+            modulesState[activeKey] = true;
+          }
+
+          return modulesState;
         });
 
         setPreviousLesson(null);
         setNextLesson(null);
+        setNextModuleEntry(null);
 
         let lastVisited = null;
         let foundCurrent = false;
 
-        for (const module of modules) {
+        for (let moduleIndex = 0; moduleIndex < enhancedModules.length; moduleIndex += 1) {
+          const module = enhancedModules[moduleIndex];
           const lessons = module.lessons || [];
           for (let index = 0; index < lessons.length; index += 1) {
             const lessonItem = lessons[index];
@@ -136,6 +326,26 @@ export default function LessonPlayer({ user, onLogout }) {
           }
 
           if (foundCurrent) {
+            if (!nextLesson) {
+              const upcomingLessons = module.lessons || [];
+              const currentIndex = upcomingLessons.findIndex(
+                (lessonItem) => String(lessonItem.id) === String(lessonId)
+              );
+              const localNext = currentIndex >= 0 ? upcomingLessons[currentIndex + 1] : null;
+              if (!localNext) {
+                const nextModule = enhancedModules[moduleIndex + 1];
+                if (nextModule) {
+                  const firstLesson = (nextModule.lessons || [])[0];
+                  if (firstLesson) {
+                    setNextModuleEntry({
+                      moduleId: nextModule.id,
+                      moduleTitle: nextModule.title,
+                      lesson: firstLesson
+                    });
+                  }
+                }
+              }
+            }
             break;
           }
         }
@@ -159,19 +369,27 @@ export default function LessonPlayer({ user, onLogout }) {
     }
   };
 
-  const checkProgress = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API}/progress/${courseData.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const progressItem = response.data.find(
-        (item) => String(item.lesson_id) === String(lessonId)
-      );
-      setIsCompleted(Boolean(progressItem?.completed));
-    } catch (error) {
-      console.error('Error checking progress:', error);
+  const checkProgress = () => {
+    if (!courseData?.modules?.length) {
+      setIsCompleted(false);
+      return;
     }
+
+    let lessonFound = false;
+    let completed = false;
+
+    for (const module of courseData.modules) {
+      for (const lessonItem of module.lessons || []) {
+        if (String(lessonItem.id) === String(lessonId)) {
+          lessonFound = true;
+          completed = Boolean(lessonItem.completed || lessonItem.progress === 100);
+          break;
+        }
+      }
+      if (lessonFound) break;
+    }
+
+    setIsCompleted(completed);
   };
 
   const handleCommentSubmit = async (event) => {
@@ -222,32 +440,132 @@ export default function LessonPlayer({ user, onLogout }) {
     }
   };
 
-  const toggleCompleted = async () => {
+  const updateLessonCompletion = async (
+    targetCompleted,
+    { navigateAfterCompleted = false, force = false, nextLessonId = null } = {}
+  ) => {
     try {
+      if (!force && targetCompleted === isCompleted && !navigateAfterCompleted) {
+        return;
+      }
+
       const token = localStorage.getItem('token');
-      const newCompleted = !isCompleted;
 
       await axios.post(
         `${API}/progress`,
-        { lesson_id: lessonId, completed: newCompleted, last_position: 0 },
+        { lesson_id: lessonId, completed: targetCompleted, last_position: 0 },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      setIsCompleted(newCompleted);
+      setIsCompleted(targetCompleted);
+
+      if (completionPulseTimeoutRef.current) {
+        clearTimeout(completionPulseTimeoutRef.current);
+      }
+
+      if (targetCompleted) {
+        setCompletionPulse(true);
+        completionPulseTimeoutRef.current = setTimeout(() => {
+          setCompletionPulse(false);
+        }, 800);
+      } else {
+        setCompletionPulse(false);
+      }
+
+      let projectedSummary = progressSummary;
+      if (courseData) {
+        setCourseData((previous) => {
+          if (!previous?.modules) return previous;
+
+          const updatedModules = previous.modules.map((module) => {
+            const lessons = module?.lessons ?? [];
+            if (!lessons.length) return module;
+
+            return {
+              ...module,
+              lessons: lessons.map((lessonItem) => {
+                if (String(lessonItem.id) !== String(lessonId)) return lessonItem;
+
+                const resolvedProgress = targetCompleted ? 100 : 0;
+
+                return {
+                  ...lessonItem,
+                  completed: targetCompleted,
+                  progress: resolvedProgress
+                };
+              })
+            };
+          });
+
+          const updatedCourse = { ...previous, modules: updatedModules };
+          const summary = calculateProgress(updatedCourse);
+          projectedSummary = summary;
+          setProgressSummary(summary);
+          return updatedCourse;
+        });
+      }
+
+      if (motivationTimeoutRef.current) {
+        clearTimeout(motivationTimeoutRef.current);
+      }
+
+      if (targetCompleted) {
+        const fallbackSummary = courseData ? calculateProgress(courseData) : progressSummary;
+        const totalLessons = projectedSummary.totalLessons || fallbackSummary.totalLessons;
+        const completedLessons =
+          projectedSummary.totalCompleted || fallbackSummary.totalCompleted || 0;
+
+        if (totalLessons) {
+          setMotivationMessage(`Excelente! Você concluiu ${completedLessons}/${totalLessons} aulas 🎉`);
+        } else {
+          setMotivationMessage('Excelente! Aula concluída 🎉');
+        }
+
+        motivationTimeoutRef.current = setTimeout(() => {
+          setMotivationMessage(null);
+        }, 5000);
+      } else {
+        setMotivationMessage(null);
+      }
 
       if (moduleInfo) {
         await fetchCourseAndFindNeighbours(moduleInfo.moduleId, token);
       }
-      await checkProgress();
+      checkProgress();
 
-      if (newCompleted && nextLesson) {
-        setTimeout(() => navigate(`/lesson/${nextLesson.id}`), 400);
-      } else if (newCompleted && !nextLesson) {
-        alert(t('lesson.congratulationsCompleted'));
+      if (targetCompleted && navigateAfterCompleted) {
+        const destinationId = nextLessonId ?? nextLesson?.id;
+        if (destinationId) {
+          setTimeout(() => navigate(`/lesson/${destinationId}`), 400);
+        } else {
+          alert(t('lesson.congratulationsCompleted'));
+        }
       }
     } catch (error) {
-      console.error('Error toggling completed:', error);
+      console.error('Error updating completion:', error);
     }
+  };
+
+  const handleNextLesson = async () => {
+    const destinationId = nextLesson?.id ?? nextModuleEntry?.lesson?.id ?? null;
+    if (!destinationId) return;
+    if (isCompleted) {
+      navigate(`/lesson/${destinationId}`);
+      return;
+    }
+    await updateLessonCompletion(true, {
+      navigateAfterCompleted: true,
+      force: true,
+      nextLessonId: destinationId
+    });
+  };
+
+  const toggleCompleted = async () => {
+    await updateLessonCompletion(!isCompleted, { force: true });
+  };
+
+  const toggleQuickMenu = () => {
+    setIsQuickMenuCollapsed((previous) => !previous);
   };
 
   const organizeComments = () => {
@@ -272,75 +590,142 @@ export default function LessonPlayer({ user, onLogout }) {
       );
     }
 
-    return courseData.modules.map((module) => (
-      <div key={module.id ?? module.title} className="glass-panel p-6 transition-all duration-300 hover:scale-[1.02]">
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <div>
-            <h3 className="text-lg font-bold text-white">{module.title}</h3>
-            <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
-              <Clock className="h-3 w-3" />
-              <span>{(module.lessons || []).length} {t('lesson.lessons')}</span>
-            </div>
-          </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500/20 to-blue-500/20">
-            <BookOpen className="h-5 w-5 text-emerald-400" />
-          </div>
-        </div>
-        
-        <div className="space-y-2">
-          {(module.lessons || []).map((lessonItem) => {
-            const isActive = String(lessonItem.id) === String(lessonId);
-            const completed = lessonItem.completed || lessonItem.progress === 100;
+    return courseData.modules.map((module) => {
+      const lessons = module?.lessons ?? [];
+      const moduleKey = module.id ?? module.title;
+      const completedCount = lessons.filter(
+        (lessonItem) => lessonItem.completed || lessonItem.progress === 100
+      ).length;
+      const moduleProgress =
+        progressSummary.modulePercentMap[moduleKey] ?? {
+          completed: completedCount,
+          total: lessons.length,
+          percent: lessons.length ? Math.round((completedCount / lessons.length) * 100) : 0
+        };
+      const isExpanded = expandedModules[moduleKey] ?? module.id === moduleInfo?.moduleId;
+      const isModuleCompleted = moduleProgress.total > 0 && moduleProgress.completed === moduleProgress.total;
 
-            return (
-              <button
-                type="button"
-                key={lessonItem.id}
-                onClick={() => navigate(`/lesson/${lessonItem.id}`)}
-                className={`group w-full rounded-xl border p-3 text-left transition-all duration-300 ${
-                  isActive
-                    ? 'border-emerald-400/50 bg-gradient-to-r from-emerald-500/20 to-blue-500/10 shadow-[0_8px_30px_rgba(16,185,129,0.25)] scale-105'
-                    : 'border-white/10 bg-white/[0.02] hover:border-emerald-400/30 hover:bg-white/[0.05] hover:scale-[1.02]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-                    completed 
-                      ? 'bg-emerald-500/20 text-emerald-400' 
-                      : 'bg-gray-500/20 text-gray-400 group-hover:bg-emerald-500/10 group-hover:text-emerald-400'
-                  }`}>
-                    {completed ? (
-                      <CheckCircle2 className="h-4 w-4" />
-                    ) : (
-                      <Circle className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className={`truncate text-sm font-medium transition-colors ${
-                      isActive ? 'text-white' : 'text-gray-300 group-hover:text-white'
-                    }`}>
-                      {lessonItem.title}
-                    </p>
-                    {lessonItem.type && (
-                      <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-                        {lessonItem.type === 'video' && <Play className="h-3 w-3" />}
-                        {lessonItem.type === 'text' && <FileText className="h-3 w-3" />}
-                        {lessonItem.type === 'file' && <Download className="h-3 w-3" />}
-                        <span className="capitalize">{lessonItem.type}</span>
+      return (
+        <div
+          key={moduleKey}
+          className={`glass-panel transition-all duration-300 hover:scale-[1.01] ${
+            isModuleCompleted ? 'p-4' : 'p-5'
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() =>
+              setExpandedModules((prev) => ({
+                ...prev,
+                [moduleKey]: !isExpanded
+              }))
+            }
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <div className="min-w-0 space-y-1">
+              <h3 className={`text-base font-semibold ${isModuleCompleted ? 'text-emerald-200' : 'text-white'}`}>
+                {module.title}
+              </h3>
+              {isModuleCompleted ? (
+                <p className="text-xs font-semibold text-emerald-300">Módulo concluído</p>
+              ) : (
+                <p className="text-xs text-gray-400">
+                  {lessons.length} aulas • {moduleProgress.completed}/{moduleProgress.total} concluídas • {moduleProgress.percent}%
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {isExpanded ? (
+                <ChevronDown className={`h-5 w-5 transition-transform duration-200 ${isModuleCompleted ? 'text-emerald-300' : 'text-gray-300'}`} />
+              ) : (
+                <ChevronRight className={`h-5 w-5 transition-transform duration-200 ${isModuleCompleted ? 'text-emerald-300' : 'text-gray-300'}`} />
+              )}
+            </div>
+          </button>
+
+          <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/10">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                isModuleCompleted ? 'bg-emerald-400' : 'bg-gradient-to-r from-emerald-400 to-blue-500'
+              }`}
+              style={{ width: `${moduleProgress.percent}%` }}
+            />
+          </div>
+
+          {isExpanded && (
+            <div className="mt-5 space-y-2">
+              {lessons.map((lessonItem) => {
+                const isActive = String(lessonItem.id) === String(lessonId);
+                const completed =
+                  lessonItem.completed ||
+                  lessonItem.progress === 100 ||
+                  (isActive && isCompleted);
+                const estimatedTime = lessonItem.duration || lessonItem.estimated_time;
+                const shortDescription =
+                  lessonItem.short_description || lessonItem.summary || lessonItem.description;
+
+                return (
+                  <button
+                    type="button"
+                    key={lessonItem.id ?? lessonItem.title}
+                    onClick={() => navigate(`/lesson/${lessonItem.id}`)}
+                    className={`group w-full rounded-2xl border p-3 text-left transition-all duration-300 ${
+                      isActive
+                        ? 'border-emerald-400/70 bg-gradient-to-r from-emerald-600/20 to-blue-600/10 shadow-[0_8px_30px_rgba(16,185,129,0.25)] scale-[1.01]'
+                        : 'border-white/10 bg-white/[0.04] hover:border-emerald-400/40 hover:bg-white/[0.07] hover:scale-[1.01]'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl transition-colors ${
+                          completed
+                            ? 'bg-emerald-500/25 text-emerald-200'
+                            : 'bg-gray-500/20 text-gray-400 group-hover:bg-emerald-500/15 group-hover:text-emerald-200'
+                        }`}
+                      >
+                        {completed ? <CheckCircle2 className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
                       </div>
-                    )}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p
+                            className={`truncate text-sm font-semibold transition-colors ${
+                              isActive ? 'text-white' : 'text-gray-200 group-hover:text-white'
+                            }`}
+                          >
+                            {lessonItem.title}
+                          </p>
+                          {estimatedTime && (
+                            <span className="flex flex-shrink-0 items-center gap-1 rounded-full bg-black/30 px-2 py-1 text-[10px] uppercase tracking-wide text-gray-300">
+                              <Clock className="h-3 w-3" />
+                              {estimatedTime}
+                            </span>
+                          )}
+                        </div>
+                        {shortDescription && (
+                          <p className="text-xs text-gray-400">{shortDescription}</p>
+                        )}
+                        <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                          {lessonItem.type === 'video' && <Play className="h-3 w-3" />}
+                          {lessonItem.type === 'text' && <FileText className="h-3 w-3" />}
+                          {lessonItem.type === 'file' && <Download className="h-3 w-3" />}
+                          <span className="capitalize">{lessonItem.type}</span>
+                          {completed && <span className="text-emerald-300">• Concluída</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
-      </div>
-    ));
+      );
+    });
   };
 
-  const showDesktopOutline = outlineOpen && isDesktop;
-  const showMobileOutline = outlineOpen && !isDesktop;
+  const showDesktopOutline = outlineOpen && isDesktop && !isImmersive;
+  const showMobileOutline = outlineOpen && !isDesktop && !isImmersive;
 
   if (loading) {
     return (
@@ -387,65 +772,67 @@ export default function LessonPlayer({ user, onLogout }) {
       </div>
 
       <div className="relative z-10 flex min-h-screen flex-col">
-        {/* Enhanced Header */}
-        <header className="sticky top-0 z-50 border-b border-white/10 bg-black/20 backdrop-blur-xl">
-          <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/20 to-blue-500/20">
-                  <Play className="h-4 w-4 text-emerald-400" />
+        {!isImmersive && (
+          <>
+            {/* Enhanced Header */}
+            <header className="sticky top-0 z-50 border-b border-white/10 bg-black/20 backdrop-blur-xl">
+              <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/20 to-blue-500/20">
+                      <Play className="h-4 w-4 text-emerald-400" />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-[0.35em] text-emerald-400">
+                      {t('lesson.lesson')}
+                    </span>
+                  </div>
+                  {moduleInfo && (
+                    <div className="hidden items-center gap-2 text-xs text-gray-400 sm:flex">
+                      <span className="truncate font-medium">{moduleInfo.courseTitle}</span>
+                      <span className="text-gray-600">•</span>
+                      <span className="truncate">{moduleInfo.moduleTitle}</span>
+                    </div>
+                  )}
                 </div>
-                <span className="text-xs font-bold uppercase tracking-[0.35em] text-emerald-400">
-                  {t('lesson.lesson')}
-                </span>
-              </div>
-              {moduleInfo && (
-                <div className="hidden items-center gap-2 text-xs text-gray-400 sm:flex">
-                  <span className="truncate font-medium">{moduleInfo.courseTitle}</span>
-                  <span className="text-gray-600">•</span>
-                  <span className="truncate">{moduleInfo.moduleTitle}</span>
-                  <span className="text-gray-600">•</span>
-                  <span className="truncate font-medium text-white">{lesson.title}</span>
-                </div>
-              )}
-            </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => navigate(-1)}
-                className="hidden text-gray-300 hover:text-white hover:bg-white/10 sm:inline-flex"
-              >
-                <ArrowLeft size={16} className="mr-1" />
-                {t('lesson.back')}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => navigate('/dashboard')}
-                className="border-white/20 bg-white/5 text-white hover:bg-white/10 backdrop-blur-sm"
-              >
-                <Home size={16} className="mr-2" />
-                Dashboard
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setOutlineOpen((prev) => !prev)}
-                className="hidden border-white/20 bg-white/5 text-white hover:bg-white/10 backdrop-blur-sm md:inline-flex"
-              >
-                <BookOpen size={16} className="mr-2" />
-                {outlineOpen ? t('lesson.hideCourseMap') : t('lesson.courseMap')}
-              </Button>
-              <Button
-                onClick={() => (moduleInfo ? navigate(`/course/${moduleInfo.courseId}`) : navigate('/dashboard'))}
-                className="hidden bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 md:inline-flex"
-                disabled={!moduleInfo}
-              >
-                <BookOpen size={16} className="mr-2" />
-                {moduleInfo ? t('lesson.viewCourse') : t('lesson.course')}
-              </Button>
-            </div>
-          </div>
-        </header>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigate(-1)}
+                    className="hidden text-gray-300 hover:text-white hover:bg-white/10 sm:inline-flex"
+                  >
+                    <ArrowLeft size={16} className="mr-1" />
+                    {t('lesson.back')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/dashboard')}
+                    className="border-white/20 bg-white/5 text-white hover:bg-white/10 backdrop-blur-sm"
+                  >
+                    <Home size={16} className="mr-2" />
+                    Dashboard
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setOutlineOpen((prev) => !prev)}
+                    className="hidden border-white/20 bg-white/5 text-white hover:bg-white/10 backdrop-blur-sm md:inline-flex"
+                  >
+                    <BookOpen size={16} className="mr-2" />
+                    {outlineOpen ? t('lesson.hideCourseMap') : t('lesson.courseMap')}
+                  </Button>
+                  <Button
+                    onClick={() => (moduleInfo ? navigate(`/course/${moduleInfo.courseId}`) : navigate('/dashboard'))}
+                    className="hidden bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 md:inline-flex"
+                    disabled={!moduleInfo}
+                  >
+                    <BookOpen size={16} className="mr-2" />
+                    {moduleInfo ? t('lesson.viewCourse') : t('lesson.course')}
+                  </Button>
+                </div>
+              </div>
+            </header>
+          </>
+        )}
 
         {/* Mobile Outline Overlay */}
         {showMobileOutline && (
@@ -478,7 +865,8 @@ export default function LessonPlayer({ user, onLogout }) {
               <Button
                 variant="outline"
                 onClick={() => setOutlineOpen((prev) => !prev)}
-                className="flex-1 border-white/20 bg-white/5 text-white hover:bg-white/10 backdrop-blur-sm"
+                className="flex-1 border-white/20 bg-white/5 text-white hover:bg-white/10 backdrop-blur-sm disabled:opacity-50"
+                disabled={isImmersive}
               >
                 <BookOpen size={16} className="mr-2" />
                 {outlineOpen ? t('lesson.closeCourseMap') : t('lesson.courseMap')}
@@ -486,13 +874,21 @@ export default function LessonPlayer({ user, onLogout }) {
               <Button
                 variant="outline"
                 onClick={() => (moduleInfo ? navigate(`/course/${moduleInfo.courseId}`) : navigate('/dashboard'))}
-                className="flex-1 border-white/20 bg-white/5 text-white hover:bg-white/10 backdrop-blur-sm"
+                className="flex-1 border-white/20 bg-white/5 text-white hover:bg-white/10 backdrop-blur-sm disabled:opacity-50"
                 disabled={!moduleInfo}
               >
                 <ExternalLink size={16} className="mr-2" />
                 {t('lesson.course')}
               </Button>
             </div>
+
+
+            {motivationMessage && (
+              <div className="mb-8 flex items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-5 py-4 text-emerald-100 shadow-lg shadow-emerald-500/10">
+                <Sparkles className="h-6 w-6 text-emerald-300" />
+                <span className="text-sm font-medium">{motivationMessage}</span>
+              </div>
+            )}
 
             <div className={showDesktopOutline ? 'grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]' : 'grid gap-8'}>
               <section className="space-y-8">
@@ -523,15 +919,40 @@ export default function LessonPlayer({ user, onLogout }) {
                     </div>
                   </div>
 
-                  <div className="space-y-6">
+                  <div className="space-y-8">
                     {/* Video Content */}
                     {lesson.type === 'video' && (
-                      <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-black/50 shadow-2xl">
-                        <div
-                          className="video-embed-container aspect-video w-full"
-                          dangerouslySetInnerHTML={{ __html: lesson.content }}
-                        />
-                      </div>
+                      <>
+                        <div>
+                          <div
+                            className={`group relative overflow-hidden rounded-[28px] border border-white/10 bg-black/70 shadow-[0_20px_60px_rgba(10,20,40,0.65)] transition-all duration-500 ${
+                              isImmersive ? 'ring-2 ring-emerald-400/40' : ''
+                            }`}
+                          >
+                            {isImmersive && (
+                              <div className="absolute left-4 top-4 z-20 flex items-center gap-2 rounded-full border border-emerald-400/40 bg-black/60 px-3 py-1 text-xs text-emerald-100 backdrop-blur">
+                                <Sparkles className="h-3 w-3 text-emerald-300" />
+                                Modo imersivo ativo
+                              </div>
+                            )}
+                            <div
+                              className="video-embed-container aspect-video w-full"
+                              dangerouslySetInnerHTML={{ __html: lesson.content }}
+                            />
+                            {isImmersive && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleImmersiveToggle}
+                                className="absolute right-4 top-4 z-30 border-white/20 bg-black/40 text-white hover:bg-black/60"
+                              >
+                                <Minimize2 className="mr-2 h-4 w-4" />
+                                Sair
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </>
                     )}
 
                     {/* Text Content */}
@@ -572,43 +993,53 @@ export default function LessonPlayer({ user, onLogout }) {
                     )}
 
                     {/* Enhanced Action Buttons */}
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <Button
-                        data-testid="mark-completed-button"
-                        onClick={toggleCompleted}
-                        className={`group relative overflow-hidden rounded-xl py-4 px-6 text-base font-semibold transition-all duration-300 ${
-                          isCompleted
-                            ? 'border border-emerald-400/50 bg-gradient-to-r from-emerald-500/20 to-green-500/20 text-emerald-200 hover:from-emerald-500/30 hover:to-green-500/30'
-                            : 'bg-gradient-to-r from-emerald-500 to-blue-500 text-white hover:from-emerald-600 hover:to-blue-600 hover:scale-105'
-                        }`}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          {isCompleted ? (
-                            <CheckCircle2 className="h-5 w-5" />
-                          ) : (
-                            <Circle className="h-5 w-5" />
-                          )}
-                          {isCompleted ? t('lesson.lessonCompletedUnmark') : t('lesson.markAsCompleted')}
+                    <div className="space-y-4">
+                      <div className="md:sticky md:top-24 md:z-20 rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur">
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-white">Atalhos rápidos</span>
+                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <Play className="h-3 w-3" />
+                            <span>{lesson.title}</span>
+                          </div>
                         </div>
-                      </Button>
-
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <Button
-                          variant="outline"
-                          className="border-white/20 bg-white/5 text-white hover:bg-white/10 backdrop-blur-sm disabled:opacity-50"
-                          disabled={!previousLesson}
-                          onClick={() => previousLesson && navigate(`/lesson/${previousLesson.id}`)}
-                        >
-                          {previousLesson ? `${previousLesson.title}` : t('lesson.noPreviousLesson')}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 backdrop-blur-sm disabled:opacity-50"
-                          disabled={!nextLesson}
-                          onClick={() => nextLesson && navigate(`/lesson/${nextLesson.id}`)}
-                        >
-                          {nextLesson ? `${nextLesson.title}` : t('lesson.noNextLesson')}
-                        </Button>
+                        <div className="grid gap-2 sm:grid-cols-2 sm:gap-3">
+                          <Button
+                            variant="outline"
+                            className="w-full items-start justify-start gap-2 border-white/15 bg-white/[0.06] text-left text-white hover:border-emerald-400/40 hover:bg-white/[0.1] disabled:opacity-40 min-h-[88px] whitespace-normal break-words"
+                            disabled={!previousLesson}
+                            onClick={() => previousLesson && navigate(`/lesson/${previousLesson.id}`)}
+                          >
+                            <div className="flex flex-col text-left">
+                              <span className="flex items-center gap-2 text-sm font-semibold">
+                                <ArrowLeft className="h-4 w-4" />
+                                Aula anterior
+                              </span>
+                              <span className="truncate text-xs text-gray-300">
+                                {previousLesson ? previousLesson.title : t('lesson.noPreviousLesson')}
+                              </span>
+                            </div>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="w-full items-start justify-start gap-2 border-emerald-400/40 bg-emerald-500/10 text-left text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-40 min-h-[88px] whitespace-normal break-words"
+                            disabled={!nextLesson && !nextModuleEntry}
+                            onClick={handleNextLesson}
+                          >
+                            <div className="flex flex-col text-left">
+                              <span className="flex items-center gap-2 text-sm font-semibold">
+                                <ArrowRight className="h-4 w-4" />
+                                {nextLesson ? 'Próxima' : nextModuleEntry ? 'Próximo módulo' : 'Próxima aula'}
+                              </span>
+                              <span className="truncate text-xs text-emerald-100/80">
+                                {nextLesson
+                                  ? nextLesson.title
+                                  : nextModuleEntry
+                                    ? nextModuleEntry.lesson.title
+                                    : t('lesson.noNextLesson')}
+                              </span>
+                            </div>
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -656,7 +1087,10 @@ export default function LessonPlayer({ user, onLogout }) {
                 )}
 
                 {/* Enhanced Discussion Section */}
-                <section className="glass-panel p-6 sm:p-8 transition-all duration-300 hover:scale-[1.01]">
+                <section
+                  ref={discussionRef}
+                  className="glass-panel p-6 sm:p-8 transition-all duration-300 hover:scale-[1.01]"
+                >
                   <div className="mb-6 flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20">
                       <MessageCircle className="h-5 w-5 text-purple-400" />
@@ -816,11 +1250,29 @@ export default function LessonPlayer({ user, onLogout }) {
                 <aside className="space-y-6">
                   <div className="glass-panel p-6 xl:sticky xl:top-24">
                     <div className="mb-6 flex items-center justify-between gap-3">
-                      <div>
-                        <h3 className="text-lg font-bold text-white">Mapa do Curso</h3>
-                        {moduleInfo && (
-                          <p className="text-sm text-gray-400">{moduleInfo.courseTitle}</p>
+                      <div className="space-y-3 flex-1">
+                        {progressSummary.totalLessons > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-emerald-300">
+                              Progresso do curso
+                            </p>
+                            <div className="h-1 w-full rounded-full bg-white/10">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-blue-500 transition-all duration-500"
+                                style={{ width: `${progressSummary.coursePercent}%` }}
+                              />
+                            </div>
+                            <p className="text-[11px] text-gray-400">
+                              {progressSummary.totalCompleted}/{progressSummary.totalLessons} aulas
+                            </p>
+                          </div>
                         )}
+                        <div className="space-y-1">
+                          <h3 className="text-lg font-bold text-white">Mapa do Curso</h3>
+                          {moduleInfo && (
+                            <p className="text-sm text-gray-400">{moduleInfo.courseTitle}</p>
+                          )}
+                        </div>
                       </div>
                       <Button
                         variant="ghost"
@@ -839,6 +1291,82 @@ export default function LessonPlayer({ user, onLogout }) {
             </div>
           </div>
         </main>
+
+        <div className={`fixed bottom-6 right-6 z-40 hidden flex-col md:flex ${isQuickMenuCollapsed ? 'w-[72px]' : 'w-[320px]'}`}>
+          <div className={`glass-panel flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl ${isQuickMenuCollapsed ? 'items-center p-3' : 'p-4'}`}>
+            <div className={`flex w-full items-center ${isQuickMenuCollapsed ? 'justify-center' : 'justify-between'}`}>
+              {!isQuickMenuCollapsed && (
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em] text-gray-400">
+                  <LayoutDashboard className="h-4 w-4 text-emerald-300" />
+                  Menu rápido
+                </div>
+              )}
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={toggleQuickMenu}
+                className="text-gray-300 hover:text-white"
+              >
+                {isQuickMenuCollapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </Button>
+            </div>
+            <div className={`${isQuickMenuCollapsed ? 'flex flex-col items-center gap-2' : 'flex flex-wrap gap-2 w-full'}`}>
+              <Button
+                size={isQuickMenuCollapsed ? 'icon' : 'sm'}
+                variant="outline"
+                className={`border-white/15 bg-white/10 text-white hover:bg-white/20 disabled:opacity-40 ${
+                  isQuickMenuCollapsed ? '!w-10 !h-10 justify-center p-0' : ''
+                }`}
+                onClick={() => {
+                  if (isImmersive) {
+                    handleImmersiveToggle();
+                  }
+                  setOutlineOpen(true);
+                }}
+                disabled={!courseData?.modules?.length}
+              >
+                <BookOpen className="h-4 w-4" />
+                {!isQuickMenuCollapsed && <span>Mapa</span>}
+              </Button>
+              <Button
+                size={isQuickMenuCollapsed ? 'icon' : 'sm'}
+                variant="outline"
+                className={`border-white/15 bg-white/10 text-white hover:bg-white/20 ${
+                  isQuickMenuCollapsed ? '!w-10 !h-10 justify-center p-0' : ''
+                }`}
+                onClick={scrollToDiscussion}
+              >
+                <MessageCircle className="h-4 w-4" />
+                {!isQuickMenuCollapsed && <span>Comentários</span>}
+              </Button>
+              <Button
+                size={isQuickMenuCollapsed ? 'icon' : 'sm'}
+                variant="outline"
+                className={`border-white/15 bg-white/10 text-white hover:bg-white/20 ${
+                  isQuickMenuCollapsed ? '!w-10 !h-10 justify-center p-0' : ''
+                }`}
+                onClick={handleImmersiveToggle}
+              >
+                {isImmersive ? (
+                  <Minimize2 className="h-4 w-4" />
+                ) : (
+                  <Maximize2 className="h-4 w-4" />
+                )}
+                {!isQuickMenuCollapsed && <span>{isImmersive ? 'Sair modo imersivo' : 'Modo imersivo'}</span>}
+              </Button>
+              <Button
+                size={isQuickMenuCollapsed ? 'icon' : 'sm'}
+                className={`bg-gradient-to-r from-emerald-500 to-blue-500 text-white hover:from-emerald-600 hover:to-blue-600 ${
+                  isQuickMenuCollapsed ? '!w-10 !h-10 justify-center p-0' : ''
+                }`}
+                onClick={toggleCompleted}
+              >
+                {isCompleted ? <X className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                {!isQuickMenuCollapsed && (isCompleted ? <span>Desmarcar</span> : <span>Concluir</span>)}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
