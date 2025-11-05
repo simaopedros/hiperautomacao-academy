@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Users, Plus, Edit, Trash2, BookOpen, CheckCircle, XCircle, ArrowLeft, Upload, Download, Settings, Mail, Key, Search, Filter, ChevronLeft, ChevronRight, CreditCard } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, BookOpen, CheckCircle, XCircle, ArrowLeft, Upload, Download, Settings, Mail, Key, Search, Filter, ChevronLeft, ChevronRight, CreditCard, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -272,6 +272,68 @@ export default function UserManagement({ user, onLogout }) {
       alert('Senha resetada e email enviado com sucesso!');
     } catch (error) {
       alert(error.response?.data?.detail || 'Erro ao resetar senha');
+    }
+  };
+
+  const handleImpersonateUser = async (targetUser) => {
+    if (!targetUser?.id) return;
+    if (targetUser.role === 'admin') {
+      alert('Esta funcionalidade está disponível apenas para alunos.');
+      return;
+    }
+
+    if (!window.confirm(`Visualizar a plataforma como ${targetUser.name || targetUser.email}?`)) {
+      return;
+    }
+
+    const adminToken = localStorage.getItem('token');
+    const adminUserRaw = localStorage.getItem('user');
+
+    if (!adminToken || !adminUserRaw) {
+      alert('Sessão do administrador expirada. Faça login novamente.');
+      return;
+    }
+
+    let adminUser;
+    try {
+      adminUser = JSON.parse(adminUserRaw);
+    } catch {
+      alert('Não foi possível carregar os dados do administrador atual.');
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        `${API}/admin/users/${targetUser.id}/impersonate`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${adminToken}` },
+        }
+      );
+
+      const { access_token: accessToken, user: impersonatedUser } = response.data || {};
+
+      if (!accessToken || !impersonatedUser) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
+      if (!localStorage.getItem('impersonator')) {
+        localStorage.setItem(
+          'impersonator',
+          JSON.stringify({
+            token: adminToken,
+            user: adminUser,
+          })
+        );
+      }
+
+      localStorage.setItem('token', accessToken);
+      localStorage.setItem('user', JSON.stringify(impersonatedUser));
+      window.location.href = '/dashboard';
+    } catch (error) {
+      console.error('Erro ao iniciar visualização como aluno:', error);
+      const detail = error.response?.data?.detail || error.message || 'Erro ao visualizar como aluno';
+      alert(detail);
     }
   };
 
@@ -822,6 +884,16 @@ export default function UserManagement({ user, onLogout }) {
                         Cursos
                       </Button>
                     )}
+                    <Button
+                      onClick={() => handleImpersonateUser(u)}
+                      variant="outline"
+                      size="sm"
+                      className="border-[#2a2a2a] hover:bg-[#252525]"
+                      title="Visualizar como aluno"
+                      disabled={u.role === 'admin' || String(u.id || '').startsWith('invite-')}
+                    >
+                      <Eye size={16} />
+                    </Button>
                     <Button
                       onClick={() => handleResendPasswordEmail(u.id)}
                       variant="outline"

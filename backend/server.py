@@ -4783,6 +4783,36 @@ async def reset_user_password(user_id: str, current_user: User = Depends(get_cur
         logger.error(f"Failed to send reset email: {e}")
         raise HTTPException(status_code=500, detail="Erro ao enviar email")
 
+
+@api_router.post("/admin/users/{user_id}/impersonate", response_model=Token)
+async def impersonate_user(user_id: str, current_admin: User = Depends(get_current_admin)):
+    """Generate an access token so the admin can browse as the selected student."""
+    if is_invite_id(user_id):
+        raise HTTPException(status_code=400, detail="Não é possível visualizar convites pendentes como aluno.")
+
+    if user_id == current_admin.id:
+        raise HTTPException(status_code=400, detail="Você já está autenticado como este usuário.")
+
+    user_doc = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    if user_doc.get("role") == "admin":
+        raise HTTPException(status_code=400, detail="Não é possível visualizar outros administradores.")
+
+    impersonated_user = User(**user_doc)
+    access_token = create_access_token(data={"sub": impersonated_user.id})
+
+    logger.info(
+        "Admin %s (%s) is impersonating user %s (%s)",
+        current_admin.email,
+        current_admin.id,
+        impersonated_user.email,
+        impersonated_user.id,
+    )
+
+    return Token(access_token=access_token, token_type="bearer", user=impersonated_user)
+
 # Helper function to send password reset email
 def send_password_reset_email(email: str, name: str, password_link: str):
     """Send password reset email via SMTP"""
