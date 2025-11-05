@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, Play, FileText, Download, CheckCircle, Circle, Clock, BookOpen, Users, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,9 @@ export default function CourseView({ user, onLogout }) {
   const { t } = useI18n();
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const isPreviewMode = searchParams.get('preview') === '1';
   const [course, setCourse] = useState(null);
   const [progress, setProgress] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,11 +24,16 @@ export default function CourseView({ user, onLogout }) {
   const [courseInfo, setCourseInfo] = useState(null);
   const [plans, setPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(false);
+  const [previewNotice, setPreviewNotice] = useState('');
 
   useEffect(() => {
-    fetchCourseData();
-    fetchProgress();
-  }, [courseId]);
+    if (isPreviewMode && user?.role === 'admin') {
+      fetchPreviewData();
+    } else {
+      fetchCourseData();
+      fetchProgress();
+    }
+  }, [courseId, isPreviewMode, user?.role]);
 
   const fetchCourseData = async () => {
     try {
@@ -35,6 +43,7 @@ export default function CourseView({ user, onLogout }) {
       });
       setCourse(response.data);
       setHasAccess(true);
+      setPreviewNotice('');
     } catch (error) {
       console.error('Error fetching course:', error);
       if (error.response?.status === 403) {
@@ -42,6 +51,47 @@ export default function CourseView({ user, onLogout }) {
         setHasAccess(false);
         fetchBasicCourseInfo();
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPreviewData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const [courseRes, modulesRes] = await Promise.all([
+        axios.get(`${API}/admin/courses/${courseId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get(`${API}/admin/modules/${courseId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ]);
+
+      const modulesWithLessons = await Promise.all(
+        (modulesRes.data || [])
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+          .map(async (module) => {
+            try {
+              const lessonsRes = await axios.get(`${API}/admin/lessons/${module.id}`, {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              const lessons = (lessonsRes.data || []).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+              return { ...module, lessons };
+            } catch (lessonsError) {
+              console.error('Error fetching preview lessons:', lessonsError);
+              return { ...module, lessons: [] };
+            }
+          })
+      );
+
+      setCourse({ ...courseRes.data, modules: modulesWithLessons });
+      setProgress([]);
+      setHasAccess(true);
+      setPreviewNotice('Visualização de administrador - curso não publicado.');
+    } catch (error) {
+      console.error('Error fetching preview data:', error);
+      setPreviewNotice('Não foi possível carregar o preview do curso.');
     } finally {
       setLoading(false);
     }
@@ -132,6 +182,7 @@ export default function CourseView({ user, onLogout }) {
 
   const fetchProgress = async () => {
     try {
+      if (isPreviewMode) return;
       const token = localStorage.getItem('token');
       const response = await axios.get(`${API}/progress/${courseId}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -194,6 +245,19 @@ export default function CourseView({ user, onLogout }) {
         <div className="glass-panel p-8 rounded-3xl border border-white/10">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-emerald-500 border-t-transparent mb-4"></div>
           <p className="text-gray-300 text-center">Carregando curso...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isPreviewMode && user?.role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#01030a] via-[#050b16] to-[#02060f] flex items-center justify-center">
+        <div className="glass-panel p-8 rounded-3xl border border-white/10 text-center">
+          <p className="text-gray-300">Apenas administradores podem visualizar o preview do curso.</p>
+          <Button className="mt-4" onClick={() => navigate('/dashboard')}>
+            Voltar ao dashboard
+          </Button>
         </div>
       </div>
     );
@@ -312,6 +376,15 @@ export default function CourseView({ user, onLogout }) {
         user={user}
         onLogout={onLogout}
       />
+
+      {previewNotice && (
+        <div className="max-w-7xl mx-auto px-6 pt-6">
+          <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-100">
+            <span className="text-sm font-medium">{previewNotice}</span>
+            <span className="text-xs text-emerald-200/80">Visível apenas para administradores</span>
+          </div>
+        </div>
+      )}
 
       {/* Course Header - Minimal */}
       <div className="max-w-7xl mx-auto px-6 py-8">

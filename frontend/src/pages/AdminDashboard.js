@@ -21,8 +21,10 @@ import {
   GraduationCap,
   UserCheck,
   HeadphonesIcon,
-  BarChart3
+  BarChart3,
+  GripVertical
 } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -188,6 +190,12 @@ function CourseList({ onLogout, user }) {
     } catch (error) {
       console.error('Error deleting course:', error);
     }
+  };
+
+  const previewCourse = (courseId) => {
+    if (!courseId) return;
+    const previewUrl = `/course/${courseId}?preview=1`;
+    window.open(previewUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -760,6 +768,14 @@ function CourseList({ onLogout, user }) {
                         <Edit size={16} />
                       </Button>
                       <Button
+                        onClick={() => previewCourse(course.id)}
+                        variant="outline"
+                        className="border-blue-500/30 hover:bg-blue-500/10 text-blue-400 hover:text-blue-300 hover:border-blue-500/50 transition-all duration-200"
+                      >
+                        <Eye size={16} className="mr-2" />
+                        Visualizar
+                      </Button>
+                      <Button
                         onClick={() => handleDelete(course.id)}
                         variant="outline"
                         className="border-red-500/30 hover:bg-red-500/10 text-red-400 hover:text-red-300 hover:border-red-500/50 transition-all duration-200"
@@ -812,16 +828,22 @@ function CourseManagement({ user, onLogout }) {
   const [showLessonDialog, setShowLessonDialog] = useState(false);
   const [editingLesson, setEditingLesson] = useState(null);
   const [lessonForm, setLessonForm] = useState({ title: '', type: 'video', content: '', duration: 0, order: 0, links: [] });
+  const [draggingModuleId, setDraggingModuleId] = useState(null);
+  const [dragOverModuleId, setDragOverModuleId] = useState(null);
+  const [moduleOrderSaving, setModuleOrderSaving] = useState(false);
+  const [draggingLessonId, setDraggingLessonId] = useState(null);
+  const [dragOverLessonId, setDragOverLessonId] = useState(null);
+  const [lessonOrderSaving, setLessonOrderSaving] = useState(false);
 
   useEffect(() => {
     fetchCourseData();
   }, [courseId]);
 
   useEffect(() => {
-    if (selectedModule) {
+    if (selectedModule?.id) {
       fetchLessons(selectedModule.id);
     }
-  }, [selectedModule]);
+  }, [selectedModule?.id]);
 
   const fetchCourseData = async () => {
     try {
@@ -903,6 +925,12 @@ function CourseManagement({ user, onLogout }) {
     }
   };
 
+  const previewCourse = () => {
+    if (!courseId) return;
+    const previewUrl = `/course/${courseId}?preview=1`;
+    window.open(previewUrl, '_blank', 'noopener,noreferrer');
+  };
+
   const handleDeleteModule = async (moduleId) => {
     if (!window.confirm('Excluir este módulo e todas as aulas?')) return;
     try {
@@ -926,6 +954,163 @@ function CourseManagement({ user, onLogout }) {
       fetchLessons(selectedModule.id);
     } catch (error) {
       console.error('Error deleting lesson:', error);
+    }
+  };
+
+  const reorderByTarget = (items, draggedId, targetId) => {
+    if (!draggedId) return items;
+    if (draggedId === targetId) return items;
+    const draggedItem = items.find((item) => item.id === draggedId);
+    if (!draggedItem) return items;
+    const remaining = items.filter((item) => item.id !== draggedId);
+
+    if (!targetId || targetId === '__end') {
+      remaining.push(draggedItem);
+    } else {
+      const targetIndex = remaining.findIndex((item) => item.id === targetId);
+      if (targetIndex === -1) {
+        remaining.push(draggedItem);
+      } else {
+        remaining.splice(targetIndex, 0, draggedItem);
+      }
+    }
+
+    return remaining.map((item, index) => ({ ...item, order: index }));
+  };
+
+  const persistModuleOrder = async (orderedModules) => {
+    const token = localStorage.getItem('token');
+    await Promise.all(
+      orderedModules.map((module, index) =>
+        axios.put(
+          `${API}/admin/modules/${module.id}`,
+          {
+            title: module.title,
+            description: module.description ?? '',
+            order: index
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+      )
+    );
+  };
+
+  const persistLessonOrder = async (orderedLessons) => {
+    const token = localStorage.getItem('token');
+    await Promise.all(
+      orderedLessons.map((lesson, index) =>
+        axios.put(
+          `${API}/admin/lessons/${lesson.id}`,
+          {
+            title: lesson.title,
+            type: lesson.type,
+            content: lesson.content,
+            duration: lesson.duration || 0,
+            order: index,
+            links: lesson.links || []
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+      )
+    );
+  };
+
+  const handleModuleDragStart = (event, moduleId) => {
+    setDraggingModuleId(moduleId);
+    setDragOverModuleId(moduleId);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', moduleId);
+  };
+
+  const handleModuleDragOver = (event, targetId) => {
+    event.preventDefault();
+    setDragOverModuleId(targetId ?? '__end');
+    event.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleModuleDragEnd = () => {
+    setDraggingModuleId(null);
+    setDragOverModuleId(null);
+  };
+
+  const handleModuleDrop = async (event, targetId) => {
+    event.preventDefault();
+    if (moduleOrderSaving || draggingModuleId == null) {
+      handleModuleDragEnd();
+      return;
+    }
+
+    const originalModules = modules;
+    const reordered = reorderByTarget(modules, draggingModuleId, targetId ?? '__end');
+    const hasChanged = reordered.some((module, index) => module.id !== modules[index]?.id);
+    if (!reordered || !hasChanged) {
+      handleModuleDragEnd();
+      return;
+    }
+
+    setModules(reordered);
+    if (selectedModule) {
+      const updatedSelected = reordered.find((module) => module.id === selectedModule.id);
+      if (updatedSelected) {
+        setSelectedModule(updatedSelected);
+      }
+    }
+
+    try {
+      setModuleOrderSaving(true);
+      await persistModuleOrder(reordered);
+    } catch (error) {
+      console.error('Error updating module order:', error);
+      setModules(originalModules);
+    } finally {
+      setModuleOrderSaving(false);
+      handleModuleDragEnd();
+    }
+  };
+
+  const handleLessonDragStart = (event, lessonId) => {
+    setDraggingLessonId(lessonId);
+    setDragOverLessonId(lessonId);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', lessonId);
+  };
+
+  const handleLessonDragOver = (event, targetId) => {
+    event.preventDefault();
+    setDragOverLessonId(targetId ?? '__end');
+    event.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleLessonDragEnd = () => {
+    setDraggingLessonId(null);
+    setDragOverLessonId(null);
+  };
+
+  const handleLessonDrop = async (event, targetId) => {
+    event.preventDefault();
+    if (lessonOrderSaving || draggingLessonId == null) {
+      handleLessonDragEnd();
+      return;
+    }
+
+    const originalLessons = lessons;
+    const reordered = reorderByTarget(lessons, draggingLessonId, targetId ?? '__end');
+    const hasChanged = reordered.some((lesson, index) => lesson.id !== lessons[index]?.id);
+    if (!reordered || !hasChanged) {
+      handleLessonDragEnd();
+      return;
+    }
+
+    setLessons(reordered);
+    try {
+      setLessonOrderSaving(true);
+      await persistLessonOrder(reordered);
+    } catch (error) {
+      console.error('Error updating lesson order:', error);
+      setLessons(originalLessons);
+    } finally {
+      setLessonOrderSaving(false);
+      handleLessonDragEnd();
     }
   };
 
@@ -953,6 +1138,16 @@ function CourseManagement({ user, onLogout }) {
               <h1 className="text-xl font-bold text-white">{course?.title}</h1>
               <p className="text-sm text-gray-400">Gerenciar módulos e aulas</p>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="border-blue-500/40 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300"
+              onClick={previewCourse}
+            >
+              <Eye size={16} className="mr-2" />
+              Visualizar curso
+            </Button>
           </div>
         </div>
       </header>
@@ -1017,63 +1212,101 @@ function CourseManagement({ user, onLogout }) {
               </Dialog>
             </div>
 
+            {moduleOrderSaving && (
+              <p className="text-xs text-emerald-300 mb-2">Salvando ordem dos módulos...</p>
+            )}
+
             <div className="space-y-2">
-              {modules.map((module) => (
-                <div
-                  key={module.id}
-                  role="button"
-                  tabIndex={0}
-                  className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                    selectedModule?.id === module.id
-                      ? 'bg-emerald-500/10 border-emerald-500'
-                      : 'bg-[#1a1a1a] border-[#252525] hover:border-[#3a3a3a]'
-                  }`}
-                  onClick={() => setSelectedModule(module)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      setSelectedModule(module);
-                    }
-                  }}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-white mb-1">{module.title}</h3>
-                      {module.description && (
-                        <p className="text-sm text-gray-400 line-clamp-2">{module.description}</p>
-                      )}
-                    </div>
-                    <div className="flex gap-1 ml-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingModule(module);
-                          setModuleForm({
-                            title: module.title,
-                            description: module.description || '',
-                            order: module.order
-                          });
-                          setShowModuleDialog(true);
-                        }}
-                      >
-                        <Edit size={14} />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-red-400 hover:text-red-300"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteModule(module.id);
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </Button>
+              {modules.map((module) => {
+                const isSelected = selectedModule?.id === module.id;
+                const isDragging = draggingModuleId === module.id;
+                const isDragOver = dragOverModuleId === module.id;
+
+                return (
+                  <div
+                    key={module.id}
+                    role="button"
+                    tabIndex={0}
+                    onDragOver={(event) => handleModuleDragOver(event, module.id)}
+                    onDrop={(event) => handleModuleDrop(event, module.id)}
+                    onDragLeave={() => setDragOverModuleId(null)}
+                    className={`p-4 rounded-lg border cursor-pointer transition-all select-none ${
+                      isSelected
+                        ? 'bg-emerald-500/10 border-emerald-500'
+                        : 'bg-[#1a1a1a] border-[#252525] hover:border-[#3a3a3a]'
+                    } ${isDragging ? 'opacity-60' : ''} ${
+                      isDragOver && !isDragging ? 'border-emerald-500/60 ring-2 ring-emerald-500/20' : ''
+                    }`}
+                    onClick={() => setSelectedModule(module)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        setSelectedModule(module);
+                      }
+                    }}
+                  >
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="flex items-start gap-3 flex-1">
+                        <button
+                          type="button"
+                          className="text-gray-500 mt-1 cursor-grab active:cursor-grabbing focus:outline-none"
+                          draggable={!moduleOrderSaving}
+                          onDragStart={(event) => handleModuleDragStart(event, module.id)}
+                          onDragEnd={handleModuleDragEnd}
+                        >
+                          <GripVertical size={16} />
+                        </button>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-white mb-1">{module.title}</h3>
+                          {module.description && (
+                            <p className="text-sm text-gray-400 line-clamp-2">{module.description}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-1 ml-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingModule(module);
+                            setModuleForm({
+                              title: module.title,
+                              description: module.description || '',
+                              order: module.order
+                            });
+                            setShowModuleDialog(true);
+                          }}
+                        >
+                          <Edit size={14} />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-400 hover:text-red-300"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteModule(module.id);
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+              <div
+                className={`transition-all ${
+                  draggingModuleId
+                    ? `h-4 rounded border border-dashed border-emerald-500/40 ${
+                        dragOverModuleId === '__end' ? 'bg-emerald-500/10' : 'bg-transparent'
+                      }`
+                    : 'h-0 overflow-hidden'
+                }`}
+                onDragOver={(event) => handleModuleDragOver(event, '__end')}
+                onDrop={(event) => handleModuleDrop(event, '__end')}
+                onDragLeave={() => setDragOverModuleId(null)}
+              />
             </div>
           </div>
 
@@ -1256,65 +1489,104 @@ function CourseManagement({ user, onLogout }) {
                 </div>
 
                 <div className="space-y-3">
+                  {lessonOrderSaving && (
+                    <p className="text-xs text-emerald-300">Salvando ordem das aulas...</p>
+                  )}
                   {lessons.length === 0 ? (
                     <div className="text-center py-12 bg-[#1a1a1a] rounded-lg border border-[#252525]">
                       <FileText size={48} className="mx-auto text-gray-600 mb-3" />
                       <p className="text-gray-400">Nenhuma aula criada</p>
                     </div>
                   ) : (
-                    lessons.map((lesson) => (
-                      <div
-                        key={lesson.id}
-                        className="bg-[#1a1a1a] border border-[#252525] rounded-lg p-4 hover:border-[#3a3a3a] transition-all"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-1 rounded">
-                                {lesson.type}
-                              </span>
-                              <h3 className="font-semibold text-white">{lesson.title}</h3>
-                            </div>
-                            <p className="text-sm text-gray-400 line-clamp-2">
-                              {lesson.type === 'text' ? lesson.content.substring(0, 100) + '...' : lesson.content}
-                            </p>
-                            {lesson.duration > 0 && (
-                              <p className="text-xs text-gray-500 mt-2">
-                                Duração: {Math.floor(lesson.duration / 60)}:{(lesson.duration % 60).toString().padStart(2, '0')}
+                    lessons.map((lesson) => {
+                      const isDragging = draggingLessonId === lesson.id;
+                      const isDragOver = dragOverLessonId === lesson.id;
+
+                      return (
+                        <div
+                          key={lesson.id}
+                          onDragOver={(event) => handleLessonDragOver(event, lesson.id)}
+                          onDrop={(event) => handleLessonDrop(event, lesson.id)}
+                          onDragEnd={handleLessonDragEnd}
+                          onDragLeave={() => setDragOverLessonId(null)}
+                          className={`bg-[#1a1a1a] border border-[#252525] rounded-lg p-4 transition-all select-none cursor-pointer ${
+                            isDragging ? 'opacity-60' : 'hover:border-[#3a3a3a]'
+                          } ${isDragOver && !isDragging ? 'border-emerald-500/60 ring-2 ring-emerald-500/20' : ''}`}
+                        >
+                          <div className="flex justify-between items-start gap-3">
+                          <div className="flex items-start gap-3 flex-1">
+                            <button
+                              type="button"
+                              className="text-gray-500 mt-1 cursor-grab active:cursor-grabbing focus:outline-none"
+                              draggable={!lessonOrderSaving}
+                              onDragStart={(event) => handleLessonDragStart(event, lesson.id)}
+                              onDragEnd={handleLessonDragEnd}
+                            >
+                              <GripVertical size={16} />
+                            </button>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-1 rounded">
+                                  {lesson.type}
+                                </span>
+                                <h3 className="font-semibold text-white">{lesson.title}</h3>
+                              </div>
+                              <p className="text-sm text-gray-400 line-clamp-2">
+                                {lesson.type === 'text' ? `${lesson.content.substring(0, 100)}...` : lesson.content}
                               </p>
-                            )}
+                              {lesson.duration > 0 && (
+                                <p className="text-xs text-gray-500 mt-2">
+                                  Duração: {Math.floor(lesson.duration / 60)}:{(lesson.duration % 60).toString().padStart(2, '0')}
+                                </p>
+                              )}
+                            </div>
                           </div>
                           <div className="flex gap-1 ml-2">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setEditingLesson(lesson);
-                                setLessonForm({
-                                  title: lesson.title,
-                                  type: lesson.type,
-                                  content: lesson.content,
-                                  duration: lesson.duration,
-                                  order: lesson.order,
-                                  links: lesson.links || []
-                                });
-                                setShowLessonDialog(true);
-                              }}
-                            >
-                              <Edit size={14} />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-red-400 hover:text-red-300"
-                              onClick={() => handleDeleteLesson(lesson.id)}
-                            >
-                              <Trash2 size={14} />
-                            </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setEditingLesson(lesson);
+                                  setLessonForm({
+                                    title: lesson.title,
+                                    type: lesson.type,
+                                    content: lesson.content,
+                                    duration: lesson.duration,
+                                    order: lesson.order,
+                                    links: lesson.links || []
+                                  });
+                                  setShowLessonDialog(true);
+                                }}
+                              >
+                                <Edit size={14} />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-400 hover:text-red-300"
+                                onClick={() => handleDeleteLesson(lesson.id)}
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
+                      );
+                    })
+                  )}
+                  {lessons.length > 0 && (
+                    <div
+                      className={`transition-all ${
+                        draggingLessonId
+                          ? `h-4 rounded border border-dashed border-emerald-500/40 ${
+                              dragOverLessonId === '__end' ? 'bg-emerald-500/10' : 'bg-transparent'
+                            }`
+                          : 'h-0 overflow-hidden'
+                      }`}
+                      onDragOver={(event) => handleLessonDragOver(event, '__end')}
+                      onDrop={(event) => handleLessonDrop(event, '__end')}
+                      onDragLeave={() => setDragOverLessonId(null)}
+                    />
                   )}
                 </div>
               </>
