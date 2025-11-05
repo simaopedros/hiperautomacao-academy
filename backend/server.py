@@ -73,6 +73,8 @@ _STRIPE_CONFIG_CACHE = {
     "ts": 0,
 }
 
+INVITE_ID_PREFIX = "invite-"
+
 
 class SubscriptionStatus(str, Enum):
     INACTIVE = "inativa"
@@ -154,6 +156,59 @@ def format_datetime_human(value: Optional[Union[str, datetime]]) -> Optional[str
         return display
     except Exception:
         return None
+
+
+def is_invite_id(user_id: str) -> bool:
+    """Check whether the supplied identifier represents a pending invitation."""
+    return isinstance(user_id, str) and user_id.startswith(INVITE_ID_PREFIX)
+
+
+def extract_token_from_invite_id(user_id: str) -> Optional[str]:
+    """Extract the invitation token portion from a synthetic invite user_id."""
+    if not is_invite_id(user_id):
+        return None
+    return user_id[len(INVITE_ID_PREFIX) :]
+
+
+async def get_invite_doc_by_user_id(user_id: str) -> Optional[dict]:
+    """Fetch the invitation document associated with the synthetic user identifier."""
+    token = extract_token_from_invite_id(user_id)
+    if not token:
+        return None
+    return await db.password_tokens.find_one({"token": token})
+
+
+def build_pending_user_payload(invite_doc: dict, valid_course_ids: Optional[set[str]] = None) -> dict:
+    """Normalize invitation documents so they match the shape expected by admin consumers."""
+    if not invite_doc or "token" not in invite_doc:
+        raise ValueError("Invitation document missing token")
+
+    created_at = parse_datetime(invite_doc.get("created_at")) or datetime.now(timezone.utc)
+
+    course_ids = invite_doc.get("course_ids") or []
+    if not course_ids and invite_doc.get("course_id"):
+        course_ids = [invite_doc["course_id"]]
+    if valid_course_ids is not None:
+        course_ids = [course_id for course_id in course_ids if course_id in valid_course_ids]
+
+    return {
+        "id": f"{INVITE_ID_PREFIX}{invite_doc['token']}",
+        "email": invite_doc.get("email"),
+        "name": invite_doc.get("name") or invite_doc.get("email"),
+        "role": invite_doc.get("role") or "student",
+        "has_full_access": bool(invite_doc.get("has_full_access")),
+        "avatar": None,
+        "has_purchased": False,
+        "enrolled_courses": course_ids,
+        "invited": True,
+        "password_created": False,
+        "created_at": created_at,
+        "preferred_language": invite_doc.get("preferred_language"),
+        "subscription_plan_id": None,
+        "subscription_valid_until": None,
+        "subscription_status": SubscriptionStatus.INACTIVE.value,
+        "subscription_auto_renew": None,
+    }
 
 
 async def stripe_call_with_retry(func, *args, max_retries: int = 3, initial_delay: float = 0.5, max_delay: float = 3.0, **kwargs):
@@ -1812,6 +1867,7 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
     # Get all existing course IDs to filter out deleted courses
     existing_courses = await db.courses.find({}, {"_id": 0, "id": 1}).to_list(1000)
     valid_course_ids = {course['id'] for course in existing_courses}
+    existing_emails = set()
     
     # For each user, get their enrolled courses (only valid ones)
     for user in users:
@@ -1846,33 +1902,30 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
         except Exception as e:
             # Não quebra a listagem se houver erro ao enriquecer assinatura
             logger.warning(f"Falha ao enriquecer assinatura de usuário {user.get('id')}: {e}")
+
+        if user.get("email"):
+            existing_emails.add(user["email"].lower())
     
     # Include pending invitations (users who received an invite link but have
     # not created their password / first login yet)
     pending_invites = await db.password_tokens.find({}, {"_id": 0}).to_list(1000)
     for invite in pending_invites:
-        created_at_raw = invite.get('created_at')
-        created_at = datetime.fromisoformat(created_at_raw) if created_at_raw else datetime.now(timezone.utc)
-        
-        course_ids = invite.get('course_ids') or []
-        if not course_ids and invite.get('course_id'):
-            # Backwards compatibility with earlier payloads
-            course_ids = [invite['course_id']]
-        filtered_courses = [course_id for course_id in course_ids if course_id in valid_course_ids]
-        
-        pending_user = {
-            "id": f"invite-{invite['token']}",
-            "email": invite['email'],
-            "name": invite.get('name') or invite['email'],
-            "role": "student",
-            "has_full_access": invite.get('has_full_access', False),
-            "avatar": None,
-            "has_purchased": False,
-            "enrolled_courses": filtered_courses,
-            "invited": True,
-            "password_created": False,
-            "created_at": created_at
-        }
+        email = (invite.get("email") or "").lower()
+        if email and email in existing_emails:
+            logger.warning(
+                "Pending invitation for %s ignored because an active user with the same email already exists",
+                invite.get("email"),
+            )
+            continue
+
+        try:
+            pending_user = build_pending_user_payload(invite, valid_course_ids)
+        except Exception as exc:
+            logger.error("Failed to normalize invitation %s: %s", invite.get("token"), exc)
+            continue
+
+        if pending_user.get("email"):
+            existing_emails.add(pending_user["email"].lower())
         users.append(pending_user)
     
     return users
@@ -1880,17 +1933,25 @@ async def get_all_users(current_user: User = Depends(get_current_admin)):
 @api_router.post("/admin/users", response_model=AdminUserCreateResponse)
 async def create_user_by_admin(user_data: UserCreate, current_user: User = Depends(get_current_admin)):
     # Check if user exists
-    existing_user = await db.users.find_one({"email": user_data.email})
+    normalized_email = user_data.email.lower()
+    existing_user = await db.users.find_one({"email": normalized_email})
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
+
+    existing_invite = await db.password_tokens.find_one({"email": normalized_email})
     
     # Decide whether to create full account or invitation
     is_direct_creation = bool(user_data.password)
     
     if is_direct_creation:
         user_payload = user_data.model_dump(exclude={"password"})
+        user_payload["email"] = normalized_email
         if user_payload.get("referral_code") is None:
             user_payload.pop("referral_code", None)
+
+        if existing_invite:
+            logger.info("Removing stale invitation for %s before creating full account", normalized_email)
+            await db.password_tokens.delete_many({"email": normalized_email})
         user = User(**user_payload)
         user_dict = user.model_dump()
         user_dict['password_hash'] = get_password_hash(user_data.password)
@@ -1901,30 +1962,44 @@ async def create_user_by_admin(user_data: UserCreate, current_user: User = Depen
     # Invitation flow (no password provided)
     token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-    
     now_iso = datetime.now(timezone.utc).isoformat()
-    token_data = {
-        "token": token,
-        "email": user_data.email,
-        "name": user_data.name,
-        "has_full_access": user_data.has_full_access,
-        "course_ids": [],
-        "expires_at": expires_at.isoformat(),
-        "created_at": now_iso,
-        "updated_at": now_iso,
-        "token_history": [token],
-    }
-    await db.password_tokens.insert_one(token_data)
+    if existing_invite:
+        logger.info("Refreshing existing invitation for %s via admin UI", normalized_email)
+        combined_history = [token] + existing_invite.get("token_history", [])
+        # Preserve original creation date if available
+        created_at = existing_invite.get("created_at", now_iso)
+        update_doc = {
+            "$set": {
+                "token": token,
+                "email": normalized_email,
+                "name": user_data.name,
+                "has_full_access": user_data.has_full_access,
+                "course_ids": existing_invite.get("course_ids", []),
+                "expires_at": expires_at.isoformat(),
+                "updated_at": now_iso,
+                "token_history": list(dict.fromkeys(combined_history)),
+                "created_at": created_at,
+            }
+        }
+        await db.password_tokens.update_one({"_id": existing_invite["_id"]}, update_doc, upsert=True)
+        token_data = await db.password_tokens.find_one({"_id": existing_invite["_id"]}, {"_id": 0})
+    else:
+        token_data = {
+            "token": token,
+            "email": normalized_email,
+            "name": user_data.name,
+            "has_full_access": user_data.has_full_access,
+            "course_ids": [],
+            "expires_at": expires_at.isoformat(),
+            "created_at": now_iso,
+            "updated_at": now_iso,
+            "token_history": [token],
+        }
+        await db.password_tokens.insert_one(token_data)
     
     # Prepare response-like structure
-    invited_user = User(
-        email=user_data.email,
-        name=user_data.name,
-        role=user_data.role,
-        has_full_access=user_data.has_full_access,
-        invited=True,
-        password_created=False
-    )
+    pending_payload = build_pending_user_payload(token_data)
+    invited_user = User(**pending_payload)
     
     # Attempt to send invitation email if configuration exists
     email_config = await db.email_config.find_one({})
@@ -1961,7 +2036,7 @@ async def create_user_by_admin(user_data: UserCreate, current_user: User = Depen
                 email_sent = await loop.run_in_executor(
                     executor,
                     send_brevo_email,
-                    user_data.email,
+                    normalized_email,
                     user_data.name,
                     "Bem-vindo à Hiperautomação - Crie sua senha",
                     html_content,
@@ -1976,7 +2051,7 @@ async def create_user_by_admin(user_data: UserCreate, current_user: User = Depen
             else:
                 email_info = "missing_credentials"
         except Exception as email_error:
-            logger.error(f"Error sending invitation email to {user_data.email}: {email_error}")
+            logger.error(f"Error sending invitation email to {normalized_email}: {email_error}")
             email_info = "error"
     else:
         email_info = "config_missing"
@@ -1989,16 +2064,74 @@ async def create_user_by_admin(user_data: UserCreate, current_user: User = Depen
 
 @api_router.put("/admin/users/{user_id}", response_model=User)
 async def update_user_by_admin(user_id: str, user_data: UserUpdate, current_user: User = Depends(get_current_admin)):
+    update_data = user_data.model_dump(exclude_unset=True)
+
+    if is_invite_id(user_id):
+        invite_doc = await get_invite_doc_by_user_id(user_id)
+        if not invite_doc:
+            raise HTTPException(status_code=404, detail="Invitation not found")
+
+        invite_updates = {}
+
+        if "email" in update_data and update_data["email"]:
+            new_email = update_data["email"].lower()
+            current_email = (invite_doc.get("email") or "").lower()
+            if new_email != current_email:
+                if await db.users.find_one({"email": new_email}):
+                    raise HTTPException(status_code=400, detail="Email already registered")
+                other_invite = await db.password_tokens.find_one(
+                    {"email": new_email, "token": {"$ne": invite_doc["token"]}}
+                )
+                if other_invite:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Another invitation already exists for this email",
+                    )
+                invite_updates["email"] = new_email
+
+        if "name" in update_data and update_data["name"]:
+            invite_updates["name"] = update_data["name"]
+
+        if "has_full_access" in update_data:
+            has_full = bool(update_data["has_full_access"])
+            invite_updates["has_full_access"] = has_full
+            if has_full:
+                invite_updates["course_ids"] = []
+
+        if not invite_updates:
+            payload = build_pending_user_payload(invite_doc)
+            return User(**payload)
+
+        invite_updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+        await db.password_tokens.update_one({"token": invite_doc["token"]}, {"$set": invite_updates})
+        refreshed_invite = await db.password_tokens.find_one({"token": invite_doc["token"]}, {"_id": 0})
+        payload = build_pending_user_payload(refreshed_invite)
+        return User(**payload)
+
     existing = await db.users.find_one({"id": user_id})
     if not existing:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    update_data = user_data.model_dump(exclude_unset=True)
     
     # If password is being updated, hash it
     if "password" in update_data and update_data["password"]:
         update_data["password_hash"] = get_password_hash(update_data["password"])
         del update_data["password"]
+
+    if "email" in update_data and update_data["email"]:
+        new_email = update_data["email"].lower()
+        if new_email != existing.get("email"):
+            duplicate_user = await db.users.find_one({"email": new_email, "id": {"$ne": user_id}})
+            if duplicate_user:
+                raise HTTPException(status_code=400, detail="Email already registered")
+            duplicate_invite = await db.password_tokens.find_one({"email": new_email})
+            if duplicate_invite:
+                logger.info(
+                    "Removing invitation %s because email now belongs to user %s",
+                    duplicate_invite.get("token"),
+                    user_id,
+                )
+                await db.password_tokens.delete_many({"email": new_email})
+        update_data["email"] = new_email
     
     if update_data:
         await db.users.update_one({"id": user_id}, {"$set": update_data})
@@ -2013,13 +2146,31 @@ async def delete_user_by_admin(user_id: str, current_user: User = Depends(get_cu
     # Don't allow deleting yourself
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+    if is_invite_id(user_id):
+        invite_doc = await get_invite_doc_by_user_id(user_id)
+        if not invite_doc:
+            raise HTTPException(status_code=404, detail="Invitation not found")
+        await db.password_tokens.delete_one({"token": invite_doc["token"]})
+        logger.info("Deleted pending invitation %s by admin %s", invite_doc.get("email"), current_user.email)
+        return {"message": "Pending invitation deleted successfully"}
     
+    user_doc = await db.users.find_one({"id": user_id})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+
     result = await db.users.delete_one({"id": user_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     
     # Also delete user's enrollments
     await db.enrollments.delete_many({"user_id": user_id})
+
+    # Remove any stale invitations tied to the same email
+    user_email = user_doc.get("email")
+    if user_email:
+        await db.password_tokens.delete_many({"email": user_email.lower()})
+
     return {"message": "User deleted successfully"}
 
 # ==================== ADMIN ROUTES - SUBSCRIPTION PLANS ====================
@@ -2072,6 +2223,32 @@ async def list_active_subscription_plans():
 
 @api_router.post("/admin/enrollments")
 async def enroll_user_in_course(enrollment: EnrollmentBase, current_user: User = Depends(get_current_admin)):
+    # Verify course exists first
+    course = await db.courses.find_one({"id": enrollment.course_id})
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    if is_invite_id(enrollment.user_id):
+        invite_doc = await get_invite_doc_by_user_id(enrollment.user_id)
+        if not invite_doc:
+            raise HTTPException(status_code=404, detail="Invitation not found")
+        if invite_doc.get("has_full_access"):
+            raise HTTPException(
+                status_code=400,
+                detail="Invitation already grants full access",
+            )
+        pending_courses = invite_doc.get("course_ids") or []
+        if enrollment.course_id in pending_courses:
+            raise HTTPException(status_code=400, detail="Invitation already includes this course")
+        await db.password_tokens.update_one(
+            {"token": invite_doc["token"]},
+            {
+                "$addToSet": {"course_ids": enrollment.course_id},
+                "$set": {"updated_at": datetime.now(timezone.utc).isoformat()},
+            },
+        )
+        return {"message": "Course linked to pending invitation"}
+
     # Check if enrollment already exists
     existing = await db.enrollments.find_one({
         "user_id": enrollment.user_id,
@@ -2080,14 +2257,10 @@ async def enroll_user_in_course(enrollment: EnrollmentBase, current_user: User =
     if existing:
         raise HTTPException(status_code=400, detail="User already enrolled in this course")
     
-    # Verify user and course exist
+    # Verify user exists
     user = await db.users.find_one({"id": enrollment.user_id})
-    course = await db.courses.find_one({"id": enrollment.course_id})
-    
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
     
     # Create enrollment
     enroll_obj = Enrollment(**enrollment.model_dump())
@@ -2099,6 +2272,29 @@ async def enroll_user_in_course(enrollment: EnrollmentBase, current_user: User =
 
 @api_router.get("/admin/enrollments/{user_id}")
 async def get_user_enrollments(user_id: str, current_user: User = Depends(get_current_admin)):
+    if is_invite_id(user_id):
+        invite_doc = await get_invite_doc_by_user_id(user_id)
+        if not invite_doc:
+            raise HTTPException(status_code=404, detail="Invitation not found")
+        course_ids = invite_doc.get("course_ids") or []
+        # Backwards compatibility with single course field
+        if not course_ids and invite_doc.get("course_id"):
+            course_ids = [invite_doc["course_id"]]
+
+        result = []
+        for course_id in course_ids:
+            course = await db.courses.find_one({"id": course_id}, {"_id": 0})
+            if course:
+                result.append(
+                    {
+                        "enrollment_id": f"invite_{course_id}",
+                        "course_id": course_id,
+                        "course_title": course["title"],
+                        "enrolled_at": invite_doc.get("created_at"),
+                    }
+                )
+        return result
+
     # First, try to get from enrollments collection (old method)
     enrollments = await db.enrollments.find({"user_id": user_id}, {"_id": 0}).to_list(1000)
     
@@ -2140,6 +2336,16 @@ async def remove_enrollment(enrollment_id: str, current_user: User = Depends(get
 
 @api_router.delete("/admin/enrollments/user/{user_id}/course/{course_id}")
 async def remove_user_from_course(user_id: str, course_id: str, current_user: User = Depends(get_current_admin)):
+    if is_invite_id(user_id):
+        invite_doc = await get_invite_doc_by_user_id(user_id)
+        if not invite_doc:
+            raise HTTPException(status_code=404, detail="Invitation not found")
+        await db.password_tokens.update_one(
+            {"token": invite_doc["token"]},
+            {"$pull": {"course_ids": course_id}, "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}},
+        )
+        return {"message": "Course removed from pending invitation"}
+
     result = await db.enrollments.delete_one({"user_id": user_id, "course_id": course_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Enrollment not found")
@@ -2696,19 +2902,15 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                 
                 # Check if user already exists
                 existing_user = await db.users.find_one({"email": email})
-                
                 if existing_user:
-                    # Update access if needed
                     user_id = existing_user['id']
                     
-                    # Set full access if requested
                     if request.has_full_access and not existing_user.get('has_full_access'):
                         await db.users.update_one(
                             {"id": user_id},
                             {"$set": {"has_full_access": True}}
                         )
                     
-                    # Enroll in courses if specified
                     if not request.has_full_access and request.course_ids:
                         for course_id in request.course_ids:
                             existing_enrollment = await db.enrollments.find_one({
@@ -2723,105 +2925,124 @@ async def bulk_import_users(request: BulkImportRequest, current_user: User = Dep
                                     "enrolled_at": datetime.now(timezone.utc).isoformat()
                                 }
                                 await db.enrollments.insert_one(enrollment)
+                    imported_count += 1
+                    continue
+
+                existing_invite = await db.password_tokens.find_one({"email": email})
+
+                now = datetime.now(timezone.utc)
+                now_iso = now.isoformat()
+                expires_at = (now + timedelta(days=7)).isoformat()
+                token = secrets.token_urlsafe(32)
+
+                if existing_invite:
+                    logger.info("Updating existing invitation for %s during import", email)
+                    base_courses = existing_invite.get("course_ids", [])
+                    if not base_courses and existing_invite.get("course_id"):
+                        base_courses = [existing_invite["course_id"]]
+                    new_courses = base_courses
+                    if not request.has_full_access:
+                        new_courses = sorted({*base_courses, *(request.course_ids or [])})
+                    update_doc = {
+                        "token": token,
+                        "email": email,
+                        "name": name,
+                        "has_full_access": request.has_full_access,
+                        "course_ids": [] if request.has_full_access else new_courses,
+                        "expires_at": expires_at,
+                        "updated_at": now_iso,
+                        "token_history": list(dict.fromkeys([token] + existing_invite.get("token_history", []))),
+                        "created_at": existing_invite.get("created_at", now_iso),
+                    }
+                    await db.password_tokens.update_one({"_id": existing_invite["_id"]}, {"$set": update_doc})
+                    token_data = update_doc
                 else:
-                    # Create token for password creation
-                    token = secrets.token_urlsafe(32)
-                    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-                    
-                    now_iso = datetime.now(timezone.utc).isoformat()
                     token_data = {
                         "token": token,
                         "email": email,
                         "name": name,
                         "has_full_access": request.has_full_access,
-                        "course_ids": request.course_ids if not request.has_full_access else [],
-                        "expires_at": expires_at.isoformat(),
+                        "course_ids": [] if request.has_full_access else (request.course_ids or []),
+                        "expires_at": expires_at,
                         "created_at": now_iso,
                         "updated_at": now_iso,
                         "token_history": [token],
                     }
-                    
                     await db.password_tokens.insert_one(token_data)
-                    
-                    # Send email with password creation link
-                    password_link = f"{os.environ.get('FRONTEND_URL', 'http://localhost:3000')}/create-password?token={token}"
-                    
-                    access_description = "acesso completo à plataforma" if request.has_full_access else f"{len(request.course_ids)} curso(s)"
-                    
-                    html_content = f"""
-                    <html>
-                        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                                <h2 style="color: #10b981;">Bem-vindo à Hiperautomação!</h2>
-                                <p>Olá <strong>{name}</strong>,</p>
-                                <p>Você foi convidado para a plataforma Hiperautomação com {access_description}.</p>
-                                <p>Para acessar sua conta e começar a aprender, você precisa criar sua senha.</p>
-                                <div style="margin: 30px 0; text-align: center;">
-                                    <a href="{password_link}" 
-                                       style="background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                                        Criar Minha Senha
-                                    </a>
-                                </div>
-                                <p>Ou copie e cole este link no seu navegador:</p>
-                                <p style="background-color: #f5f5f5; padding: 10px; border-radius: 5px; word-break: break-all;">
-                                    {password_link}
-                                </p>
-                                <p><strong>Este link expira em 7 dias.</strong></p>
-                                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                                <p style="color: #666; font-size: 12px;">
-                                    Se você não solicitou esta matrícula, pode ignorar este email.
-                                </p>
-                            </div>
-                        </body>
-                    </html>
-                    """
-                    
-
-                    if email_sending_enabled:
-                        # Send email in a thread pool to avoid blocking
-                        loop = asyncio.get_event_loop()
-                        try:
-                            # Get SMTP credentials (priority: smtp_username/password, fallback to old method)
-                            smtp_username = email_config.get('smtp_username')
-                            smtp_password = email_config.get('smtp_password')
-                            smtp_server = email_config.get('smtp_server', 'smtp-relay.brevo.com')
-                            smtp_port = email_config.get('smtp_port', 587)
-                            
-                            # Fallback to old method if new fields not set
-                            if not smtp_username or not smtp_password:
-                                smtp_username = email_config.get('sender_email')
-                                smtp_password = email_config.get('brevo_smtp_key') or email_config.get('brevo_api_key')
-                            
-                            email_sent = await loop.run_in_executor(
-                                executor,
-                                send_brevo_email,
-                                email,
-                                name,
-                                "Bem-vindo �� Hiperautoma��ǜo - Crie sua senha",
-                                html_content,
-                                smtp_username,
-                                smtp_password,
-                                email_config['sender_email'],
-                                email_config.get('sender_name'),
-                                smtp_server,
-                                smtp_port
-                            )
-                            if email_sent:
-                                logger.info(f"Successfully sent invitation email to {email}")
-                            else:
-                                logger.warning(f"Failed to send email to {email}, but continuing import")
-                                errors.append(f"Failed to send email to {email}")
-                        except Exception as email_error:
-                            logger.error(f"Error sending email to {email}: {email_error}")
-                            errors.append(f"Email error for {email}: {str(email_error)}")
-                    else:
-                        logger.warning(f"Skipping email sending for {email} because email configuration is missing.")
-                        errors.append(f"Email not sent to {email}: email configuration not set.")
-
-                    
-                    imported_count += 1
-                    continue
                 
+                password_link = f"{os.environ.get('FRONTEND_URL', 'http://localhost:3000')}/create-password?token={token}"
+                course_count = len(token_data.get("course_ids", []))
+                access_description = (
+                    "acesso completo à plataforma" if token_data.get("has_full_access")
+                    else f"{course_count} curso(s)"
+                )
+                
+                html_content = f"""
+                <html>
+                    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                            <h2 style="color: #10b981;">Bem-vindo à Hiperautomação!</h2>
+                            <p>Olá <strong>{name}</strong>,</p>
+                            <p>Você foi convidado para a plataforma Hiperautomação com {access_description}.</p>
+                            <p>Para acessar sua conta e começar a aprender, você precisa criar sua senha.</p>
+                            <div style="margin: 30px 0; text-align: center;">
+                                <a href="{password_link}" 
+                                   style="background-color: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                                    Criar Minha Senha
+                                </a>
+                            </div>
+                            <p>Ou copie e cole este link no seu navegador:</p>
+                            <p style="background-color: #f5f5f5; padding: 10px; border-radius: 5px; word-break: break-all;">
+                                {password_link}
+                            </p>
+                            <p><strong>Este link expira em 7 dias.</strong></p>
+                            <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                            <p style="color: #666; font-size: 12px;">
+                                Se você não solicitou esta matrícula, pode ignorar este email.
+                            </p>
+                        </div>
+                    </body>
+                </html>
+                """
+
+                if email_sending_enabled:
+                    loop = asyncio.get_event_loop()
+                    try:
+                        smtp_username = email_config.get('smtp_username')
+                        smtp_password = email_config.get('smtp_password')
+                        smtp_server = email_config.get('smtp_server', 'smtp-relay.brevo.com')
+                        smtp_port = email_config.get('smtp_port', 587)
+                        
+                        if not smtp_username or not smtp_password:
+                            smtp_username = email_config.get('sender_email')
+                            smtp_password = email_config.get('brevo_smtp_key') or email_config.get('brevo_api_key')
+                        
+                        email_sent = await loop.run_in_executor(
+                            executor,
+                            send_brevo_email,
+                            email,
+                            name,
+                            "Bem-vindo à Hiperautomação - Crie sua senha",
+                            html_content,
+                            smtp_username,
+                            smtp_password,
+                            email_config['sender_email'],
+                            email_config.get('sender_name'),
+                            smtp_server,
+                            smtp_port
+                        )
+                        if email_sent:
+                            logger.info("Successfully sent invitation email to %s", email)
+                        else:
+                            logger.warning("Failed to send email to %s, but continuing import", email)
+                            errors.append(f"Failed to send email to {email}")
+                    except Exception as email_error:
+                        logger.error("Error sending email to %s: %s", email, email_error)
+                        errors.append(f"Email error for {email}: {str(email_error)}")
+                else:
+                    logger.warning("Skipping email sending for %s because email configuration is missing.", email)
+                    errors.append(f"Email not sent to {email}: email configuration not set.")
+
                 imported_count += 1
                 
             except Exception as e:
@@ -4374,6 +4595,51 @@ def send_password_creation_email(email: str, name: str, password_link: str):
 @api_router.post("/admin/users/{user_id}/resend-password-email")
 async def resend_password_email(user_id: str, current_user: User = Depends(get_current_admin)):
     """Resend password creation email to user"""
+    if is_invite_id(user_id):
+        invite_doc = await get_invite_doc_by_user_id(user_id)
+        if not invite_doc:
+            raise HTTPException(status_code=404, detail="Invitation not found")
+
+        new_token = secrets.token_urlsafe(32)
+        now = datetime.now(timezone.utc)
+        now_iso = now.isoformat()
+        expires_at = (now + timedelta(days=7)).isoformat()
+        combined_history = [new_token] + invite_doc.get("token_history", [])
+
+        await db.password_tokens.update_one(
+            {"token": invite_doc["token"]},
+            {
+                "$set": {
+                    "token": new_token,
+                    "updated_at": now_iso,
+                    "expires_at": expires_at,
+                    "token_history": list(dict.fromkeys(combined_history)),
+                }
+            },
+        )
+
+        frontend_url = get_frontend_url()
+        password_link = f"{frontend_url}/create-password?token={new_token}"
+
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(
+            executor,
+            partial(
+                send_password_creation_email,
+                invite_doc["email"],
+                invite_doc.get("name") or invite_doc["email"],
+                password_link,
+            ),
+        )
+
+        logger.info(
+            "Reenviado email de convite para %s (token %s) por %s",
+            invite_doc.get("email"),
+            new_token,
+            current_user.email,
+        )
+        return {"message": "Email enviado com sucesso", "token": new_token}
+
     user = await db.users.find_one({"id": user_id})
     
     if not user:
@@ -4426,6 +4692,48 @@ async def resend_password_email(user_id: str, current_user: User = Depends(get_c
 @api_router.post("/admin/users/{user_id}/reset-password")
 async def reset_user_password(user_id: str, current_user: User = Depends(get_current_admin)):
     """Reset user password and send password reset email"""
+    if is_invite_id(user_id):
+        invite_doc = await get_invite_doc_by_user_id(user_id)
+        if not invite_doc:
+            raise HTTPException(status_code=404, detail="Invitation not found")
+        new_token = secrets.token_urlsafe(32)
+        now = datetime.now(timezone.utc)
+        now_iso = now.isoformat()
+        expires_at = (now + timedelta(days=7)).isoformat()
+        combined_history = [new_token] + invite_doc.get("token_history", [])
+
+        await db.password_tokens.update_one(
+            {"token": invite_doc["token"]},
+            {
+                "$set": {
+                    "token": new_token,
+                    "expires_at": expires_at,
+                    "updated_at": now_iso,
+                    "token_history": list(dict.fromkeys(combined_history)),
+                }
+            },
+        )
+
+        frontend_url = get_frontend_url()
+        password_link = f"{frontend_url}/create-password?token={new_token}"
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(
+            executor,
+            partial(
+                send_password_creation_email,
+                invite_doc["email"],
+                invite_doc.get("name") or invite_doc["email"],
+                password_link,
+            ),
+        )
+
+        logger.info(
+            "Token de convite regenerado para %s via reset admin %s",
+            invite_doc.get("email"),
+            current_user.email,
+        )
+        return {"message": "Convite atualizado e email enviado"}
+
     user = await db.users.find_one({"id": user_id})
     
     if not user:
