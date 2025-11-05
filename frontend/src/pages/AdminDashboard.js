@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Routes, Route, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { 
@@ -22,7 +22,8 @@ import {
   UserCheck,
   HeadphonesIcon,
   BarChart3,
-  GripVertical
+  GripVertical,
+  Upload
 } from 'lucide-react';
 import { Eye } from 'lucide-react';
 import * as Icons from 'lucide-react';
@@ -37,6 +38,7 @@ import EmailSettings from './EmailSettings';
 import LeadSettings from './LeadSettings';
 import ReplicationSettings from './ReplicationSettings';
 import AnalyticsSettings from './AnalyticsSettings';
+import BunnySettings from './BunnySettings';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -806,6 +808,7 @@ export default function AdminDashboard({ user, onLogout }) {
   <Route path="lead-settings" element={<LeadSettings user={user} onLogout={onLogout} />} />
   <Route path="analytics" element={<AnalyticsSettings user={user} onLogout={onLogout} />} />
   <Route path="replication" element={<ReplicationSettings user={user} onLogout={onLogout} />} />
+  <Route path="media" element={<BunnySettings user={user} onLogout={onLogout} />} />
     </Routes>
   );
 }
@@ -834,6 +837,14 @@ function CourseManagement({ user, onLogout }) {
   const [draggingLessonId, setDraggingLessonId] = useState(null);
   const [dragOverLessonId, setDragOverLessonId] = useState(null);
   const [lessonOrderSaving, setLessonOrderSaving] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadFeedback, setUploadFeedback] = useState(null);
+  const [bunnyConfig, setBunnyConfig] = useState(null);
+  const videoInputRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const attachmentInputRef = useRef(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
   useEffect(() => {
     fetchCourseData();
@@ -844,6 +855,47 @@ function CourseManagement({ user, onLogout }) {
       fetchLessons(selectedModule.id);
     }
   }, [selectedModule?.id]);
+
+  useEffect(() => {
+    const loadBunnyConfig = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API}/admin/media/bunny/config`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setBunnyConfig(response.data);
+      } catch (error) {
+        console.error('Erro ao carregar configuração Bunny:', error);
+      }
+    };
+
+    loadBunnyConfig();
+  }, []);
+
+  useEffect(() => {
+    if (!showLessonDialog) {
+      setUploadingVideo(false);
+      setUploadingFile(false);
+      setUploadingAttachment(false);
+      setUploadFeedback(null);
+      if (videoInputRef.current) {
+        videoInputRef.current.value = '';
+      }
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      if (attachmentInputRef.current) {
+        attachmentInputRef.current.value = '';
+      }
+    }
+  }, [showLessonDialog]);
+
+  useEffect(() => {
+    setUploadFeedback(null);
+  }, [lessonForm.type]);
+
+  const streamConfigured = Boolean(bunnyConfig?.stream_library_id && bunnyConfig?.stream_api_key);
+  const storageConfigured = Boolean(bunnyConfig?.storage_zone_name && bunnyConfig?.storage_api_key);
 
   const fetchCourseData = async () => {
     try {
@@ -877,6 +929,133 @@ function CourseManagement({ user, onLogout }) {
       setLessons(response.data);
     } catch (error) {
       console.error('Error fetching lessons:', error);
+    }
+  };
+
+  const uploadFileToBunny = async (selected) => {
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', selected);
+
+      const response = await axios.post(`${API}/admin/media/bunny/upload/file`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const publicUrl = response.data?.public_url;
+      if (!publicUrl) {
+        throw new Error('Upload concluído, porém a Bunny não retornou uma URL pública.');
+      }
+      return publicUrl;
+    } catch (error) {
+      console.error('Erro ao enviar arquivo para Bunny:', error);
+      setUploadFeedback({
+        type: 'error',
+        text: error.response?.data?.detail || 'Falha ao enviar arquivo para Bunny. Verifique as credenciais nas configurações.'
+      });
+      throw error;
+    }
+  };
+
+  const handleVideoFileSelected = async (event) => {
+    const selected = event.target.files?.[0];
+    if (!selected || !streamConfigured) return;
+    setUploadFeedback(null);
+    setUploadingVideo(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', selected);
+      const resolvedTitle = (lessonForm.title || selected.name || 'Aula em vídeo').trim();
+      formData.append('title', resolvedTitle);
+
+      const response = await axios.post(`${API}/admin/media/bunny/upload/video`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const embedHtml = response.data?.embed_html || '';
+      const autoDuration = response.data?.duration_seconds;
+      if (embedHtml) {
+        setLessonForm((prev) => ({
+          ...prev,
+          type: 'video',
+          content: embedHtml,
+          duration: typeof autoDuration === 'number' && autoDuration > 0 ? autoDuration : prev.duration
+        }));
+        let successMessage = 'Vídeo enviado para Bunny e embed aplicado automaticamente.';
+        if (autoDuration && autoDuration > 0) {
+          successMessage += ` Duração estimada: ${autoDuration}s.`;
+        }
+        setUploadFeedback({ type: 'success', text: successMessage });
+      } else {
+        setUploadFeedback({
+          type: 'error',
+          text: 'Upload concluído, mas não foi possível gerar o embed automaticamente. Verifique o retorno da API.'
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao enviar vídeo para Bunny:', error);
+      setUploadFeedback({
+        type: 'error',
+        text: error.response?.data?.detail || 'Falha ao enviar vídeo para Bunny. Verifique as credenciais nas configurações.'
+      });
+    } finally {
+      setUploadingVideo(false);
+      if (event.target) {
+        event.target.value = '';
+      }
+    }
+  };
+
+  const handleMaterialFileSelected = async (event) => {
+    const selected = event.target.files?.[0];
+    if (!selected || !storageConfigured) return;
+    setUploadFeedback(null);
+    setUploadingFile(true);
+
+    try {
+      const publicUrl = await uploadFileToBunny(selected);
+      setLessonForm((prev) => ({ ...prev, type: 'file', content: publicUrl }));
+      setUploadFeedback({ type: 'success', text: 'Arquivo enviado para Bunny Storage. Link aplicado automaticamente.' });
+    } catch (error) {
+      // Feedback já foi tratado em uploadFileToBunny
+    } finally {
+      setUploadingFile(false);
+      if (event.target) {
+        event.target.value = '';
+      }
+    }
+  };
+
+  const handleAttachmentUpload = async (event) => {
+    const selected = event.target.files?.[0];
+    if (!selected || !storageConfigured) return;
+    setUploadFeedback(null);
+    setUploadingAttachment(true);
+
+    try {
+      const publicUrl = await uploadFileToBunny(selected);
+      const defaultTitle = selected.name || 'Material adicional';
+      setLessonForm((prev) => ({
+        ...prev,
+        links: [
+          ...(prev.links || []),
+          { title: defaultTitle, url: publicUrl }
+        ]
+      }));
+      setUploadFeedback({ type: 'success', text: 'Material enviado para Bunny e adicionado à lista de recursos.' });
+    } catch (error) {
+      // Feedback já foi tratado em uploadFileToBunny
+    } finally {
+      setUploadingAttachment(false);
+      if (event.target) {
+        event.target.value = '';
+      }
     }
   };
 
@@ -1370,7 +1549,10 @@ function CourseManagement({ user, onLogout }) {
                           {lessonForm.type === 'video' || lessonForm.type === 'text' ? (
                             <Textarea
                               value={lessonForm.content}
-                              onChange={(e) => setLessonForm({ ...lessonForm, content: e.target.value })}
+                              onChange={(e) => {
+                                setLessonForm({ ...lessonForm, content: e.target.value });
+                                if (uploadFeedback) setUploadFeedback(null);
+                              }}
                               required
                               rows={lessonForm.type === 'video' ? 4 : 6}
                               placeholder={lessonForm.type === 'video' 
@@ -1382,18 +1564,101 @@ function CourseManagement({ user, onLogout }) {
                           ) : (
                             <Input
                               value={lessonForm.content}
-                              onChange={(e) => setLessonForm({ ...lessonForm, content: e.target.value })}
+                              onChange={(e) => {
+                                setLessonForm({ ...lessonForm, content: e.target.value });
+                                if (uploadFeedback) setUploadFeedback(null);
+                              }}
                               required
                               placeholder="https://..."
                               className="bg-[#111111] border-[#2a2a2a]"
                             />
                           )}
                           {lessonForm.type === 'video' && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              Cole o código embed completo do Bunny.net (incluindo as tags &lt;div&gt; e &lt;iframe&gt;)
-                            </p>
+                            <>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Cole o código embed completo do Bunny.net (incluindo as tags &lt;div&gt; e &lt;iframe&gt;) ou envie o arquivo
+                                direto para gerar automaticamente.
+                              </p>
+                              <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 space-y-2">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                  <p className="text-xs text-emerald-100/80">
+                                    Envie arquivos em MP4 ou MOV. O embed será preenchido automaticamente após o upload.
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    onClick={() => videoInputRef.current?.click()}
+                                    disabled={!streamConfigured || uploadingVideo}
+                                    className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <Upload size={16} className="mr-2" />
+                                    {uploadingVideo ? 'Enviando vídeo...' : 'Enviar vídeo via Bunny'}
+                                  </Button>
+                                </div>
+                                {!streamConfigured && (
+                                  <p className="text-xs text-yellow-200/80">
+                                    Configure Bunny Stream em Configurações &gt; Bunny para liberar o upload automático.
+                                  </p>
+                                )}
+                                {uploadingVideo && (
+                                  <p className="text-xs text-emerald-100/80 animate-pulse">Upload em andamento, aguarde...</p>
+                                )}
+                              </div>
+                              <input
+                                ref={videoInputRef}
+                                type="file"
+                                className="hidden"
+                                accept="video/*"
+                                onChange={handleVideoFileSelected}
+                              />
+                            </>
+                          )}
+                          {lessonForm.type === 'file' && (
+                            <>
+                              <div className="mt-3 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 space-y-2">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                  <p className="text-xs text-blue-100/80">
+                                    Faça upload de PDFs, slides ou planilhas para armazenar na Bunny Storage automaticamente.
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={!storageConfigured || uploadingFile}
+                                    className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <Upload size={16} className="mr-2" />
+                                    {uploadingFile ? 'Enviando arquivo...' : 'Enviar arquivo via Bunny'}
+                                  </Button>
+                                </div>
+                                {!storageConfigured && (
+                                  <p className="text-xs text-yellow-200/80">
+                                    Configure a Storage Zone em Configurações &gt; Bunny para habilitar o upload.
+                                  </p>
+                                )}
+                                {uploadingFile && (
+                                  <p className="text-xs text-blue-100/80 animate-pulse">Upload em andamento, aguarde...</p>
+                                )}
+                              </div>
+                              <input
+                                ref={fileInputRef}
+                                type="file"
+                                className="hidden"
+                                onChange={handleMaterialFileSelected}
+                                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,application/pdf,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                              />
+                            </>
                           )}
                         </div>
+                        {uploadFeedback && (
+                          <div
+                            className={`rounded-lg border p-3 text-sm ${
+                              uploadFeedback.type === 'success'
+                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                                : 'border-red-500/40 bg-red-500/10 text-red-200'
+                            }`}
+                          >
+                            {uploadFeedback.text}
+                          </div>
+                        )}
                         <div>
                           <Label>Duração (segundos)</Label>
                           <Input
@@ -1429,6 +1694,39 @@ function CourseManagement({ user, onLogout }) {
                               <Plus size={14} className="mr-1" /> Adicionar Link
                             </Button>
                           </div>
+                          {(lessonForm.type === 'video' || lessonForm.type === 'text') && (
+                            <div className="mb-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                <p className="text-xs text-blue-100/80">
+                                  Envie PDF, slides ou outros materiais para anexar à aula. O link é criado automaticamente.
+                                </p>
+                                <Button
+                                  type="button"
+                                  onClick={() => attachmentInputRef.current?.click()}
+                                  disabled={!storageConfigured || uploadingAttachment}
+                                  className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <Upload size={16} className="mr-2" />
+                                  {uploadingAttachment ? 'Enviando recurso...' : 'Enviar recurso via Bunny'}
+                                </Button>
+                              </div>
+                              {!storageConfigured && (
+                                <p className="mt-2 text-xs text-yellow-100/80">
+                                  Configure a Storage Zone em Configurações &gt; Bunny para liberar o upload de materiais.
+                                </p>
+                              )}
+                              {uploadingAttachment && (
+                                <p className="mt-2 text-xs text-blue-100/80 animate-pulse">Upload em andamento, aguarde...</p>
+                              )}
+                              <input
+                                ref={attachmentInputRef}
+                                type="file"
+                                className="hidden"
+                                onChange={handleAttachmentUpload}
+                                accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.rar,application/pdf,application/msword,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                              />
+                            </div>
+                          )}
                           
                           {lessonForm.links && lessonForm.links.length > 0 && (
                             <div className="space-y-3">

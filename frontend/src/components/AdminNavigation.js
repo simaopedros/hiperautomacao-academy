@@ -16,7 +16,8 @@ import {
   UserCheck,
   HeadphonesIcon,
   BarChart3,
-  Database
+  Database,
+  UploadCloud
 } from 'lucide-react';
 
 const AdminNavigation = ({ user, onLogout }) => {
@@ -254,7 +255,8 @@ const AdminNavigation = ({ user, onLogout }) => {
                 className={`flex items-center gap-2 transition-colors ${
                   location.pathname.includes('/admin/email') || 
                   location.pathname.includes('/admin/lead') || 
-                  location.pathname.includes('/admin/support')
+                  location.pathname.includes('/admin/support') ||
+                  location.pathname.includes('/admin/media')
                     ? 'text-emerald-400 hover:text-emerald-300'
                     : 'text-gray-400 hover:text-white'
                 }`}
@@ -299,15 +301,26 @@ const AdminNavigation = ({ user, onLogout }) => {
                     Captura de Leads
                   </button>
                   <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate('/admin/support');
+                    setShowConfigMenu(false);
+                  }}
+                    className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
+                  >
+                    <HeadphonesIcon size={16} />
+                    Configurar Suporte
+                  </button>
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate('/admin/support');
+                      navigate('/admin/media');
                       setShowConfigMenu(false);
                     }}
                     className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
                   >
-                    <HeadphonesIcon size={16} />
-                    Configurar Suporte
+                    <UploadCloud size={16} />
+                    Bunny Vídeos & Arquivos
                   </button>
                 </div>
               )}
