@@ -34,6 +34,7 @@ import CommunityModeration from './CommunityModeration';
 import EmailSettings from './EmailSettings';
 import LeadSettings from './LeadSettings';
 import ReplicationSettings from './ReplicationSettings';
+import AnalyticsSettings from './AnalyticsSettings';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -389,7 +390,8 @@ function CourseList({ onLogout, user }) {
                   className={`flex items-center gap-2 transition-colors ${
                     location.pathname.includes('/admin/email') || 
                     location.pathname.includes('/admin/lead') || 
-                    location.pathname.includes('/admin/support')
+                    location.pathname.includes('/admin/support') ||
+                    location.pathname.includes('/admin/analytics')
                       ? 'text-emerald-400 hover:text-emerald-300'
                       : 'text-gray-400 hover:text-white'
                   }`}
@@ -421,6 +423,17 @@ function CourseList({ onLogout, user }) {
                     >
                       <UserCheck size={16} />
                       Captura de Leads
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate('/admin/analytics');
+                        setShowConfigMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
+                    >
+                      <BarChart3 size={16} />
+                      Configurar Analytics
                     </button>
                     <button
                       onClick={(e) => {
@@ -773,9 +786,10 @@ export default function AdminDashboard({ user, onLogout }) {
       <Route path="course/:courseId" element={<CourseManagement user={user} onLogout={onLogout} />} />
       <Route path="users" element={<UserManagement user={user} onLogout={onLogout} />} />
       <Route path="community" element={<CommunityModeration user={user} onLogout={onLogout} />} />
-      <Route path="email-settings" element={<EmailSettings user={user} onLogout={onLogout} />} />
-      <Route path="lead-settings" element={<LeadSettings user={user} onLogout={onLogout} />} />
-      <Route path="replication" element={<ReplicationSettings user={user} onLogout={onLogout} />} />
+  <Route path="email-settings" element={<EmailSettings user={user} onLogout={onLogout} />} />
+  <Route path="lead-settings" element={<LeadSettings user={user} onLogout={onLogout} />} />
+  <Route path="analytics" element={<AnalyticsSettings user={user} onLogout={onLogout} />} />
+  <Route path="replication" element={<ReplicationSettings user={user} onLogout={onLogout} />} />
     </Routes>
   );
 }

@@ -18,6 +18,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from collections import deque
 from jose import jwt
+from jose.exceptions import JWTError, ExpiredSignatureError
 from passlib.context import CryptContext
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -205,6 +206,12 @@ def _record_stripe_event(entry: dict):
 # Security
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
+LEGACY_SECRET_KEYS = [
+    key.strip()
+    for key in os.environ.get('SECRET_KEY_FALLBACKS', '').split(',')
+    if key.strip()
+]
+_KNOWN_SECRET_KEYS = [SECRET_KEY] + [k for k in LEGACY_SECRET_KEYS if k != SECRET_KEY]
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
@@ -572,14 +579,7 @@ class GamificationSettings(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: Optional[str] = None
 
-# Support Configuration
-class SupportConfig(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    support_url: str = "https://wa.me/5511999999999"  # Default WhatsApp
-    support_text: str = "Suporte"
-    enabled: bool = True
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_by: Optional[str] = None
+# (Support configuration routes moved below get_current_admin)
 
 # Feature Flag Configuration
 class FeatureFlag(BaseModel):
@@ -588,6 +588,23 @@ class FeatureFlag(BaseModel):
     description: Optional[str] = None
     enabled_for_all: bool = False
     enabled_users: List[str] = []  # emails ou IDs de usuários
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_by: Optional[str] = None
+
+# Analytics Configuration
+class AnalyticsConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    provider: Optional[str] = "posthog"
+    send_events_enabled: bool = True
+    allowed_events: List[str] = [
+        "PageView","CourseView","LessonStart","LessonComplete","Like","Comment",
+        "LeadCapture","Subscribe","Purchase","Login"
+    ]
+    allowed_fields: List[str] = [
+        "user_id","user_email","user_name","user_role","course_id","lesson_id",
+        "category","plan_id","has_full_access","language","referrer","utm_source",
+        "utm_campaign","utm_medium","price_brl","subscription_status","subscription_auto_renew"
+    ]
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_by: Optional[str] = None
 
@@ -655,9 +672,25 @@ def create_access_token(data: dict):
     return encoded_jwt
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    last_error = None
+
+    for key in _KNOWN_SECRET_KEYS:
+        try:
+            payload = jwt.decode(token, key, algorithms=[ALGORITHM])
+            if key != SECRET_KEY:
+                logger.warning("Token validated using fallback secret key")
+            break
+        except ExpiredSignatureError as exc:
+            raise HTTPException(status_code=401, detail="Token expired") from exc
+        except JWTError as exc:
+            last_error = exc
+            continue
+    else:
+        logger.exception("Failed to authenticate token: %s", last_error)
+        raise HTTPException(status_code=401, detail="Invalid token") from last_error
+
     try:
-        token = credentials.credentials
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -673,7 +706,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             user["has_full_access"] = False
 
         return User(**user)
-    except jwt.ExpiredSignatureError:
+    except ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except Exception as exc:
         logger.exception("Failed to authenticate token: %s", exc)
@@ -685,6 +718,56 @@ async def get_current_admin(current_user: User = Depends(get_current_user)):
     return current_user
 
 # (Feature flags removidos)
+
+# Support Configuration
+class SupportConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    support_url: str = "https://wa.me/5511999999999"  # Default WhatsApp
+    support_text: str = "Suporte"
+    enabled: bool = True
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_by: Optional[str] = None
+
+@api_router.get("/support/config")
+async def get_support_config():
+    """Get public support button configuration"""
+    cfg = await db.support_config.find_one({}, {"_id": 0})
+    if not cfg:
+        return SupportConfig().model_dump()
+    # Ensure defaults if older docs are missing fields
+    base = SupportConfig(**cfg).model_dump()
+    return base
+
+@api_router.post("/admin/support/config")
+async def update_support_config(
+    support_url: Optional[str] = None,
+    support_text: Optional[str] = None,
+    enabled: Optional[bool] = None,
+    current_user: User = Depends(get_current_admin)
+):
+    """Update support button configuration (admin only).
+
+    Accepts query params to match current frontend usage.
+    """
+    # Load existing or defaults
+    existing = await db.support_config.find_one({}, {"_id": 0}) or {}
+    cfg = SupportConfig(**{
+        **existing,
+        **({"support_url": support_url} if support_url is not None else {}),
+        **({"support_text": support_text} if support_text is not None else {}),
+        **({"enabled": enabled} if enabled is not None else {}),
+        "updated_at": datetime.now(timezone.utc),
+        "updated_by": current_user.email,
+    }).model_dump()
+
+    await db.support_config.replace_one({}, cfg, upsert=True)
+    logger.info(f"Admin {current_user.email} updated support config")
+    return {"message": "Support configuration updated successfully", "config": cfg}
+
+# Backward-compatible non-prefixed route used by some frontend screens
+@app.get("/support/config")
+async def get_support_config_legacy():
+    return await get_support_config()
 
 # Helper function to check if user has access to a course (backward compatible)
 async def user_has_course_access(user_id: str, course_id: str, has_full_access: bool = False) -> bool:
@@ -2306,7 +2389,8 @@ async def user_has_access(user_id: str) -> bool:
 async def create_comment(comment_data: CommentCreate, current_user: User = Depends(get_current_user)):
     # Check if user has access to at least one course
     has_access = await user_has_access(current_user.id)
-    if not has_access:
+    # Allow administrators to participate regardless of course enrollment
+    if current_user.role != "admin" and not has_access:
         raise HTTPException(
             status_code=403, 
             detail="Você precisa estar matriculado em pelo menos um curso para participar da comunidade!"
@@ -2496,6 +2580,33 @@ async def save_email_config(config: EmailConfig, current_user: User = Depends(ge
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to save email configuration",
         ) from exc
+
+# ==================== ANALYTICS CONFIGURATION ====================
+
+@api_router.get("/analytics/config")
+async def get_public_analytics_config():
+    """Public endpoint: returns analytics configuration or sensible defaults."""
+    doc = await db.analytics_config.find_one({}, {"_id": 0})
+    if not doc:
+        doc = AnalyticsConfig().model_dump()
+    return doc
+
+@api_router.get("/admin/analytics/config")
+async def admin_get_analytics_config(current_user: User = Depends(get_current_admin)):
+    """Admin-only endpoint to fetch analytics configuration."""
+    doc = await db.analytics_config.find_one({}, {"_id": 0})
+    if not doc:
+        doc = AnalyticsConfig().model_dump()
+    return doc
+
+@api_router.post("/admin/analytics/config")
+async def admin_save_analytics_config(config: AnalyticsConfig, current_user: User = Depends(get_current_admin)):
+    """Admin-only endpoint to save analytics configuration."""
+    payload = config.model_dump()
+    payload["updated_at"] = datetime.now(timezone.utc)
+    payload["updated_by"] = getattr(current_user, "email", None) or current_user.id
+    await db.analytics_config.update_one({}, {"$set": payload}, upsert=True)
+    return {"message": "Analytics configuration saved successfully"}
 
 # ==================== BULK IMPORT ====================
 

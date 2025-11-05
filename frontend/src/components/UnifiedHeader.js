@@ -8,7 +8,9 @@ import {
   ChevronDown, 
   ChevronUp,
   Sparkles,
-  ArrowLeft
+  ArrowLeft,
+  HeadphonesIcon,
+  Play
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -19,6 +21,8 @@ const UnifiedHeader = ({
   showInsights, 
   setShowInsights, 
   setShowLanguageSettings,
+  supportConfig,
+  resumeLessonId,
   showBackButton = false,
   onBack
 }) => {
@@ -121,6 +125,32 @@ const UnifiedHeader = ({
                 {showInsights ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 {showInsights ? 'Ocultar visão geral' : 'Mostrar visão geral'}
               </button>
+            )}
+
+            {/* Always show Resume action */}
+            {resumeLessonId && (
+              <a
+                href={`/lesson/${resumeLessonId}`}
+                className="chip border-white/15 text-gray-300 hover:text-white hover:bg-white/5"
+                title={t('dashboard.continueDescription')}
+                aria-label={t('dashboard.continueDescription')}
+              >
+                <Play size={16} />
+              </a>
+            )}
+
+            {/* Support icon only when overview is hidden */}
+            {!showInsights && supportConfig?.enabled !== false && supportConfig?.support_url && (
+              <a
+                href={supportConfig.support_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="chip border-white/15 text-gray-300 hover:text-white hover:bg-white/5"
+                title={supportConfig.support_text || 'Suporte'}
+                aria-label={supportConfig.support_text || 'Suporte'}
+              >
+                <HeadphonesIcon size={16} />
+              </a>
             )}
             
             {/* User Info */}

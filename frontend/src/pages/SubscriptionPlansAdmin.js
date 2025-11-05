@@ -187,7 +187,7 @@ export default function SubscriptionPlansAdmin({ user, onLogout }) {
                     ) : null;
                   })()}
                 </div>
-              )}
+              
               {(plan.stripe_price_id || plan.stripe_product_id) && (
                 <div className="pt-2 mt-2 border-t border-[#2a2a2a] text-xs text-gray-400 space-y-1">
                   {plan.stripe_price_id && <p>Stripe Price ID: {plan.stripe_price_id}</p>}

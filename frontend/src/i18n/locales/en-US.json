@@ -117,7 +117,12 @@
     "portugueseCourses": "Courses in Portuguese",
     "englishCourses": "Courses in English",
     "spanishCourses": "Cursos en español",
-    "updatingLanguage": "Updating language..."
+    "updatingLanguage": "Updating language...",
+    "nextAction": "Next action",
+    "all": "All",
+    "inProgress": "In progress",
+    "completed": "Completed",
+    "favorites": "Favorites"
   },
   "courses": {
     "title": "Courses",
@@ -431,7 +436,7 @@
     },
     "postDetail": {
       "title": "Detailed Discussion",
-      "replies": "Replies ({{count}})",
+      "replies": "Replies",
       "noReplies": "No replies yet. Be the first!",
       "replyPlaceholder": "Write your reply...",
       "writeReplyPlaceholder": "Type your reply here...",
@@ -490,7 +495,8 @@
     },
     "postDetail": {
       "title": "Post Details",
-      "replies": "Replies ({{count}})",
+      "replies": "Replies",
+      "repliesTitle": "Replies",
       "noReplies": "No replies"
     },
     "confirmations": {
@@ -499,9 +505,15 @@
     },
     "errors": {
       "deletePost": "Error deleting post",
-      "deleteComment": "Error deleting comment"
+      "deleteComment": "Error deleting comment",
+      "replyComment": "Error sending reply"
     },
-    "defaultUser": "User"
+    "defaultUser": "User",
+    "adminReply": {
+      "title": "Reply as Administrator",
+      "placeholder": "Write an official reply to this post...",
+      "send": "Reply"
+    }
   },
   "messages": {
     "success": {
