@@ -2900,6 +2900,98 @@ async def save_bunny_media_config(config: BunnyConfig, current_user: User = Depe
     return {"message": "Configurações do Bunny salvas com sucesso"}
 
 
+@api_router.get("/admin/media/bunny/validate/stream")
+async def validate_bunny_stream(current_user: User = Depends(get_current_admin)):
+    """Valida Library ID e AccessKey da Bunny Stream realizando uma chamada simples.
+    Retorna detalhes para ajudar no diagnóstico de 401/403 e problemas de conectividade.
+    """
+    config = await get_bunny_config()
+    config = _ensure_bunny_stream_ready(config)
+
+    library_id = config["stream_library_id"]
+    access_key = config["stream_api_key"]
+    headers_local = {"AccessKey": access_key, "Accept": "application/json"}
+    timeout_local = httpx.Timeout(20.0, connect=10.0)
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout_local) as client:
+            url = f"https://video.bunnycdn.com/library/{library_id}/collections"
+            resp = await client.get(url, headers=headers_local)
+            if resp.status_code == 200:
+                data = resp.json() or {}
+                items = data.get("items") if isinstance(data, dict) else (data if isinstance(data, list) else [])
+                return {
+                    "ok": True,
+                    "library_id": library_id,
+                    "collections_count": len(items) if isinstance(items, list) else 0,
+                    "message": "Credenciais válidas e comunicação com Bunny Stream está funcional."
+                }
+            elif resp.status_code in (401, 403):
+                return {
+                    "ok": False,
+                    "library_id": library_id,
+                    "status": resp.status_code,
+                    "message": "Acesso negado pela Bunny Stream. Verifique se o Library ID e a AccessKey (API Key da Library) estão corretos.",
+                }
+            else:
+                return {
+                    "ok": False,
+                    "library_id": library_id,
+                    "status": resp.status_code,
+                    "message": f"Falha ao consultar coleções: {resp.text[:200]}",
+                }
+    except httpx.HTTPError as exc:
+        logger.exception("Erro de rede ao validar Bunny Stream: %s", exc)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Não foi possível comunicar com Bunny Stream.") from exc
+
+
+@api_router.get("/admin/media/bunny/validate/storage")
+async def validate_bunny_storage(current_user: User = Depends(get_current_admin)):
+    """Valida Storage Zone e AccessKey da Bunny Storage com uma requisição não-destrutiva.
+    Usa GET no diretório raiz da zone para checar autorização e conectividade.
+    """
+    config = await get_bunny_config()
+    config = _ensure_bunny_storage_ready(config)
+
+    zone_name = config["storage_zone_name"]
+    access_key = config["storage_api_key"]
+    storage_host = config.get("storage_host") or "storage.bunnycdn.com"
+    base = storage_host.rstrip("/")
+    storage_base_endpoint = base if base.startswith("http://") or base.startswith("https://") else f"https://{base}"
+    url = f"{storage_base_endpoint}/{zone_name}/"
+    headers_local = {"AccessKey": access_key, "Accept": "application/json"}
+    timeout_local = httpx.Timeout(20.0, connect=10.0)
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout_local) as client:
+            resp = await client.get(url, headers=headers_local)
+            if resp.status_code in (200, 404):
+                # 200: diretório listado com sucesso; 404: raiz sem index, mas credenciais aceitas
+                return {
+                    "ok": True,
+                    "zone": zone_name,
+                    "status": resp.status_code,
+                    "message": "Credenciais válidas e comunicação com Bunny Storage está funcional."
+                }
+            elif resp.status_code in (401, 403):
+                return {
+                    "ok": False,
+                    "zone": zone_name,
+                    "status": resp.status_code,
+                    "message": "Acesso negado pela Bunny Storage. Confirme o nome da Storage Zone e a Storage Password (AccessKey).",
+                }
+            else:
+                return {
+                    "ok": False,
+                    "zone": zone_name,
+                    "status": resp.status_code,
+                    "message": f"Falha ao validar storage: {resp.text[:200]}",
+                }
+    except httpx.HTTPError as exc:
+        logger.exception("Erro de rede ao validar Bunny Storage: %s", exc)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Não foi possível comunicar com Bunny Storage.") from exc
+
+
 def _ensure_bunny_stream_ready(config: Dict[str, Any]) -> Dict[str, Any]:
     if not config.get("stream_library_id") or not config.get("stream_api_key"):
         raise HTTPException(
@@ -3053,7 +3145,10 @@ async def upload_bunny_video(
         if exc.response.status_code in (401, 403):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Falha ao enviar vídeo para Bunny. Verifique as credenciais nas configurações.",
+                detail=(
+                    "Falha ao enviar vídeo para Bunny. Verifique as credenciais nas configurações. "
+                    f"(Library ID: {library_id})"
+                ),
             ) from exc
         raise HTTPException(
             status_code=exc.response.status_code,
