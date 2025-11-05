@@ -54,6 +54,7 @@ function App() {
   }, [user?.id, needsLanguageSelection, dismissTrigger]);
 
   const handleLogin = (token, userData) => {
+    localStorage.removeItem('impersonator');
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
@@ -62,6 +63,7 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('impersonator');
     setUser(null);
     setShowLanguageModal(false);
   };

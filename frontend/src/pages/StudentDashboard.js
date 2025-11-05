@@ -18,6 +18,7 @@ import {
   Settings,
   Globe,
   HeadphonesIcon,
+  Shield,
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { useI18n } from '../hooks/useI18n';
@@ -55,6 +56,20 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
   const [updatingLanguage, setUpdatingLanguage] = useState(false);
   const [courseCompletionMap, setCourseCompletionMap] = useState({});
   const navigate = useNavigate();
+  const [impersonatorSession, setImpersonatorSession] = useState(() => {
+    try {
+      const raw = localStorage.getItem('impersonator');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+  const isImpersonating = Boolean(
+    impersonatorSession &&
+    impersonatorSession.token &&
+    impersonatorSession.user &&
+    user?.role !== 'admin'
+  );
 
   useEffect(() => {
     fetchCourses();
@@ -95,6 +110,29 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
         support_url: process.env.REACT_APP_DEFAULT_SUPPORT_URL || 'https://wa.me/5511999999999',
         support_text: 'Suporte',
       });
+    }
+  };
+
+  const handleExitImpersonation = () => {
+    try {
+      const stored = localStorage.getItem('impersonator');
+      const parsed = stored ? JSON.parse(stored) : impersonatorSession;
+
+      if (parsed && parsed.token && parsed.user) {
+        localStorage.setItem('token', parsed.token);
+        localStorage.setItem('user', JSON.stringify(parsed.user));
+        localStorage.removeItem('impersonator');
+        setImpersonatorSession(null);
+        window.location.href = '/admin';
+      } else {
+        localStorage.removeItem('impersonator');
+        onLogout();
+        window.location.href = '/login';
+      }
+    } catch (error) {
+      console.error('Erro ao retornar para o painel do administrador:', error);
+      onLogout();
+      window.location.href = '/login';
     }
   };
 
@@ -347,6 +385,28 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 py-10 space-y-10">
         {/* Continue Watching moved inside 'Sua jornada' */}
+
+        {isImpersonating && (
+          <div className="glass-panel border border-emerald-500/40 bg-emerald-500/10 rounded-3xl p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-[0_20px_45px_rgba(16,185,129,0.25)]">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/30 flex items-center justify-center text-emerald-200">
+                <Shield size={24} />
+              </div>
+              <div>
+                <p className="text-sm text-emerald-200 uppercase tracking-[0.25em]">Modo de visualização</p>
+                <p className="text-white">
+                  Você está navegando como <span className="font-semibold">{user?.name || user?.email}</span>. Algumas ações são somente leitura.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleExitImpersonation}
+              className="px-4 py-2 rounded-xl bg-white/10 text-white font-semibold border border-white/20 hover:bg-white/20 transition-all"
+            >
+              Voltar para painel do administrador
+            </button>
+          </div>
+        )}
 
         {showInsights && (
         <section>
