@@ -124,7 +124,12 @@
     "portugueseCourses": "Cursos em português",
     "englishCourses": "Courses in English",
     "spanishCourses": "Cursos en español",
-    "updatingLanguage": "Atualizando idioma..."
+    "updatingLanguage": "Atualizando idioma...",
+    "nextAction": "Próxima ação",
+    "all": "Todos",
+    "inProgress": "Em andamento",
+    "completed": "Concluídos",
+    "favorites": "Favoritos"
   },
   "courses": {
     "title": "Cursos",
@@ -309,7 +314,7 @@
     },
     "postDetail": {
       "title": "Discussão Detalhada",
-      "replies": "Respostas ({{count}})",
+      "replies": "Respostas",
       "noReplies": "Nenhuma resposta ainda. Seja o primeiro!",
       "replyPlaceholder": "Escreva sua resposta...",
       "writeReplyPlaceholder": "Digite sua resposta aqui...",
@@ -368,7 +373,8 @@
     },
     "postDetail": {
       "title": "Detalhes da Publicação",
-      "replies": "Respostas ({{count}})",
+      "replies": "Respostas",
+      "repliesTitle": "Respostas",
       "noReplies": "Nenhuma resposta"
     },
     "confirmations": {
@@ -377,9 +383,15 @@
     },
     "errors": {
       "deletePost": "Erro ao excluir publicação",
-      "deleteComment": "Erro ao excluir comentário"
+      "deleteComment": "Erro ao excluir comentário",
+      "replyComment": "Erro ao enviar resposta"
     },
-    "defaultUser": "Usuário"
+    "defaultUser": "Usuário",
+    "adminReply": {
+      "title": "Responder como Administrador",
+      "placeholder": "Escreva uma resposta oficial para esta publicação...",
+      "send": "Responder"
+    }
   },
   "messages": {
     "success": {

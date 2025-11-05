@@ -5,6 +5,7 @@ import axios from 'axios';
 import { MessageCircle, Trash2, Users, TrendingUp, Filter, Search, AlertTriangle, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AdminNavigation from '../components/AdminNavigation';
 
@@ -12,7 +13,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export default function CommunityModeration({ user, onLogout }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [posts, setPosts] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +22,8 @@ export default function CommunityModeration({ user, onLogout }) {
   const [selectedPost, setSelectedPost] = useState(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [postReplies, setPostReplies] = useState([]);
+  const [replyContent, setReplyContent] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
   const [stats, setStats] = useState({
     totalPosts: 0,
     totalComments: 0,
@@ -129,6 +132,35 @@ export default function CommunityModeration({ user, onLogout }) {
     }
   };
 
+  const handleReply = async (e) => {
+    e?.preventDefault?.();
+    if (!selectedPost) return;
+    const content = (replyContent || '').trim();
+    if (!content) {
+      alert(t('validation.required'));
+      return;
+    }
+    try {
+      setSendingReply(true);
+      const token = localStorage.getItem('token');
+      await axios.post(`${API}/comments`, {
+        content,
+        parent_id: selectedPost.id,
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setReplyContent('');
+      // Refresh post detail and list
+      await fetchPostDetail(selectedPost.id);
+      await fetchAllData();
+    } catch (error) {
+      console.error('Error replying to post:', error);
+      alert(t('moderation.errors.replyComment'));
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
   const getUserName = (userId) => {
     const user = users.find(u => u.id === userId);
     return user?.name || t('moderation.defaultUser');
@@ -136,7 +168,12 @@ export default function CommunityModeration({ user, onLogout }) {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR') + ' às ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const locale = i18n?.language || (typeof navigator !== 'undefined' ? navigator.language : 'pt-BR');
+    return (
+      date.toLocaleDateString(locale) +
+      ' ' +
+      date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+    );
   };
 
   const filteredPosts = posts.filter(post => {
@@ -239,7 +276,7 @@ export default function CommunityModeration({ user, onLogout }) {
         ) : filteredPosts.length === 0 ? (
           <div className="text-center py-20 bg-[#1a1a1a] rounded-xl border border-[#252525]">
             <MessageCircle size={64} className="mx-auto text-gray-600 mb-4" />
-            <p className="text-gray-400 text-lg">{t('moderation.posts.noPostsFound')}</p>
+            <p className="text-gray-400 text-lg">{t('moderation.post.noPostsFound')}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -260,12 +297,12 @@ export default function CommunityModeration({ user, onLogout }) {
                       </div>
                       {!post.lesson_id && (
                         <span className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-1 rounded-full">
-                          {t('moderation.posts.discussion')}
+                          {t('moderation.post.discussion')}
                         </span>
                       )}
                       {post.lesson_id && (
                         <span className="bg-purple-500/20 text-purple-400 text-xs px-2 py-1 rounded-full">
-                          {t('moderation.posts.lesson')}
+                          {t('moderation.post.lesson')}
                         </span>
                       )}
                     </div>
@@ -275,9 +312,9 @@ export default function CommunityModeration({ user, onLogout }) {
                     <div className="flex items-center gap-6 text-sm text-gray-400">
                       <span className="flex items-center gap-1">
                         <MessageCircle size={16} />
-                        {t('moderation.posts.replies', { count: post.replies_count || 0 })}
+                        {t('moderation.post.replies', { count: post.replies_count || 0 })}
                       </span>
-                      <span>{t('moderation.posts.likes', { count: post.likes })}</span>
+                      <span>{t('moderation.post.likes', { count: post.likes })}</span>
                     </div>
                   </div>
 
@@ -288,7 +325,7 @@ export default function CommunityModeration({ user, onLogout }) {
                       size="sm"
                       className="border-[#2a2a2a] hover:bg-[#252525]"
                     >
-                      {t('moderation.posts.viewDetails')}
+                      {t('moderation.post.viewDetails')}
                     </Button>
                     <Button
                       onClick={() => handleDeletePost(post.id)}
@@ -334,7 +371,7 @@ export default function CommunityModeration({ user, onLogout }) {
                         className="border-red-500/30 hover:bg-red-500/10 text-red-400"
                       >
                         <Trash2 size={16} className="mr-2" />
-                        {t('moderation.posts.deletePost')}
+                        {t('moderation.post.deletePost')}
                       </Button>
                     </div>
                     <p className="text-gray-200 leading-relaxed">{selectedPost.content}</p>
@@ -344,17 +381,43 @@ export default function CommunityModeration({ user, onLogout }) {
                 <div className="flex items-center gap-6 pt-4 border-t border-[#252525]">
                   <div className="flex items-center gap-2 text-gray-400">
                     <MessageCircle size={18} />
-                    <span className="text-sm">{t('moderation.postDetail.replies', { count: postReplies.length })}</span>
+                    <span className="text-sm">{`${t('moderation.postDetail.replies')} (${postReplies.length})`}</span>
                   </div>
-                  <div className="text-gray-400 text-sm">{t('moderation.posts.likes', { count: selectedPost.likes })}</div>
+                  <div className="text-gray-400 text-sm">{t('moderation.post.likes', { count: selectedPost.likes })}</div>
                 </div>
+              </div>
+
+              {/* Admin Reply Form */}
+              <div className="bg-[#111111] rounded-xl p-6 border border-[#252525] mb-6">
+                <h3 className="font-semibold text-white text-lg mb-4 flex items-center gap-2">
+                  <MessageCircle size={20} />
+                  {t('moderation.adminReply.title')}
+                </h3>
+                <form onSubmit={handleReply} className="space-y-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                      {(user?.name || 'A')[0].toUpperCase()}
+                    </div>
+                    <Textarea
+                      value={replyContent}
+                      onChange={(e) => setReplyContent(e.target.value)}
+                      placeholder={t('moderation.adminReply.placeholder')}
+                      className="bg-[#111111] border-[#2a2a2a] text-white min-h-[100px]"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={sendingReply} className="bg-emerald-600 hover:bg-emerald-500">
+                      {sendingReply ? t('messages.confirmation.save') : t('moderation.adminReply.send')}
+                    </Button>
+                  </div>
+                </form>
               </div>
 
               {/* Replies */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-white text-lg flex items-center gap-2">
                   <MessageCircle size={20} />
-                  {t('moderation.postDetail.repliesTitle', { count: postReplies.length })}
+                  {`${t('moderation.postDetail.repliesTitle')} (${postReplies.length})`}
                 </h3>
                 
                 {postReplies.length === 0 ? (
@@ -373,7 +436,7 @@ export default function CommunityModeration({ user, onLogout }) {
                               <span className="text-xs text-gray-500">{formatDate(reply.created_at)}</span>
                             </div>
                             <p className="text-gray-300 text-sm mb-2">{reply.content}</p>
-                            <div className="text-xs text-gray-500">{t('moderation.posts.likes', { count: reply.likes })}</div>
+                            <div className="text-xs text-gray-500">{t('moderation.post.likes', { count: reply.likes })}</div>
                           </div>
                         </div>
                         <Button

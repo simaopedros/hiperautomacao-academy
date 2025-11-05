@@ -7,6 +7,8 @@ import {
   MessageCircle,
   Play,
   Clock,
+  CheckCircle,
+  Star,
   Coins,
   History,
   Gift,
@@ -15,6 +17,7 @@ import {
   ChevronDown,
   Settings,
   Globe,
+  HeadphonesIcon,
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { useI18n } from '../hooks/useI18n';
@@ -33,6 +36,16 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
   const [supportConfig, setSupportConfig] = useState(null);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [courseFilter, setCourseFilter] = useState('all'); // all | in_progress | completed | favorites
+  const [favoriteCourseIds, setFavoriteCourseIds] = useState(() => {
+    try {
+      const raw = localStorage.getItem('dashboard_favorites');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [showInsights, setShowInsights] = useState(() => {
     const stored = localStorage.getItem('dashboard_insights_visible');
     return stored !== null ? stored === 'true' : true;
@@ -40,6 +53,7 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
   const [showLanguageSettings, setShowLanguageSettings] = useState(false);
   const [userLanguage, setUserLanguage] = useState(user?.preferred_language || null);
   const [updatingLanguage, setUpdatingLanguage] = useState(false);
+  const [courseCompletionMap, setCourseCompletionMap] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -150,6 +164,7 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
 
         const headers = { Authorization: `Bearer ${token}` };
         const items = [];
+        const completionMap = {};
 
         for (const course of accessibleCourses) {
           try {
@@ -200,12 +215,21 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
               }
             }
 
+            // Determine if course is fully completed
+            const completedLessonIds = new Set((progressResp.data || [])
+              .filter((p) => p.completed)
+              .map((p) => String(p.lesson_id))
+            );
+            const completedAll = lessonsOrdered.length > 0 && lessonsOrdered.every((l) => completedLessonIds.has(String(l.id)));
+            completionMap[course.id] = completedAll;
+
             items.push({
               courseId: course.id,
               courseTitle: detail.title,
               moduleTitle,
               lessonId: targetLesson.id,
               lessonTitle: targetLesson.title,
+              lessonDuration: typeof targetLesson.duration === 'number' ? targetLesson.duration : 0,
               updated_at: targetUpdatedAt,
               thumbnail_url: course.thumbnail_url,
             });
@@ -216,6 +240,7 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
 
         items.sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
         setContinueItems(items.slice(0, 4));
+        setCourseCompletionMap(completionMap);
       } catch (error) {
         console.error('Error building continue items:', error);
       } finally {
@@ -239,6 +264,35 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
   useEffect(() => {
     localStorage.setItem('dashboard_insights_visible', showInsights.toString());
   }, [showInsights]);
+
+  // Persistência do filtro selecionado
+  useEffect(() => {
+    const stored = localStorage.getItem('dashboard_course_filter');
+    if (stored) setCourseFilter(stored);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('dashboard_course_filter', courseFilter);
+  }, [courseFilter]);
+
+  // Persist favorites list
+  useEffect(() => {
+    try {
+      localStorage.setItem('dashboard_favorites', JSON.stringify(favoriteCourseIds));
+    } catch (err) {
+      // Some environments can block localStorage (e.g., privacy modes)
+      console.warn('Could not persist favorites to localStorage:', err);
+    }
+  }, [favoriteCourseIds]);
+
+  const toggleFavorite = (courseId) => {
+    setFavoriteCourseIds((prev) => {
+      if (prev.includes(courseId)) {
+        return prev.filter((id) => id !== courseId);
+      }
+      return [...prev, courseId];
+    });
+  };
 
   const fetchCategories = async () => {
     try {
@@ -287,136 +341,132 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
         showInsights={showInsights}
         setShowInsights={setShowInsights}
         setShowLanguageSettings={setShowLanguageSettings}
+        supportConfig={supportConfig}
+        resumeLessonId={null}
       />
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 py-10 space-y-10">
-        {/* Continue Watching Section */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-emerald-200">{t('dashboard.continue')}</p>
-              <h3 className="text-3xl font-semibold mt-2">{t('dashboard.continueDescription')}</h3>
-              <p className="text-gray-400 text-sm max-w-2xl">{t('dashboard.quickAccessLastLessons')}</p>
-            </div>
-          </div>
+        {/* Continue Watching moved inside 'Sua jornada' */}
 
-          {loadingContinue ? (
-            <div className="text-center py-8">
-              <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-emerald-500 border-t-transparent" />
-              <p className="text-gray-400 mt-3 text-sm">{t('dashboard.loadingLastLessons')}</p>
-            </div>
-          ) : continueItems.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-              <p className="text-gray-400 text-sm">{t('dashboard.noCourseStarted')}</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {continueItems.map((item, index) => (
-                <div
-                  key={`${item.courseId}-${item.lessonId}`}
-                  className="glass-panel rounded-3xl border border-white/10 cursor-pointer animate-fade-in transition-transform hover:-translate-y-1"
-                  style={{ animationDelay: `${index * 0.06}s` }}
-                  onClick={() => navigate(`/lesson/${item.lessonId}`)}
-                >
-                  <div className="aspect-video bg-gradient-to-br from-emerald-600 to-cyan-600 flex items-center justify-center relative overflow-hidden rounded-2xl">
-                    {item.thumbnail_url ? (
-                      <img src={item.thumbnail_url} alt={item.courseTitle} className="w-full h-full object-cover" />
-                    ) : (
-                      <Play size={48} className="text-white/80" />
-                    )}
-                    <div className="absolute inset-0 bg-black/30" />
-                    <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 bg-black/50 text-white text-xs font-semibold px-2 py-1 rounded-full">
-                        <Play size={12} />
-                        {t('dashboard.continueLesson')}
-                      </span>
-                    </div>
+        {showInsights && (
+        <section>
+          <div className="glass-panel p-6 rounded-3xl border border-white/10 shadow-[0_25px_70px_rgba(0,0,0,0.45)]">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-start justify-between gap-6">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-emerald-200">{t('dashboard.yourJourney')}</p>
+                  <p className="text-gray-400 text-sm">{t('dashboard.journeyDescription')}</p>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-white/[0.04] rounded-xl border border-white/10 p-3">
+                    <p className="text-xs text-gray-400">{t('dashboard.activeCourses')}</p>
+                    <p className="text-xl font-semibold">{enrolledCourses}</p>
                   </div>
-
-                  <div className="p-5 space-y-2">
-                    <p className="text-xs text-gray-400">{item.courseTitle} • {item.moduleTitle}</p>
-                    <h4 className="text-base font-semibold line-clamp-2">{item.lessonTitle}</h4>
-                    <button
-                      className="text-emerald-300 font-semibold hover:text-emerald-200 transition-colors text-sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/lesson/${item.lessonId}`);
-                      }}
-                    >
-                      {t('dashboard.watchNow')} →
-                    </button>
+                  <div className="bg-white/[0.04] rounded-xl border border-white/10 p-3">
+                    <p className="text-xs text-gray-400">{t('dashboard.catalog')}</p>
+                    <p className="text-xl font-semibold">{availableCourses}</p>
+                  </div>
+                  <div className="bg-white/[0.04] rounded-xl border border-white/10 p-3">
+                    <p className="text-xs text-gray-400">{t('dashboard.waitingForYou')}</p>
+                    <p className="text-xl font-semibold">{pendingCourses}</p>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              <div className="border-t border-white/10 pt-4">
+                {/* Continue cards inside 'Sua jornada' */}
+                <div className="space-y-4">
+                  {/* Removido bloco "Próxima ação" para evitar redundância */}
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.35em] text-emerald-200">{t('dashboard.continue')}</p>
+                    <h3 className="text-xl font-semibold mt-2">{t('dashboard.continueDescription')}</h3>
+                    <p className="text-gray-400 text-sm">{t('dashboard.quickAccessLastLessons')}</p>
+                  </div>
+
+                  {loadingContinue ? (
+                    <div className="text-center py-6">
+                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-emerald-500 border-t-transparent" />
+                      <p className="text-gray-400 mt-3 text-sm">{t('dashboard.loadingLastLessons')}</p>
+                    </div>
+                  ) : continueItems.length === 0 ? (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                      <p className="text-gray-400 text-sm">{t('dashboard.noCourseStarted')}</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                      {continueItems.map((item, index) => (
+                        <div
+                          key={`${item.courseId}-${item.lessonId}`}
+                          className="glass-panel rounded-3xl border border-white/10 cursor-pointer animate-fade-in transition-transform hover:-translate-y-1"
+                          style={{ animationDelay: `${index * 0.06}s` }}
+                          onClick={() => navigate(`/lesson/${item.lessonId}`)}
+                        >
+                          <div className="aspect-video bg-gradient-to-br from-emerald-600 to-cyan-600 flex items-center justify-center relative overflow-hidden rounded-2xl">
+                            {item.thumbnail_url ? (
+                              <img src={item.thumbnail_url} alt={item.courseTitle} className="w-full h-full object-cover" />
+                            ) : (
+                              <Play size={48} className="text-white/80" />
+                            )}
+                            <div className="absolute inset-0 bg-black/30" />
+                            <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 bg-black/50 text-white text-xs font-semibold px-2 py-1 rounded-full">
+                                <Play size={12} />
+                                {t('dashboard.continueLesson')}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="p-5 space-y-2">
+                            <p className="text-xs text-gray-400">{item.courseTitle} • {item.moduleTitle}</p>
+                            <h4 className="text-base font-semibold line-clamp-2">{item.lessonTitle}</h4>
+                            <button
+                              className="text-emerald-300 font-semibold hover:text-emerald-200 transition-colors text-sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/lesson/${item.lessonId}`);
+                              }}
+                            >
+                              {t('dashboard.watchNow')} →
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Shortcuts row (sem botão de continuar para evitar redundância) */}
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <button
+                    onClick={() => navigate('/social')}
+                    className="btn-secondary w-full sm:flex-1 py-3 flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={16} />
+                    {t('dashboard.community')}
+                  </button>
+                  <button
+                    onClick={() => navigate('/profile')}
+                    className="btn-secondary w-full sm:flex-1 py-3 flex items-center justify-center gap-2"
+                  >
+                    <Settings size={16} />
+                    {t('dashboard.profileSettings')}
+                  </button>
+                  {supportConfig?.enabled !== false && supportConfig?.support_url && (
+                    <a
+                      href={supportConfig.support_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-secondary w-full sm:flex-1 py-3 flex items-center justify-center gap-2"
+                    >
+                      <HeadphonesIcon size={16} />
+                      {supportConfig.support_text || 'Suporte'}
+                    </a>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
+          </div>
         </section>
-
-        {showInsights ? (
-        <section className="grid lg:grid-cols-[1.35fr_0.65fr] gap-6">
-          <div className="glass-panel p-8 rounded-3xl border border-white/10 shadow-[0_25px_90px_rgba(0,0,0,0.55)]">
-            <p className="text-xs uppercase tracking-[0.35em] text-emerald-200 mb-3">{t('dashboard.yourJourney')}</p>
-            <h2 className="text-3xl sm:text-4xl font-semibold leading-tight mb-4">
-              {t('dashboard.journeyDescription')}
-            </h2>
-            <p className="text-gray-300 text-sm sm:text-base max-w-2xl">
-              {t('dashboard.journeySubDescription')}
-            </p>
-
-            <div className="grid sm:grid-cols-3 gap-4 mt-8">
-              <div className="bg-white/5 rounded-2xl border border-white/10 p-4">
-                <p className="text-sm text-gray-400 mb-1">{t('dashboard.activeCourses')}</p>
-                <p className="text-3xl font-semibold">{enrolledCourses}</p>
-                <span className="text-xs text-gray-500">{pendingCourses} {t('dashboard.waitingForYou')}</span>
-              </div>
-              <div className="bg-white/5 rounded-2xl border border-white/10 p-4">
-                <p className="text-sm text-gray-400 mb-1">{t('dashboard.catalog')}</p>
-                <p className="text-3xl font-semibold">{availableCourses}</p>
-                <span className="text-xs text-gray-500">{t('dashboard.newCoursesMonthly')}</span>
-              </div>
-
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-1 gap-6">
-            <div className="glass-panel rounded-3xl border border-white/10 p-6 flex flex-col gap-3">
-              <p className="text-xs uppercase tracking-[0.35em] text-gray-400">{t('dashboard.shortcuts')}</p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => navigate('/social')}
-                  className="btn-secondary w-full sm:flex-1 py-3 flex items-center justify-center gap-2"
-                >
-                  <MessageCircle size={16} />
-                  {t('dashboard.community')}
-                </button>
-                <button
-                  onClick={() => navigate('/profile')}
-                  className="btn-secondary w-full sm:flex-1 py-3 flex items-center justify-center gap-2"
-                >
-                  <Settings size={16} />
-                  {t('dashboard.profileSettings')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-        ) : (
-          <div className="glass-panel p-6 rounded-3xl border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-gray-400">{t('dashboard.overviewHidden')}</p>
-              <h3 className="text-2xl font-semibold mt-2">{t('dashboard.informationHidden')}</h3>
-              <p className="text-gray-400 text-sm max-w-xl">
-                {t('dashboard.showOverviewDescription')}
-              </p>
-            </div>
-            <button
-              onClick={() => setShowInsights(true)}
-              className="btn-primary whitespace-nowrap flex items-center gap-2 px-5 py-3"
-            >
-              <ChevronDown size={16} />
-              {t('dashboard.showOverview')}
-            </button>
-          </div>
         )}
 
         <section className="space-y-3">
@@ -428,109 +478,78 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
             </p>
           </div>
 
-        {/* Categoria Filter - Melhorado */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium text-gray-300">{t('dashboard.filterByCategory')}</h4>
-            <span className="text-xs text-gray-500">
-              {(() => {
-                const categoriesWithCourses = getCategoriesWithCourses();
-                return `${categoriesWithCourses.length} ${t('dashboard.categoriesAvailable')}`;
-              })()}
-            </span>
-          </div>
-          
-          <div className="flex flex-wrap gap-3">
-            {/* Botão "Todas as Categorias" */}
-            <button
-              className={`group relative px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                selectedCategory === 'all' 
-                  ? 'bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 text-emerald-300 border border-emerald-400/30 shadow-lg shadow-emerald-500/10' 
-                  : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white hover:border-white/20'
-              }`}
-              onClick={() => setSelectedCategory('all')}
-            >
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${selectedCategory === 'all' ? 'bg-emerald-400' : 'bg-gray-400'}`} />
-                <span>{t('dashboard.allCategories')}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  selectedCategory === 'all' 
-                    ? 'bg-emerald-400/20 text-emerald-300' 
-                    : 'bg-gray-500/20 text-gray-400'
-                }`}>
-                  {courses.length}
-                </span>
-              </div>
-              {selectedCategory === 'all' && (
-                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 animate-pulse" />
-              )}
-            </button>
-
-            {/* Categorias com cursos */}
-            {getCategoriesWithCourses().map((cat) => {
-              const IconEl = Icons[cat.icon] || Icons.FolderOpen;
-              const isActive = selectedCategory === cat.name;
-              
-              return (
-                <button
-                  key={cat.id}
-                  className={`group relative px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 text-emerald-300 border border-emerald-400/30 shadow-lg shadow-emerald-500/10'
-                      : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white hover:border-white/20 hover:shadow-md'
-                  }`}
-                  onClick={() => setSelectedCategory(cat.name)}
+          <div className="space-y-4">
+            <div className="grid gap-6 md:grid-cols-2 md:items-start">
+              {/* Select de Status */}
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.3em] text-emerald-200" htmlFor="statusFilter">
+                  {t('dashboard.quickActions') || 'Filtrar por status'}
+                </label>
+                <select
+                  id="statusFilter"
+                  value={courseFilter}
+                  onChange={(e) => setCourseFilter(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
-                  <div className="flex items-center gap-2">
-                    <IconEl 
-                      size={16} 
-                      className={`${cat.color || (isActive ? 'text-emerald-400' : 'text-gray-400')} transition-colors`} 
-                    />
-                    <span className="truncate max-w-[120px]">{cat.name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                      isActive 
-                        ? 'bg-emerald-400/20 text-emerald-300' 
-                        : 'bg-gray-500/20 text-gray-400 group-hover:bg-gray-400/20 group-hover:text-gray-300'
-                    }`}>
-                      {cat.courseCount}
-                    </span>
-                  </div>
-                  
-                  {/* Efeito hover */}
-                  <div className={`absolute inset-0 rounded-xl transition-opacity duration-200 ${
-                    isActive 
-                      ? 'bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 animate-pulse' 
-                      : 'bg-gradient-to-r from-white/5 to-white/10 opacity-0 group-hover:opacity-100'
-                  }`} />
-                </button>
-              );
-            })}
-          </div>
-          
-          {/* Indicador visual quando nenhuma categoria tem cursos */}
-          {getCategoriesWithCourses().length === 0 && courses.length > 0 && (
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-400/20">
-              <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-              <p className="text-amber-300 text-sm">
-                {t('dashboard.coursesWithoutCategories')}
-              </p>
-            </div>
-          )}
-        </div>
+                  <option value="all">
+                    {(t('dashboard.all') || 'Todos')} ({courses.length})
+                  </option>
+                  <option value="in_progress">
+                    {(t('dashboard.inProgress') || 'Em andamento')} ({courses.filter((c) => (c.has_access || c.is_enrolled) && !courseCompletionMap[c.id]).length})
+                  </option>
+                  <option value="completed">
+                    {(t('dashboard.completed') || 'Concluídos')} ({courses.filter((c) => (c.has_access || c.is_enrolled) && courseCompletionMap[c.id]).length})
+                  </option>
+                  <option value="favorites">
+                    {(t('dashboard.favorites') || 'Favoritos')} ({courses.filter((c) => favoriteCourseIds.includes(c.id)).length})
+                  </option>
+                </select>
+              </div>
 
-        {loading ? (
-          <div className="text-center py-12 sm:py-20">
-            <div className="inline-block animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-4 border-emerald-500 border-t-transparent" />
-            <p className="text-gray-400 mt-4 text-sm sm:text-base">{t('dashboard.loadingCourses')}</p>
+              {/* Select de Categoria */}
+              <div className="space-y-2">
+                <label htmlFor="categoryFilter" className="text-xs uppercase tracking-[0.3em] text-emerald-200">
+                  {t('dashboard.filterByCategory')}
+                </label>
+                <select
+                  id="categoryFilter"
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="all">
+                    {t('dashboard.allCategories')} ({courses.length})
+                  </option>
+                  {getCategoriesWithCourses().map((cat) => (
+                    <option key={cat.id} value={cat.name}>
+                      {cat.name} ({cat.courseCount})
+                    </option>
+                  ))}
+                </select>
+
+                {getCategoriesWithCourses().length === 0 && courses.length > 0 && (
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-400/20">
+                    <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+                    <p className="text-amber-300 text-sm">{t('dashboard.coursesWithoutCategories')}</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        ) : courses.length === 0 ? (
-          <div className="text-center py-12 sm:py-20">
-            <BookOpen size={48} className="sm:w-16 sm:h-16 mx-auto text-gray-600 mb-4" />
-            <p className="text-gray-400 text-base sm:text-lg">{t('dashboard.noCoursesAvailable')}</p>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {(() => {
+
+          {loading ? (
+            <div className="text-center py-12 sm:py-20">
+              <div className="inline-block animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-4 border-emerald-500 border-t-transparent" />
+              <p className="text-gray-400 mt-4 text-sm sm:text-base">{t('dashboard.loadingCourses')}</p>
+            </div>
+          ) : courses.length === 0 ? (
+            <div className="text-center py-12 sm:py-20">
+              <BookOpen size={48} className="sm:w-16 sm:h-16 mx-auto text-gray-600 mb-4" />
+              <p className="text-gray-400 text-base sm:text-lg">{t('dashboard.noCoursesAvailable')}</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {(() => {
               // Group courses by category
               const groupedCourses = {};
               const filteredCourses = selectedCategory === 'all' ? courses : courses.filter(course => {
@@ -579,10 +598,22 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
                     <div className="flex items-center gap-3 mb-6">
                       <CategoryIcon size={24} className="text-emerald-400" />
                       <h3 className="text-xl font-semibold text-white">{selectedCategory}</h3>
-                      <span className="text-gray-400 text-sm">({groupedCourses[selectedCategory]?.length || 0} {t('dashboard.courses')})</span>
+                      <span className="text-gray-400 text-sm">({(groupedCourses[selectedCategory] || []).filter((course) => {
+                        if (courseFilter === 'in_progress') return (course.has_access || course.is_enrolled) && !courseCompletionMap[course.id];
+                        if (courseFilter === 'completed') return (course.has_access || course.is_enrolled) && courseCompletionMap[course.id];
+                        if (courseFilter === 'favorites') return favoriteCourseIds.includes(course.id);
+                        return true;
+                      }).length} {t('dashboard.courses')})</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                      {(groupedCourses[selectedCategory] || []).map((course, index) => (
+                      {(groupedCourses[selectedCategory] || [])
+                        .filter((course) => {
+                          if (courseFilter === 'in_progress') return (course.has_access || course.is_enrolled) && !courseCompletionMap[course.id];
+                          if (courseFilter === 'completed') return (course.has_access || course.is_enrolled) && courseCompletionMap[course.id];
+                          if (courseFilter === 'favorites') return favoriteCourseIds.includes(course.id);
+                          return true;
+                        })
+                        .map((course, index) => (
                         <div
                           key={course.id}
                           data-testid={`course-card-${course.id}`}
@@ -597,6 +628,15 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
                               <Play size={56} className="text-white/70" />
                             )}
                             <div className="absolute inset-0 bg-black/30" />
+                            {/* Favorite toggle */}
+                            <button
+                              type="button"
+                              className={`absolute top-3 right-3 rounded-full p-2 border transition-colors ${favoriteCourseIds.includes(course.id) ? 'bg-amber-500/20 border-amber-400 text-amber-300' : 'bg-white/10 border-white/20 text-white/70 hover:bg-white/20'}`}
+                              onClick={(e) => { e.stopPropagation(); toggleFavorite(course.id); }}
+                              aria-label="Toggle favorite"
+                            >
+                              <Star size={16} className={favoriteCourseIds.includes(course.id) ? 'fill-current' : ''} />
+                            </button>
                           </div>
 
                           <div className="p-5 space-y-3">
@@ -684,10 +724,22 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
                     <div className="flex items-center gap-3 mb-6">
                       <CategoryIcon size={24} className="text-emerald-400" />
                       <h3 className="text-xl font-semibold text-white">{categoryName}</h3>
-                      <span className="text-gray-400 text-sm">({categoryCourses.length} {t('dashboard.courses')})</span>
+                      <span className="text-gray-400 text-sm">({categoryCourses.filter((course) => {
+                        if (courseFilter === 'in_progress') return (course.has_access || course.is_enrolled) && !courseCompletionMap[course.id];
+                        if (courseFilter === 'completed') return (course.has_access || course.is_enrolled) && courseCompletionMap[course.id];
+                        if (courseFilter === 'favorites') return favoriteCourseIds.includes(course.id);
+                        return true;
+                      }).length} {t('dashboard.courses')})</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                      {categoryCourses.map((course, index) => (
+                      {categoryCourses
+                        .filter((course) => {
+                          if (courseFilter === 'in_progress') return (course.has_access || course.is_enrolled) && !courseCompletionMap[course.id];
+                          if (courseFilter === 'completed') return (course.has_access || course.is_enrolled) && courseCompletionMap[course.id];
+                          if (courseFilter === 'favorites') return favoriteCourseIds.includes(course.id);
+                          return true;
+                        })
+                        .map((course, index) => (
                         <div
                           key={course.id}
                           data-testid={`course-card-${course.id}`}
@@ -702,6 +754,15 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
                               <Play size={56} className="text-white/70" />
                             )}
                             <div className="absolute inset-0 bg-black/30" />
+                            {/* Favorite toggle */}
+                            <button
+                              type="button"
+                              className={`absolute top-3 right-3 rounded-full p-2 border transition-colors ${favoriteCourseIds.includes(course.id) ? 'bg-amber-500/20 border-amber-400 text-amber-300' : 'bg-white/10 border-white/20 text-white/70 hover:bg-white/20'}`}
+                              onClick={(e) => { e.stopPropagation(); toggleFavorite(course.id); }}
+                              aria-label="Toggle favorite"
+                            >
+                              <Star size={16} className={favoriteCourseIds.includes(course.id) ? 'fill-current' : ''} />
+                            </button>
                           </div>
 
                           <div className="p-5 space-y-3">

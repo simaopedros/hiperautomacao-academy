@@ -28,6 +28,7 @@ import AdminCategories from '@/pages/AdminCategories';
 import LanguageSelectionModal from '@/components/LanguageSelectionModal';
 import WebhookMonitor from '@/pages/WebhookMonitor';
 import VersionBadge from '@/components/VersionBadge';
+import AnalyticsTracker from '@/components/AnalyticsTracker';
 
 function App() {
   const { t } = useTranslation();
@@ -106,6 +107,7 @@ function App() {
   return (
     <div className="App">
       <BrowserRouter>
+        <AnalyticsTracker />
         <Routes>
           <Route
             path="/"

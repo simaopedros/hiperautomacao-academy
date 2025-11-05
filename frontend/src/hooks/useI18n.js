@@ -70,19 +70,31 @@ export const useI18n = () => {
     ];
   }, []);
 
-  // Função para traduzir com fallback
-  const translate = useCallback((key, options = {}) => {
+  // Função para traduzir com fallback e suporte a defaultValue + interpolação
+  const translate = useCallback((key, arg2, arg3) => {
     try {
+      let options = {};
+
+      // Suporta chamadas: t(key, options) OU t(key, defaultValue, options)
+      if (typeof arg2 === 'string') {
+        options = { ...(typeof arg3 === 'object' && arg3 ? arg3 : {}), defaultValue: arg2 };
+      } else if (typeof arg2 === 'object' && arg2) {
+        options = arg2;
+      }
+
       const translation = t(key, options);
-      // Se a tradução retornar a própria chave, significa que não foi encontrada
+      // Se a tradução retornar a própria chave, tenta usar defaultValue ou retorna a chave
       if (translation === key) {
+        if (options && typeof options.defaultValue === 'string') {
+          return t(options.defaultValue, options); // ainda permite interpolação no defaultValue
+        }
         console.warn(`Tradução não encontrada para a chave: ${key}`);
         return key;
       }
       return translation;
     } catch (error) {
       console.error(`Erro ao traduzir chave ${key}:`, error);
-      return key;
+      return typeof arg2 === 'string' ? arg2 : key;
     }
   }, [t]);
 
