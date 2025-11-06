@@ -1016,6 +1016,21 @@ def _normalize_language(code: Optional[str]) -> Optional[str]:
     # Unknown code: return None to show all languages
     return None
 
+def _language_variants(base_code: Optional[str]) -> List[str]:
+    """Return acceptable variants for a base language code.
+
+    Ensures filtering matches both base and extended locale codes stored
+    in course documents, e.g., 'pt' and 'pt-BR'.
+    """
+    if not base_code:
+        return []
+    variants_map = {
+        "pt": ["pt", "pt-BR"],
+        "en": ["en", "en-US"],
+        "es": ["es", "es-ES"],
+    }
+    return variants_map.get(base_code, [base_code])
+
 @api_router.put("/auth/language", response_model=User)
 async def update_user_language(request: dict, current_user: User = Depends(get_current_user)):
     """Update user's preferred language (accepts base or extended codes)."""
@@ -2461,8 +2476,9 @@ async def get_published_courses(current_user: User = Depends(get_current_user)):
     # Normalize user's preferred language and apply filter
     preferred = _normalize_language(current_user.preferred_language)
     if preferred:
+        variants = _language_variants(preferred)
         course_filter["$or"] = [
-            {"language": preferred},
+            {"language": {"$in": variants}},
             {"language": {"$exists": False}},
             {"language": None}
         ]
