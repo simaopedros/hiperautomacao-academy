@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -22,14 +22,16 @@ import {
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { useI18n } from '../hooks/useI18n';
+import { useLanguagePreferences } from '../hooks/useLanguagePreferences';
 import UnifiedHeader from '../components/UnifiedHeader';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export default function StudentDashboard({ user, onLogout, updateUser }) {
-  const { t, changeLanguage, getCurrentLanguage } = useI18n();
-  const [currentLanguage, setCurrentLanguage] = useState(getCurrentLanguage());
+  const { t } = useI18n();
+  const { contentLanguage, loading: updatingLanguage, selectLanguage, languageOptions } =
+    useLanguagePreferences(user, updateUser);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [continueItems, setContinueItems] = useState([]);
@@ -52,9 +54,9 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
     return stored !== null ? stored === 'true' : true;
   });
   const [showLanguageSettings, setShowLanguageSettings] = useState(false);
-  const [userLanguage, setUserLanguage] = useState(user?.preferred_language || null);
-  const [updatingLanguage, setUpdatingLanguage] = useState(false);
   const [courseCompletionMap, setCourseCompletionMap] = useState({});
+  const [languageFilteredOut, setLanguageFilteredOut] = useState(false);
+  const [showingAllLanguages, setShowingAllLanguages] = useState(false);
   const navigate = useNavigate();
   const [impersonatorSession, setImpersonatorSession] = useState(() => {
     try {
@@ -72,35 +74,9 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
   );
 
   useEffect(() => {
-    fetchCourses();
     fetchSupportConfig();
     fetchCategories();
   }, []);
-
-  // Sincronizar userLanguage quando o user muda
-  useEffect(() => {
-    if (user?.preferred_language !== userLanguage) {
-      setUserLanguage(user?.preferred_language || null);
-    }
-  }, [user?.preferred_language]); // Removida a dependência userLanguage para evitar loop
-
-  // Recarregar cursos quando o idioma do usuário muda
-  useEffect(() => {
-    // Sempre recarregar cursos quando userLanguage muda, incluindo quando é null (todos os idiomas)
-    // Resetar filtro de categoria para evitar estado inválido após troca de idioma
-    setSelectedCategory('all');
-    fetchCourses();
-  }, [userLanguage]);
-
-  // Escutar mudanças no idioma
-  useEffect(() => {
-    const newLanguage = getCurrentLanguage();
-    if (newLanguage !== currentLanguage) {
-      setCurrentLanguage(newLanguage);
-    }
-  }, [getCurrentLanguage, currentLanguage]);
-
-
 
   const fetchSupportConfig = async () => {
     try {
@@ -138,66 +114,61 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
     }
   };
 
-  const fetchCourses = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API}/student/courses`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCourses(response.data);
-    } catch (error) {
-      console.error('Error fetching courses:', error);
-    } finally {
-      setLoading(false);
-    }
+  const fetchCourses = useCallback(
+    async (includeAllLanguages = false) => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        const params = {};
+        if (includeAllLanguages) {
+          params.include_all_languages = true;
+        } else if (contentLanguage) {
+          params.language = contentLanguage;
+        }
+
+        const response = await axios.get(`${API}/student/courses`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params,
+        });
+
+        const fetchedCourses = response.data || [];
+        setCourses(fetchedCourses);
+        setLanguageFilteredOut(
+          !includeAllLanguages && Boolean(contentLanguage) && fetchedCourses.length === 0
+        );
+        setShowingAllLanguages(includeAllLanguages);
+      } catch (error) {
+        console.error('Error fetching courses:', error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [contentLanguage]
+  );
+
+  useEffect(() => {
+    setSelectedCategory('all');
+    fetchCourses();
+  }, [fetchCourses]);
+
+  const handleViewAllCourses = async () => {
+    await fetchCourses(true);
   };
 
-  const updateUserLanguage = async (language) => {
-    setUpdatingLanguage(true);
+  const handleReturnToLanguage = async () => {
+    await fetchCourses(false);
+  };
+
+  const handleLanguageChange = async (languageCode) => {
     try {
-      // Primeiro, atualizar o idioma da interface
-      // Quando language é null (Todos os idiomas), mantém o idioma atual da interface
-      const interfaceLanguage =
-        language === null
-          ? currentLanguage
-          : language === 'pt'
-          ? 'pt-BR'
-          : language === 'en'
-          ? 'en-US'
-          : language === 'es'
-          ? 'es-ES'
-          : 'pt-BR';
-
-      // Usar o hook changeLanguage
-      await changeLanguage(interfaceLanguage);
-
-      // Atualizar o estado local para forçar re-render
-      setCurrentLanguage(interfaceLanguage);
-
-      // Atualizar a preferência do usuário no backend
-      const token = localStorage.getItem('token');
-      await axios.put(`${API}/auth/language`, 
-        { language: language },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      // Atualizar o estado do usuário no componente pai (App.js)
-      if (updateUser) {
-        updateUser({ preferred_language: language });
-      }
-      
-      setUserLanguage(language);
-      // Garantir que não haja filtro de categoria que esconda cursos após troca de idioma
+      setShowingAllLanguages(false);
+      setLanguageFilteredOut(false);
       setSelectedCategory('all');
-      // Refresh courses to apply language filter
-      await fetchCourses();
-
+      await selectLanguage(languageCode);
+      setShowLanguageSettings(false);
     } catch (error) {
       console.error('Error updating language:', error);
       alert('Erro ao atualizar idioma. Tente novamente.');
-    } finally {
-      setUpdatingLanguage(false);
-      setShowLanguageSettings(false);
     }
   };
 
@@ -617,12 +588,36 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
               <p className="text-gray-400 mt-4 text-sm sm:text-base">{t('dashboard.loadingCourses')}</p>
             </div>
           ) : courses.length === 0 ? (
-            <div className="text-center py-12 sm:py-20">
-              <BookOpen size={48} className="sm:w-16 sm:h-16 mx-auto text-gray-600 mb-4" />
-              <p className="text-gray-400 text-base sm:text-lg">{t('dashboard.noCoursesAvailable')}</p>
+            <div className="text-center py-12 sm:py-20 space-y-4">
+              <BookOpen size={48} className="sm:w-16 sm:h-16 mx-auto text-gray-600" />
+              {languageFilteredOut ? (
+                <>
+                  <p className="text-gray-300 text-base sm:text-lg">{t('dashboard.noCoursesInLanguage')}</p>
+                  <p className="text-gray-500 text-sm max-w-xl mx-auto">{t('dashboard.viewAllCoursesHint')}</p>
+                  <button
+                    onClick={handleViewAllCourses}
+                    className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-100 hover:bg-emerald-500/30 transition-colors"
+                  >
+                    {t('dashboard.viewAllCoursesButton')}
+                  </button>
+                </>
+              ) : (
+                <p className="text-gray-400 text-base sm:text-lg">{t('dashboard.noCoursesAvailable')}</p>
+              )}
             </div>
           ) : (
             <div className="space-y-8">
+              {showingAllLanguages && contentLanguage && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 text-emerald-50">
+                  <p className="text-sm sm:text-base">{t('dashboard.viewingAllCourses')}</p>
+                  <button
+                    onClick={handleReturnToLanguage}
+                    className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/15 transition-colors text-sm"
+                  >
+                    {t('dashboard.viewMyLanguageButton')}
+                  </button>
+                </div>
+              )}
               {(() => {
               // Group courses by category
               const groupedCourses = {};
@@ -940,10 +935,10 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
 
               <div className="space-y-2">
                 <button
-                  onClick={() => updateUserLanguage(null)}
+                  onClick={() => handleLanguageChange(null)}
                   disabled={updatingLanguage}
                   className={`w-full p-3 rounded-xl border transition-colors text-left ${
-                    userLanguage === null
+                    contentLanguage === null
                       ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
                       : 'bg-white/5 border-white/10 hover:bg-white/10'
                   } ${updatingLanguage ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -957,59 +952,42 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
                   </div>
                 </button>
 
-                <button
-                  onClick={() => updateUserLanguage('pt')}
-                  disabled={updatingLanguage}
-                  className={`w-full p-3 rounded-xl border transition-colors text-left ${
-                    userLanguage === 'pt'
-                      ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10'
-                  } ${updatingLanguage ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg">🇧🇷</span>
-                    <div>
-                      <p className="font-medium">{t('dashboard.portuguese')}</p>
-                      <p className="text-xs text-gray-400">{t('dashboard.portugueseCourses')}</p>
+                {languageOptions.map((option) => (
+                  <button
+                    key={option.code}
+                    onClick={() => handleLanguageChange(option.code)}
+                    disabled={updatingLanguage}
+                    className={`w-full p-3 rounded-xl border transition-colors text-left ${
+                      contentLanguage === option.code
+                        ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
+                        : 'bg-white/5 border-white/10 hover:bg-white/10'
+                    } ${updatingLanguage ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">{option.flag}</span>
+                      <div>
+                        <p className="font-medium">
+                          {option.code === 'pt'
+                            ? t('dashboard.portuguese')
+                            : option.code === 'en'
+                            ? 'English'
+                            : option.code === 'es'
+                            ? 'Español'
+                            : option.label}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {option.code === 'pt'
+                            ? t('dashboard.portugueseCourses')
+                            : option.code === 'en'
+                            ? t('dashboard.englishCourses')
+                            : option.code === 'es'
+                            ? t('dashboard.spanishCourses')
+                            : option.description}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => updateUserLanguage('en')}
-                  disabled={updatingLanguage}
-                  className={`w-full p-3 rounded-xl border transition-colors text-left ${
-                    userLanguage === 'en'
-                      ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10'
-                  } ${updatingLanguage ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg">🇺🇸</span>
-                    <div>
-                      <p className="font-medium">English</p>
-                      <p className="text-xs text-gray-400">{t('dashboard.englishCourses')}</p>
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => updateUserLanguage('es')}
-                  disabled={updatingLanguage}
-                  className={`w-full p-3 rounded-xl border transition-colors text-left ${
-                    userLanguage === 'es'
-                      ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10'
-                  } ${updatingLanguage ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg">🇪🇸</span>
-                    <div>
-                      <p className="font-medium">Español</p>
-                      <p className="text-xs text-gray-400">{t('dashboard.spanishCourses')}</p>
-                    </div>
-                  </div>
-                </button>
+                  </button>
+                ))}
               </div>
 
               {updatingLanguage && (
@@ -1024,4 +1002,3 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
     </div>
   );
 }
-

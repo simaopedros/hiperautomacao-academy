@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request, UploadFile, File, Form
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request, UploadFile, File, Form, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -11,7 +11,7 @@ import logging
 import json
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr, ValidationError
-from typing import List, Optional, Union, Dict, Any
+from typing import List, Optional, Union, Dict, Any, Set
 from functools import partial
 from enum import Enum
 import uuid
@@ -26,6 +26,7 @@ import base64
 import io
 import csv
 import secrets
+import re
 import httpx
 import random
 import string
@@ -75,6 +76,96 @@ _STRIPE_CONFIG_CACHE = {
 }
 
 INVITE_ID_PREFIX = "invite-"
+
+
+def _sanitize_language_token(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    token = unicodedata.normalize("NFKD", value)
+    token = "".join(ch for ch in token if not unicodedata.combining(ch))
+    token = token.lower()
+    token = token.replace("_", "-")
+    token = re.sub(r"[^a-z0-9-]", "", token)
+    return token
+
+
+_SUPPORTED_LANGUAGES_RAW: Dict[str, Dict[str, Any]] = {
+    "pt": {
+        "label": "Português (Brasil)",
+        "interface_locale": "pt-BR",
+        "aliases": [
+            "pt",
+            "pt-br",
+            "pt_br",
+            "portugues",
+            "português",
+            "portugues-br",
+            "portugues (brasil)",
+            "br",
+            "bra",
+            "brazil",
+            "brasil",
+        ],
+        "prefixes": ["pt", "por", "port", "braz", "br"],
+    },
+    "en": {
+        "label": "English (US)",
+        "interface_locale": "en-US",
+        "aliases": [
+            "en",
+            "en-us",
+            "en_us",
+            "english",
+            "ingles",
+            "inglês",
+            "ing",
+            "usa",
+            "us",
+        ],
+        "prefixes": ["en", "eng", "ing"],
+    },
+    "es": {
+        "label": "Español",
+        "interface_locale": "es-ES",
+        "aliases": [
+            "es",
+            "es-es",
+            "es_es",
+            "espanol",
+            "español",
+            "esp",
+            "spanish",
+            "castellano",
+        ],
+        "prefixes": ["es", "esp", "span", "castel", "cast"],
+    },
+}
+
+SUPPORTED_LANGUAGES: Dict[str, Dict[str, Any]] = {}
+for base_code, data in _SUPPORTED_LANGUAGES_RAW.items():
+    aliases: Set[str] = {
+        _sanitize_language_token(alias) for alias in data.get("aliases", [])
+    } | {base_code}
+    prefixes = tuple(
+        _sanitize_language_token(prefix)
+        for prefix in data.get("prefixes", [])
+        if _sanitize_language_token(prefix)
+    )
+    SUPPORTED_LANGUAGES[base_code] = {
+        "label": data.get("label", base_code.upper()),
+        "interface_locale": data.get("interface_locale"),
+        "aliases": {alias for alias in aliases if alias},
+        "prefixes": prefixes if prefixes else (base_code,),
+    }
+
+DEFAULT_LANGUAGE_ORDER: List[str] = [
+    code for code in ("pt", "es", "en") if code in SUPPORTED_LANGUAGES
+]
+DEFAULT_INTERFACE_LOCALE = {
+    code: info.get("interface_locale")
+    for code, info in SUPPORTED_LANGUAGES.items()
+    if info.get("interface_locale")
+}
 
 
 class SubscriptionStatus(str, Enum):
@@ -447,6 +538,7 @@ class UserBase(BaseModel):
     role: str = "student"  # admin or student
     has_full_access: bool = False  # Access to all courses
     preferred_language: Optional[str] = None  # User's preferred language (pt, en, es, etc.) - None means show all courses
+    preferred_locale: Optional[str] = None  # Preferred interface locale (pt-BR, en-US, etc.)
 
 class UserCreate(UserBase):
     password: Optional[str] = None  # Optional when inviting, but required for direct creation
@@ -460,6 +552,7 @@ class UserUpdate(BaseModel):
     subscription_plan_id: Optional[str] = None
     subscription_valid_until: Optional[datetime] = None
     preferred_language: Optional[str] = None  # User's preferred language (pt, en, es, etc.) - None means show all courses
+    preferred_locale: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -1002,18 +1095,33 @@ def _normalize_language(code: Optional[str]) -> Optional[str]:
     """
     if not code:
         return None
-    c = str(code).strip().lower()
-    # Map extended locale codes to base
-    if c in {"pt", "pt-br"}:
-        return "pt"
-    if c in {"en", "en-us"}:
-        return "en"
-    if c in {"es", "es-es"}:
-        return "es"
-    # Fallback: try first two letters if contains '-'
-    if "-" in c:
-        return c.split("-")[0]
-    # Unknown code: return None to show all languages
+    try:
+        token = _sanitize_language_token(str(code))
+    except Exception:
+        return None
+
+    if not token:
+        return None
+
+    if token in {"all", "any", "todos", "todas", "todo"}:
+        return None
+
+    ordered_codes = DEFAULT_LANGUAGE_ORDER + [
+        base for base in SUPPORTED_LANGUAGES.keys() if base not in DEFAULT_LANGUAGE_ORDER
+    ]
+
+    for base_code in ordered_codes:
+        info = SUPPORTED_LANGUAGES.get(base_code)
+        if not info:
+            continue
+        if token in info["aliases"]:
+            return base_code
+        if any(token.startswith(prefix) for prefix in info["prefixes"]):
+            return base_code
+
+    if "-" in token:
+        return _normalize_language(token.split("-")[0])
+
     return None
 
 def _language_variants(base_code: Optional[str]) -> List[str]:
@@ -1031,16 +1139,55 @@ def _language_variants(base_code: Optional[str]) -> List[str]:
     }
     return variants_map.get(base_code, [base_code])
 
+
+def _default_locale_for(base_code: Optional[str]) -> Optional[str]:
+    if not base_code:
+        return None
+    return DEFAULT_INTERFACE_LOCALE.get(base_code)
+
+
+def _course_language_matches(course_language: Optional[str], preferred_base: str) -> bool:
+    """Return True when the stored course language matches the preferred base code."""
+    if not preferred_base:
+        return True
+    if not course_language:
+        # Courses without language should always be shown
+        return True
+
+    normalized = _normalize_language(course_language)
+    if normalized is None:
+        return False
+    return normalized == preferred_base
+
 @api_router.put("/auth/language", response_model=User)
 async def update_user_language(request: dict, current_user: User = Depends(get_current_user)):
     """Update user's preferred language (accepts base or extended codes)."""
     language = request.get('language')
     normalized = _normalize_language(language)
 
-    # Update user's preferred language (normalized)
+    if language is None:
+        normalized = None
+    elif isinstance(language, str):
+        sanitized = _sanitize_language_token(language)
+        if sanitized in {"", "all", "any", "todos", "todas", "todo"}:
+            normalized = None
+        elif normalized is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported language code",
+            )
+    elif normalized is None:
+        # Non-string provided but did not normalize to a supported language
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported language code",
+        )
+
+    locale = _default_locale_for(normalized)
+
     await db.users.update_one(
         {"id": current_user.id},
-        {"$set": {"preferred_language": normalized}}
+        {"$set": {"preferred_language": normalized, "preferred_locale": locale}}
     )
 
     # Return updated user
@@ -1065,7 +1212,18 @@ async def update_user_profile(profile_data: UserUpdate, current_user: User = Dep
 
     if profile_data.preferred_language is not None:
         normalized = _normalize_language(profile_data.preferred_language)
+        sanitized = (
+            _sanitize_language_token(str(profile_data.preferred_language))
+            if profile_data.preferred_language is not None
+            else ""
+        )
+        if normalized is None and sanitized not in {"", "all", "any", "todos", "todas", "todo"}:
+            raise HTTPException(status_code=400, detail="Unsupported language code")
         update_fields["preferred_language"] = normalized
+        update_fields["preferred_locale"] = _default_locale_for(normalized)
+
+    if profile_data.preferred_locale is not None:
+        update_fields["preferred_locale"] = profile_data.preferred_locale
 
     if not update_fields:
         raise HTTPException(status_code=400, detail="No fields to update")
@@ -2466,24 +2624,35 @@ async def remove_user_from_course(user_id: str, course_id: str, current_user: Us
 # ==================== STUDENT ROUTES ====================
 
 @api_router.get("/student/courses")
-async def get_published_courses(current_user: User = Depends(get_current_user)):
-    """Get all published courses with enrollment status, filtered by user's preferred language.
+async def get_published_courses(
+    language: Optional[str] = Query(
+        None,
+        description="Optional language code (pt, en, es) overriding the user's preference.",
+    ),
+    include_all_languages: bool = Query(
+        False,
+        description="Return all published courses without applying the preferred language filter.",
+    ),
+    current_user: User = Depends(get_current_user),
+):
+    """Get all published courses with enrollment status.
 
-    Accepts both base and extended locale codes stored in preferred_language.
+    By default the result is filtered by the user's preferred language (base or extended code).
     """
-    course_filter: dict = {"published": True}
+    requested_language = _normalize_language(language)
+    preferred = (
+        requested_language
+        if requested_language is not None
+        else _normalize_language(current_user.preferred_language)
+    )
 
-    # Normalize user's preferred language and apply filter
-    preferred = _normalize_language(current_user.preferred_language)
-    if preferred:
-        variants = _language_variants(preferred)
-        course_filter["$or"] = [
-            {"language": {"$in": variants}},
-            {"language": {"$exists": False}},
-            {"language": None}
+    courses = await db.courses.find({"published": True}, {"_id": 0}).to_list(1000)
+    if preferred and not include_all_languages:
+        courses = [
+            course
+            for course in courses
+            if _course_language_matches(course.get("language"), preferred)
         ]
-
-    courses = await db.courses.find(course_filter, {"_id": 0}).to_list(1000)
     
     # Get user's enrollments from BOTH sources for backward compatibility
     # 1. From enrollments collection (new system)
