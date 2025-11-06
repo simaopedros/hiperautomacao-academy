@@ -10,6 +10,7 @@ import StudentDashboard from '@/pages/StudentDashboard';
 import CourseView from '@/pages/CourseView';
 import LessonPlayer from '@/pages/LessonPlayer';
 import SocialFeed from '@/pages/SocialFeed';
+import Library from '@/pages/Library';
 import CreatePassword from '@/pages/CreatePassword';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import PaymentSuccess from '@/pages/PaymentSuccess';
@@ -245,6 +246,16 @@ function App() {
             element={
               user ? (
                 <SocialFeed user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/library"
+            element={
+              user ? (
+                <Library user={user} onLogout={handleLogout} />
               ) : (
                 <Navigate to="/login" replace />
               )

@@ -40,6 +40,7 @@ import ReplicationSettings from './ReplicationSettings';
 import AnalyticsSettings from './AnalyticsSettings';
 import BunnySettings from './BunnySettings';
 import AdminNavigation from '../components/AdminNavigation';
+import LibraryModeration from './LibraryModeration';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -581,6 +582,7 @@ export default function AdminDashboard({ user, onLogout }) {
       <Route path="course/:courseId" element={<CourseManagement user={user} onLogout={onLogout} />} />
       <Route path="users" element={<UserManagement user={user} onLogout={onLogout} />} />
       <Route path="community" element={<CommunityModeration user={user} onLogout={onLogout} />} />
+      <Route path="library" element={<LibraryModeration user={user} onLogout={onLogout} />} />
   <Route path="email-settings" element={<EmailSettings user={user} onLogout={onLogout} />} />
   <Route path="lead-settings" element={<LeadSettings user={user} onLogout={onLogout} />} />
   <Route path="analytics" element={<AnalyticsSettings user={user} onLogout={onLogout} />} />

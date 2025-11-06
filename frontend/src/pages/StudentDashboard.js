@@ -19,6 +19,7 @@ import {
   Globe,
   HeadphonesIcon,
   Shield,
+  Archive,
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { useI18n } from '../hooks/useI18n';
@@ -488,6 +489,13 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
                   >
                     <MessageCircle size={16} />
                     {t('dashboard.community')}
+                  </button>
+                  <button
+                    onClick={() => navigate('/library')}
+                    className="btn-secondary w-full sm:flex-1 py-3 flex items-center justify-center gap-2"
+                  >
+                    <Archive size={16} />
+                    {t('dashboard.library')}
                   </button>
                   <button
                     onClick={() => navigate('/profile')}

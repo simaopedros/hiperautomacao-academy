@@ -34,6 +34,147 @@
     "returningToDashboard": "Retornando ao dashboard...",
     "checkingPaymentStatus": "Verificando status do pagamento..."
   },
+  "library": {
+    "anonymousUser": "Criador anônimo",
+    "fallbackCategory": "Geral",
+    "hero": {
+      "badge": "Hub de recursos",
+      "title": "Biblioteca da comunidade",
+      "subtitle": "Baixe projetos prontos para produção, modelos visuais e compartilhe suas criações para fortalecer toda a comunidade.",
+      "uploadCta": "Compartilhar projeto",
+      "exploreCta": "Descobrir destaques",
+      "storage": "Armazenamento rápido",
+      "storageHint": "Arquivos protegidos",
+      "bunnyDescription": "Todos os materiais ficam disponíveis em uma infraestrutura otimizada para garantir downloads rápidos, seguros e com mínima latência.",
+      "communityCta": "Engajar com a comunidade"
+    },
+    "error": {
+      "loadFailed": "Não foi possível carregar a biblioteca da comunidade.",
+      "loadFailedHint": "Atualize ou tente novamente em instantes para sincronizar com os recursos aprovados.",
+      "retry": "Tentar novamente"
+    },
+    "restricted": {
+      "onlySubscribers": "Disponível apenas para assinantes ativos ou quem possui acesso vitalício."
+    },
+    "stats": {
+      "totalDownloads": "Downloads",
+      "contributors": "Criadores",
+      "communityItems": "Itens da comunidade"
+    },
+    "filters": {
+      "title": "Filtros inteligentes",
+      "subtitle": "Refine a experiência para encontrar o recurso ideal em segundos.",
+      "highlightFeatured": "Priorizar destaques",
+      "clear": "Redefinir",
+      "searchPlaceholder": "Busque por título, hashtag ou autor",
+      "category": "Categoria",
+      "categoryAll": "Todas as categorias",
+      "type": "Tipo",
+      "typeAll": "Todos os tipos",
+      "sort": "Ordenar por",
+      "sortRecent": "Mais recentes",
+      "sortPopular": "Mais baixados",
+      "sortRating": "Melhor avaliados"
+    },
+    "types": {
+      "project": "Projeto",
+      "template": "Template",
+      "snippet": "Snippet",
+      "documentation": "Documentação",
+      "other": "Outro"
+    },
+    "featured": {
+      "title": "Explore a curadoria da comunidade",
+      "results": "recursos",
+      "badge": "Destaque",
+      "viewDetails": "Ver detalhes"
+    },
+    "loading": "Carregando recursos da biblioteca...",
+    "empty": {
+      "title": "Nenhum recurso encontrado com esses filtros",
+      "description": "Tente ajustar os filtros ou explore todas as categorias para descobrir novas contribuições da comunidade.",
+      "reset": "Mostrar todos os recursos"
+    },
+    "upload": {
+      "title": "Contribuição da comunidade",
+      "subtitle": "Compartilhe suas automações com a academy",
+      "description": "Envie assets, templates e documentações prontas. Tudo fica armazenado com segurança e disponível imediatamente para os alunos.",
+      "fastTrack": "Envio destacado",
+      "fields": {
+        "title": "Título do projeto",
+        "description": "Descrição com suporte a Markdown",
+        "category": "Categoria",
+        "type": "Tipo de recurso",
+        "tags": "Tags",
+        "demoUrl": "URL de demo ou documentação",
+        "allowDownload": "Permitir que colegas façam download deste arquivo",
+        "projectFile": "Arquivo do projeto",
+        "cover": "Imagem ou vídeo de capa"
+      },
+      "placeholders": {
+        "title": "Ex: Kit de automação para onboarding",
+        "description": "Explique o que está incluso, liste integrações, compartilhe insights...",
+        "category": "Ex: Automação, Design, No-code",
+        "type": "Selecione o tipo de recurso",
+        "tags": "Ex: zapier, make, crm",
+        "projectFile": "Escolha o arquivo para publicar na biblioteca",
+        "cover": "Adicione uma imagem ou vídeo curto para apresentar o recurso"
+      },
+      "descriptionHint": "Suporte a Markdown: **negrito**, _itálico_, listas, links e blocos de código.",
+      "fileHint": "ZIP, JSON, MP4, PDF até 250 MB.",
+      "actions": {
+        "selectFile": "Selecionar arquivo",
+        "selectCover": "Adicionar capa",
+        "submit": "Publicar recurso",
+        "submitting": "Publicando...",
+        "reset": "Limpar formulário",
+        "close": "Cancelar envio",
+        "errorMessage": "Não foi possível publicar o recurso agora. Tente novamente em instantes.",
+        "successPending": "Recurso enviado para aprovação! Nossa equipe vai revisar em breve."
+      },
+      "preview": {
+        "title": "Dicas de uso do Markdown",
+        "description": "Organize a descrição com Markdown para destacar instruções e requisitos.",
+        "markdownTitle": "Por que usar Markdown?",
+        "markdownHint": "Destaque passos, cite integrações e inclua comandos rápidos para seus colegas.",
+        "example": {
+          "title": "## Guia rápido",
+          "list": "- Importe o JSON no Zapier\n- Atualize as chaves de API\n- Teste a automação com dados de exemplo"
+        }
+      }
+    },
+    "detail": {
+      "files": "Arquivos disponíveis",
+      "download": "Baixar",
+      "share": "Compartilhar",
+      "copyLink": "Copiar link",
+      "openPreview": "Abrir preview",
+      "rate": "Avalie este recurso",
+      "rateValue": "Avaliar com {{value}} estrela",
+      "ratingHint": "Seu feedback destaca as experiências mais valiosas para a comunidade.",
+      "comments": "Comentários",
+      "commentPlaceholder": "Conte como você usou este recurso ou deixe sugestões de melhoria...",
+      "commentAction": "Enviar comentário",
+      "commentSubmitting": "Enviando...",
+      "noComments": "Nenhum comentário ainda. Seja o primeiro a contribuir!"
+    },
+    "fallbackItems": {
+      "automations": {
+        "title": "Kit de automações para onboarding",
+        "description": "Pacote completo com cenários no Make, zaps no Zapier e base no Airtable para acompanhar novos clientes.",
+        "comments": {
+          "ana": "Implementei em menos de 20 minutos e economizamos horas por semana!"
+        }
+      },
+      "templates": {
+        "title": "Template de página de vendas de alta conversão",
+        "description": "Layout responsivo com seções modulares, prompts de copy focados em conversão e blocos de métricas.",
+        "comments": {
+          "carlos": "A estrutura de componentes facilitou muito adaptar para um lançamento SaaS."
+        }
+      }
+    }
+  },
   "auth": {
     "login": "Entrar",
     "register": "Inscrever-se",
@@ -79,6 +220,7 @@
     "activeSubscriptions": "Assinaturas Ativas",
     "myCourses": "Meus cursos",
     "social": "Social",
+    "library": "Biblioteca",
     "subscription": "Assinatura",
     "hideOverview": "Ocultar visão geral",
     "showOverview": "Mostrar visão geral",
@@ -282,7 +424,12 @@
       "newLesson": "Nova Aula",
       "lessonComment": "Comentário em Aula",
       "discussion": "Discussão",
-      "reply": "Resposta"
+      "reply": "Resposta",
+      "libraryResource": "Recurso da Biblioteca"
+    },
+    "libraryPost": {
+      "defaultTitle": "Recurso da Comunidade",
+      "summaryFallback": "Confira todos os detalhes desse recurso diretamente na biblioteca."
     },
     "timeAgo": {
       "now": "agora mesmo",
@@ -295,6 +442,7 @@
       "likePost": "Curtir discussão, {{count}} curtidas",
       "replyPost": "Responder discussão, {{count}} respostas",
       "viewLesson": "Ver aula relacionada",
+      "viewResource": "Ver recurso na biblioteca",
       "sharePost": "Compartilhar discussão",
       "bookmarkPost": "Salvar discussão nos favoritos",
       "accessLesson": "Acessar aula"
@@ -581,6 +729,183 @@
     "success": "Pagamento realizado com sucesso!",
     "cancelled": "Pagamento cancelado",
     "error": "Erro no pagamento"
+  },
+  "libraryModeration": {
+    "header": {
+      "badge": "Biblioteca",
+      "title": "Moderação e gerenciamento da biblioteca",
+      "description": "Centralize aprovações, destaques e feedbacks dos recursos enviados pela comunidade. Acompanhe métricas de engajamento, downloads e reputação dos contribuidores.",
+      "actions": {
+        "add": "Adicionar recurso",
+        "refresh": "Atualizar dados",
+        "viewPublic": "Ver biblioteca pública"
+      }
+    },
+    "status": {
+      "pending": "Pendente",
+      "underReview": "Em revisão",
+      "approved": "Aprovado",
+      "published": "Publicado",
+      "rejected": "Rejeitado",
+      "archived": "Arquivado"
+    },
+    "filters": {
+      "title": "Filtros de moderação",
+      "description": "Escolha status, categoria e tipo para organizar a triagem.",
+      "searchPlaceholder": "Buscar por título, autor, tag...",
+      "categoryPlaceholder": "Categoria",
+      "categoryAll": "Todas as categorias",
+      "typePlaceholder": "Tipo do recurso",
+      "typeAll": "Todos os tipos",
+      "status": {
+        "all": "Todos",
+        "pending": "Pendentes",
+        "underReview": "Em revisão",
+        "approved": "Aprovados",
+        "published": "Publicados",
+        "rejected": "Rejeitados"
+      }
+    },
+    "stats": {
+      "pending": {
+        "title": "Pendentes",
+        "caption": "Recursos aguardando decisão"
+      },
+      "published": {
+        "title": "Publicados",
+        "caption": "Disponíveis para alunos"
+      },
+      "community": {
+        "title": "Comunidade",
+        "caption": "Contribuições da comunidade"
+      },
+      "featured": {
+        "title": "Destaques",
+        "caption": "Curadoria ativa"
+      }
+    },
+    "resources": {
+      "title": "Recursos cadastrados",
+      "total": "{{count}} item{{count, plural, one {} other {s}}} encontrados",
+      "loading": "Carregando dados da biblioteca...",
+      "errorTitle": "Não foi possível carregar os recursos",
+      "errorDescription": "Verifique sua conexão ou tente novamente em instantes para sincronizar com a base oficial.",
+      "emptyTitle": "Nenhum recurso com esses filtros",
+      "emptyDescription": "Ajuste os filtros para revisar outros envios ou utilize a busca com palavras-chave.",
+      "dateUnknown": "Data não informada",
+      "unknownAuthor": "Autor não informado",
+      "noEmail": "Sem e-mail",
+      "feedbackCount": "{{count}} feedback{{count, plural, one {} other {s}}}"
+    },
+    "alerts": {
+      "missingPrimaryFile": "Selecione um arquivo principal para o recurso.",
+      "createError": "Não foi possível criar o recurso agora. Tente novamente.",
+      "confirmRemoval": "Remover \"{{title}}\" da biblioteca?",
+      "removeError": "Não foi possível remover o recurso agora.",
+      "noteSuccess": "Nota registrada com sucesso.",
+      "noteError": "Não foi possível salvar a nota."
+    },
+    "badges": {
+      "featured": "Destaque ativo"
+    },
+    "actions": {
+      "viewDetails": "Visualizar detalhes",
+      "approve": "Aprovar",
+      "publish": "Publicar",
+      "removeFeatured": "Remover destaque",
+      "markFeatured": "Destacar na biblioteca",
+      "reject": "Reprovar",
+      "archive": "Arquivar",
+      "remove": "Remover",
+      "retry": "Tentar novamente"
+    },
+    "create": {
+      "title": "Novo recurso para a biblioteca",
+      "description": "Cadastre recursos oficiais diretamente para os alunos sem passar pelo fluxo da comunidade.",
+      "fields": {
+        "title": {
+          "label": "Título",
+          "placeholder": "Como o recurso será nomeado"
+        },
+        "category": {
+          "label": "Categoria",
+          "placeholder": "Automação, Design, Template..."
+        },
+        "description": {
+          "label": "Descrição (Markdown suportado)",
+          "placeholder": "Explique o que está incluso, principais integrações e instruções rápidas."
+        },
+        "type": {
+          "label": "Tipo",
+          "placeholder": "Selecione o tipo"
+        },
+        "status": {
+          "label": "Status",
+          "placeholder": "Defina o status",
+          "statusOptions": {
+            "pending": "Pendente",
+            "approved": "Aprovado",
+            "published": "Publicado"
+          }
+        },
+        "tags": {
+          "label": "Tags",
+          "placeholder": "zapier, make, growth"
+        },
+        "file": {
+          "label": "Arquivo principal",
+          "placeholder": "Selecione o arquivo que será publicado na biblioteca",
+          "hint": "Formatos aceitos: ZIP, JSON, MP4, PDF (até 250 MB)"
+        },
+        "cover": {
+          "label": "Capa (imagem ou vídeo)",
+          "placeholder": "Opcional, ajuda a destacar o recurso na biblioteca pública."
+        },
+        "demoUrl": {
+          "label": "URL de demonstração (opcional)",
+          "placeholder": "https://link-externo.com"
+        },
+        "allowDownload": "Permitir download deste arquivo pela comunidade"
+      },
+      "actions": {
+        "chooseFile": "Selecionar arquivo",
+        "chooseCover": "Escolher capa",
+        "cancel": "Cancelar",
+        "submitting": "Publicando...",
+        "submit": "Publicar recurso"
+      }
+    },
+    "details": {
+      "sentOn": "Enviado em",
+      "contributor": {
+        "title": "Contribuidor"
+      },
+      "files": {
+        "title": "Arquivos enviados",
+        "download": "Baixar",
+        "empty": "Nenhum arquivo informado para este recurso."
+      },
+      "feedback": {
+        "title": "Feedbacks da comunidade",
+        "anonymous": "Anônimo",
+        "empty": "Nenhum comentário registrado ainda."
+      },
+      "nextActions": {
+        "title": "Próximas ações",
+        "approve": "Aprovar recurso",
+        "publish": "Publicar imediatamente",
+        "reject": "Reprovar recurso",
+        "archive": "Arquivar recurso"
+      },
+      "notes": {
+        "title": "Notas internas",
+        "placeholder": "Registre orientações ou solicitações adicionais para o criador.",
+        "saving": "Salvando...",
+        "save": "Salvar nota",
+        "lastNote": "Última nota registrada"
+      },
+      "closePanel": "Fechar painel"
+    }
   },
   "course": {
     "paymentError": "Erro ao criar pagamento",
