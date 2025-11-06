@@ -90,8 +90,44 @@ export default function SocialFeed({ user, onLogout }) {
     return descriptionLines.join(' ') || t('social.lessonPost.defaultDescription');
   };
 
+  const extractResourceSummary = useCallback((content) => {
+    if (!content) return t('social.libraryPost.summaryFallback');
+    const sanitized = content.replace(/\*\*/g, '');
+    const lines = sanitized
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (lines.length <= 2) {
+      return sanitized || t('social.libraryPost.summaryFallback');
+    }
+    const summary = lines.slice(2, 6).join(' ');
+    return summary || t('social.libraryPost.summaryFallback');
+  }, [t]);
+
+  const formatResourceTypeLabel = useCallback((type) => {
+    if (!type) return '';
+    const key = `library.types.${type}`;
+    const translated = t(key);
+    if (translated === key) {
+      return String(type).replace(/_/g, ' ');
+    }
+    return translated;
+  }, [t]);
+
   // Helper function to get interaction type and styling
   const getInteractionType = (post) => {
+    if (post.resource_id && !post.parent_id) {
+      return {
+        type: 'library_resource',
+        label: t('social.interactionTypes.libraryResource'),
+        icon: Sparkles,
+        bgColor: 'from-emerald-500/20 to-lime-500/20',
+        borderColor: 'border-emerald-500/30',
+        textColor: 'text-emerald-400',
+        iconBg: 'from-emerald-500 to-lime-500',
+        hoverColor: 'hover:border-emerald-500/50'
+      };
+    }
     // Nova aula publicada (post automático do sistema - identifica pelo conteúdo)
     if (post.lesson_id && !post.parent_id && post.content && post.content.includes('🎓 Nova aula disponível!')) {
       return {
@@ -187,6 +223,11 @@ export default function SocialFeed({ user, onLogout }) {
       }
     }
   };
+
+  const handleViewResource = useCallback((resourceId) => {
+    if (!resourceId) return;
+    navigate(`/library?resourceId=${resourceId}`);
+  }, [navigate]);
 
   const handleCreatePost = async (e) => {
     e.preventDefault();
@@ -660,8 +701,63 @@ export default function SocialFeed({ user, onLogout }) {
                                 </Button>
                               </div>
 
-                          {/* Post Content - Enhanced for New Lesson Posts Only */}
-                          {post.lesson_id && post.content.includes('🎓 Nova aula disponível!') ? (
+                          {/* Post Content - Enhanced layouts for automatic posts */}
+                          {interactionType.type === 'library_resource' ? (
+                            <div className="mb-4">
+                              <div className="bg-gradient-to-r from-emerald-500/10 to-lime-500/10 border border-emerald-500/20 rounded-xl p-4 mb-3">
+                                <div className="flex flex-col md:flex-row gap-4">
+                                  {post.resource_cover_url && (
+                                    <div className="w-full md:w-40">
+                                      <div className="aspect-[4/3] overflow-hidden rounded-lg border border-emerald-500/20 bg-black/30">
+                                        <img
+                                          src={post.resource_cover_url}
+                                          alt={post.resource_title || t('social.libraryPost.defaultTitle')}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div className="flex-1">
+                                    <h3 className="font-semibold text-white text-lg mb-2">
+                                      {post.resource_title || t('social.libraryPost.defaultTitle')}
+                                    </h3>
+                                    <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">
+                                      {extractResourceSummary(post.content)}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2 mt-3 text-xs">
+                                      {post.resource_category && (
+                                        <Badge className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center gap-1">
+                                          <Tag className="w-3 h-3" aria-hidden="true" />
+                                          <span>{post.resource_category}</span>
+                                        </Badge>
+                                      )}
+                                      {post.resource_type && (
+                                        <Badge className="bg-lime-500/20 border border-lime-500/40 text-lime-300 flex items-center gap-1">
+                                          <Sparkles className="w-3 h-3" aria-hidden="true" />
+                                          <span className="capitalize">
+                                            {formatResourceTypeLabel(post.resource_type)}
+                                          </span>
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="mt-3 pt-3 border-t border-emerald-500/20">
+                                  <Button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleViewResource(post.resource_id);
+                                    }}
+                                    className="bg-gradient-to-r from-emerald-500 to-lime-500 hover:from-emerald-600 hover:to-lime-600 text-white font-medium px-4 py-2 rounded-lg transition-all duration-300 button-press ripple glow-on-hover"
+                                    aria-label={t('social.actions.viewResource')}
+                                  >
+                                    <Sparkles className="w-4 h-4 mr-2" aria-hidden="true" />
+                                    {t('social.actions.viewResource')}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : post.lesson_id && post.content.includes('🎓 Nova aula disponível!') ? (
                             <div className="mb-4">
                               {/* New Lesson Post Special Layout */}
                               <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-xl p-4 mb-3">
@@ -744,6 +840,22 @@ export default function SocialFeed({ user, onLogout }) {
                                 >
                                   <BookOpen className="w-4 h-4 mr-2" aria-hidden="true" />
                                   {t('social.actions.viewLesson')}
+                                </Button>
+                              )}
+
+                              {post.resource_id && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleViewResource(post.resource_id);
+                                  }}
+                                  className="text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all duration-300 rounded-xl button-press ripple"
+                                  aria-label={t('social.actions.viewResource')}
+                                >
+                                  <Sparkles className="w-4 h-4 mr-2" aria-hidden="true" />
+                                  {t('social.actions.viewResource')}
                                 </Button>
                               )}
                             </div>
@@ -933,7 +1045,35 @@ export default function SocialFeed({ user, onLogout }) {
                           <span>{formatDate(selectedPost.created_at)}</span>
                         </div>
                       </div>
-                      <p className="text-gray-200 leading-relaxed">{selectedPost.content}</p>
+                      <p className="text-gray-200 leading-relaxed whitespace-pre-line">{selectedPost.content}</p>
+
+                      {selectedPost.resource_id && (
+                        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="text-sm text-gray-400 flex flex-wrap gap-3">
+                            {selectedPost.resource_category && (
+                              <span className="flex items-center gap-1">
+                                <Tag className="w-3 h-3" aria-hidden="true" />
+                                {selectedPost.resource_category}
+                              </span>
+                            )}
+                            {selectedPost.resource_type && (
+                              <span className="flex items-center gap-1">
+                                <Sparkles className="w-3 h-3" aria-hidden="true" />
+                                {formatResourceTypeLabel(selectedPost.resource_type)}
+                              </span>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleViewResource(selectedPost.resource_id)}
+                            className="text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/10 transition-all duration-300 rounded-xl self-start button-press"
+                            aria-label={t('social.actions.viewResource')}
+                          >
+                            <Sparkles className="w-4 h-4 mr-2" aria-hidden="true" />
+                            {t('social.actions.viewResource')}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
 

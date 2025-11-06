@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { 
-  BookOpen, 
-  MessageCircle, 
-  LogOut, 
-  ChevronDown, 
+import {
+  BookOpen,
+  MessageCircle,
+  LogOut,
+  ChevronDown,
   ChevronUp,
   Sparkles,
   ArrowLeft,
   HeadphonesIcon,
-  Play
+  Play,
+  Archive
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -44,6 +45,12 @@ const UnifiedHeader = ({
       label: t('dashboard.social'),
       icon: MessageCircle,
       testId: 'social-nav'
+    },
+    {
+      path: '/library',
+      label: t('dashboard.library'),
+      icon: Archive,
+      testId: 'library-nav'
     }
   ];
 

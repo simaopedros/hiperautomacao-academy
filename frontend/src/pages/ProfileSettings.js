@@ -670,13 +670,6 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
                           </p>
                         </div>
                       )}
-                      {subscriptionData.auto_renews && (
-                        <div className="bg-emerald-500/10 border border-emerald-400/20 rounded-xl p-4">
-                          <p className="text-emerald-200">
-                            {t('profile.subscription.status.autoRenewCongrats', 'Parabéns! Sua assinatura está ativa com renovação automática.')}
-                          </p>
-                        </div>
-                      )}
                     </div>
                   ) : (
                     <div className="text-center py-12">

@@ -17,7 +17,8 @@ import {
   HeadphonesIcon,
   BarChart3,
   Database,
-  UploadCloud
+  UploadCloud,
+  Archive
 } from 'lucide-react';
 
 const AdminNavigation = ({ user, onLogout }) => {
@@ -60,7 +61,9 @@ const AdminNavigation = ({ user, onLogout }) => {
                   setShowConfigMenu(false);
                 }}
                 className={`flex items-center gap-2 transition-colors whitespace-nowrap text-sm md:text-base ${
-                  location.pathname === '/admin' || location.pathname.includes('/admin/categories')
+                  location.pathname === '/admin' ||
+                  location.pathname.includes('/admin/categories') ||
+                  location.pathname.includes('/admin/library')
                     ? 'text-emerald-400 hover:text-emerald-300'
                     : 'text-gray-400 hover:text-white'
                 }`}
@@ -88,10 +91,21 @@ const AdminNavigation = ({ user, onLogout }) => {
                       navigate('/admin/categories');
                       setShowContentMenu(false);
                     }}
-                    className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
+                    className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2"
                   >
                     <FolderOpen size={16} />
                     Categorias
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate('/admin/library');
+                      setShowContentMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-gray-300 hover:bg-[#252525] transition-colors flex items-center gap-2 rounded-b-lg"
+                  >
+                    <Archive size={16} />
+                    Biblioteca
                   </button>
                 </div>
               )}

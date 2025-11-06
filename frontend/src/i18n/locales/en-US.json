@@ -25,7 +25,14 @@
     "language": "Language",
     "selectLanguage": "Select Language",
     "returningToDashboard": "Returning to dashboard...",
-    "checkingPaymentStatus": "Checking payment status..."
+    "checkingPaymentStatus": "Checking payment status...",
+    "add": "Add",
+    "download": "Download",
+    "info": "Info",
+    "select": "Select",
+    "upload": "Upload",
+    "view": "View",
+    "warning": "Warning"
   },
   "auth": {
     "login": "Login",
@@ -72,6 +79,7 @@
     "activeSubscriptions": "Active Subscriptions",
     "myCourses": "My courses",
     "social": "Social",
+    "library": "Library",
     "subscription": "Subscription",
     "hideOverview": "Hide overview",
     "showOverview": "Show overview",
@@ -404,7 +412,12 @@
       "newLesson": "New Lesson",
       "lessonComment": "Lesson Comment",
       "discussion": "Discussion",
-      "reply": "Reply"
+      "reply": "Reply",
+      "libraryResource": "Library Resource"
+    },
+    "libraryPost": {
+      "defaultTitle": "Community Resource",
+      "summaryFallback": "Check the full details of this resource directly in the library."
     },
     "timeAgo": {
       "now": "just now",
@@ -417,6 +430,7 @@
       "likePost": "Like discussion, {{count}} likes",
       "replyPost": "Reply to discussion, {{count}} replies",
       "viewLesson": "View related lesson",
+      "viewResource": "View resource in the library",
       "sharePost": "Share discussion",
       "bookmarkPost": "Bookmark discussion",
       "accessLesson": "Access lesson"
@@ -601,6 +615,324 @@
       "noPlans": "No plans available",
       "cta": "Subscribe now",
       "viewPlans": "View plans"
+    }
+  },
+  "library": {
+    "anonymousUser": "Anonymous creator",
+    "fallbackCategory": "General",
+    "hero": {
+      "badge": "Resource hub",
+      "title": "Library of ready-to-use automations and templates",
+      "subtitle": "Download production-ready projects, high-impact templates and share your own creations to empower the entire community.",
+      "uploadCta": "Share your project",
+      "exploreCta": "Discover highlights",
+      "storage": "Fast storage",
+      "storageHint": "Protected files",
+      "bunnyDescription": "All resources are delivered through an optimized infrastructure to guarantee secure, fast downloads worldwide with the lowest possible latency.",
+      "communityCta": "Join the discussion"
+    },
+    "error": {
+      "loadFailed": "We couldn't load the community library.",
+      "loadFailedHint": "Refresh or try again shortly to sync with the latest approved resources.",
+      "retry": "Try again"
+    },
+    "restricted": {
+      "onlySubscribers": "Only active subscribers or lifetime members can interact with the library."
+    },
+    "stats": {
+      "totalDownloads": "Downloads",
+      "contributors": "Creators",
+      "communityItems": "Community items"
+    },
+    "filters": {
+      "title": "Smart filters",
+      "subtitle": "Refine the experience to find the ideal resource in seconds.",
+      "highlightFeatured": "Prioritize featured",
+      "clear": "Reset",
+      "searchPlaceholder": "Search by title, hashtag or contributor",
+      "category": "Category",
+      "categoryAll": "All categories",
+      "type": "Type",
+      "typeAll": "All types",
+      "sort": "Sort by",
+      "sortRecent": "Most recent",
+      "sortPopular": "Most downloaded",
+      "sortRating": "Best rated"
+    },
+    "types": {
+      "project": "Project",
+      "template": "Template",
+      "snippet": "Snippet",
+      "documentation": "Documentation",
+      "other": "Other"
+    },
+    "featured": {
+      "title": "Explore the community collection",
+      "results": "resources",
+      "badge": "Featured",
+      "viewDetails": "View details"
+    },
+    "loading": "Loading library resources...",
+    "empty": {
+      "title": "No resources match your filters",
+      "description": "Try adjusting the search terms or explore all categories to discover new community contributions.",
+      "reset": "Show all resources"
+    },
+    "upload": {
+      "title": "Community contribution",
+      "subtitle": "Share your automations with the academy",
+      "description": "Upload ready-to-use assets, templates and documentation. Everything is stored securely and becomes instantly available to all students.",
+      "fastTrack": "Featured submission",
+      "fields": {
+        "title": "Project title",
+        "description": "Description with Markdown support",
+        "category": "Category",
+        "type": "Resource type",
+        "tags": "Tags",
+        "demoUrl": "Demo or documentation URL",
+        "allowDownload": "Allow colleagues to download this file",
+        "projectFile": "Project file",
+        "cover": "Cover image or demo video"
+      },
+      "placeholders": {
+        "title": "Ex: Automation pack for onboarding",
+        "description": "Explain what is included, list integrations, share insights...",
+        "category": "Ex: Automation, Design, No-code",
+        "type": "Select resource type",
+        "tags": "Ex: zapier, make, crm",
+        "projectFile": "Choose the file to publish to the library",
+        "cover": "Add an image or short video to showcase this resource"
+      },
+      "descriptionHint": "Support for Markdown: **bold**, _italic_, lists, links and code blocks.",
+      "fileHint": "ZIP, JSON, MP4, PDF up to 250 MB.",
+      "actions": {
+        "selectFile": "Select file",
+        "selectCover": "Add cover",
+        "submit": "Publish resource",
+        "submitting": "Publishing...",
+        "reset": "Clear form",
+        "close": "Cancel submission",
+        "errorMessage": "We couldn't publish the resource right now. Please try again in a moment.",
+        "successPending": "Resource submitted for approval! Our team will review it shortly."
+      },
+      "preview": {
+        "title": "Markdown preview tips",
+        "description": "Organize the description with Markdown to highlight instructions and requirements.",
+        "markdownTitle": "Why use Markdown?",
+        "markdownHint": "Highlight steps, reference integrations and attach quick commands for your colleagues.",
+        "example": {
+          "title": "## Quick start",
+          "list": "- Import the JSON into Zapier\n- Update the API keys\n- Test the automation with demo data"
+        }
+      }
+    },
+    "detail": {
+      "files": "Available files",
+      "download": "Download",
+      "share": "Share",
+      "copyLink": "Copy share link",
+      "openPreview": "Open preview",
+      "rate": "Rate this resource",
+      "rateValue": "Rate with {{value}} star",
+      "ratingHint": "Your feedback highlights the most valuable experiences for the community.",
+      "comments": "Comments",
+      "commentPlaceholder": "Share how you used this resource or give improvement tips...",
+      "commentAction": "Send comment",
+      "commentSubmitting": "Sending...",
+      "noComments": "No comments yet. Be the first to collaborate!"
+    },
+    "fallbackItems": {
+      "automations": {
+        "title": "Automation kit for onboarding workflows",
+        "description": "A complete bundle with Make scenarios, recommended Zapier zaps and Airtable base to track new clients.",
+        "comments": {
+          "ana": "Implemented in less than 20 minutes and saved my team hours each week!"
+        }
+      },
+      "templates": {
+        "title": "High-converting sales page template",
+        "description": "Responsive landing page template with modular sections, conversion-focused copy prompts and analytics blocks.",
+        "comments": {
+          "carlos": "The component structure made it really simple to adapt for a SaaS launch."
+        }
+      }
+    }
+  },
+  "libraryModeration": {
+    "header": {
+      "badge": "Library",
+      "title": "Library moderation and management",
+      "description": "Centralize approvals, featured selections, and feedback for community submissions. Keep track of engagement, downloads, and creator reputation.",
+      "actions": {
+        "add": "Add resource",
+        "refresh": "Refresh data",
+        "viewPublic": "View public library"
+      }
+    },
+    "status": {
+      "pending": "Pending",
+      "underReview": "Under review",
+      "approved": "Approved",
+      "published": "Published",
+      "rejected": "Rejected",
+      "archived": "Archived"
+    },
+    "filters": {
+      "title": "Moderation filters",
+      "description": "Choose the status, category, and type to organize the review queue.",
+      "searchPlaceholder": "Search by title, author, or tag...",
+      "categoryPlaceholder": "Category",
+      "categoryAll": "All categories",
+      "typePlaceholder": "Resource type",
+      "typeAll": "All types",
+      "status": {
+        "all": "All",
+        "pending": "Pending",
+        "underReview": "Under review",
+        "approved": "Approved",
+        "published": "Published",
+        "rejected": "Rejected"
+      }
+    },
+    "stats": {
+      "pending": {
+        "title": "Pending",
+        "caption": "Resources waiting for review"
+      },
+      "published": {
+        "title": "Published",
+        "caption": "Available to students"
+      },
+      "community": {
+        "title": "Community",
+        "caption": "Community submissions"
+      },
+      "featured": {
+        "title": "Featured",
+        "caption": "Curated highlights"
+      }
+    },
+    "resources": {
+      "title": "Registered resources",
+      "total": "{{count}} item{{count, plural, one {} other {s}}} found",
+      "loading": "Loading library data...",
+      "errorTitle": "We couldn't load the resources",
+      "errorDescription": "Check your connection or try again in a moment to synchronize with the official database.",
+      "emptyTitle": "No resources match these filters",
+      "emptyDescription": "Adjust the filters to review other submissions or use the search for keywords.",
+      "dateUnknown": "Date not provided",
+      "unknownAuthor": "Author not informed",
+      "noEmail": "No email",
+      "feedbackCount": "{{count}} feedback{{count, plural, one {} other {s}}}"
+    },
+    "alerts": {
+      "missingPrimaryFile": "Please choose the main file for the resource.",
+      "createError": "We couldn't create the resource right now. Please try again.",
+      "confirmRemoval": "Remove \"{{title}}\" from the library?",
+      "removeError": "We couldn't remove the resource right now.",
+      "noteSuccess": "Note saved successfully.",
+      "noteError": "We couldn't save the note."
+    },
+    "badges": {
+      "featured": "Featured"
+    },
+    "actions": {
+      "viewDetails": "View details",
+      "approve": "Approve",
+      "publish": "Publish",
+      "removeFeatured": "Remove featured",
+      "markFeatured": "Highlight in library",
+      "reject": "Reject",
+      "archive": "Archive",
+      "remove": "Remove",
+      "retry": "Try again"
+    },
+    "create": {
+      "title": "New library resource",
+      "description": "Register official resources directly for students without going through the community workflow.",
+      "fields": {
+        "title": {
+          "label": "Title",
+          "placeholder": "How should the resource be named"
+        },
+        "category": {
+          "label": "Category",
+          "placeholder": "Automation, Design, Template..."
+        },
+        "description": {
+          "label": "Description (Markdown supported)",
+          "placeholder": "Explain what's included, main integrations, and quick instructions."
+        },
+        "type": {
+          "label": "Type",
+          "placeholder": "Select the type"
+        },
+        "status": {
+          "label": "Status",
+          "placeholder": "Choose the status",
+          "statusOptions": {
+            "pending": "Pending",
+            "approved": "Approved",
+            "published": "Published"
+          }
+        },
+        "tags": {
+          "label": "Tags",
+          "placeholder": "zapier, make, growth"
+        },
+        "file": {
+          "label": "Primary file",
+          "placeholder": "Select the file that will be published in the library",
+          "hint": "Accepted formats: ZIP, JSON, MP4, PDF (up to 250 MB)"
+        },
+        "cover": {
+          "label": "Cover (image or video)",
+          "placeholder": "Optional, helps highlight the resource in the public library."
+        },
+        "demoUrl": {
+          "label": "Demo URL (optional)",
+          "placeholder": "https://external-link.com"
+        },
+        "allowDownload": "Allow the community to download this file"
+      },
+      "actions": {
+        "chooseFile": "Select file",
+        "chooseCover": "Choose cover",
+        "cancel": "Cancel",
+        "submitting": "Publishing...",
+        "submit": "Publish resource"
+      }
+    },
+    "details": {
+      "sentOn": "Sent on",
+      "contributor": {
+        "title": "Contributor"
+      },
+      "files": {
+        "title": "Uploaded files",
+        "download": "Download",
+        "empty": "No files were provided for this resource."
+      },
+      "feedback": {
+        "title": "Community feedback",
+        "anonymous": "Anonymous",
+        "empty": "No comments registered yet."
+      },
+      "nextActions": {
+        "title": "Next actions",
+        "approve": "Approve resource",
+        "publish": "Publish immediately",
+        "reject": "Reject resource",
+        "archive": "Archive resource"
+      },
+      "notes": {
+        "title": "Internal notes",
+        "placeholder": "Add guidance or follow-up requests for the creator.",
+        "saving": "Saving...",
+        "save": "Save note",
+        "lastNote": "Latest note"
+      },
+      "closePanel": "Close panel"
     }
   },
   "lesson": {

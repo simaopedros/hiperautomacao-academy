@@ -285,6 +285,82 @@ def sanitize_slug(value: Optional[str]) -> str:
     return slug.strip('-')
 
 
+LIBRARY_ALLOWED_STATUSES: Set[str] = {
+    "pending",
+    "under_review",
+    "approved",
+    "published",
+    "rejected",
+    "archived",
+}
+LIBRARY_PUBLISHED_STATUSES: Set[str] = {"approved", "published"}
+DEFAULT_LIBRARY_STATUS = "pending"
+
+
+def _parse_bool(value: Union[str, bool, None], default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return default
+
+
+def format_file_size(size_bytes: Optional[int]) -> Optional[str]:
+    if not size_bytes or size_bytes <= 0:
+        return None
+    units = ["B", "KB", "MB", "GB", "TB"]
+    size = float(size_bytes)
+    idx = 0
+    while size >= 1024 and idx < len(units) - 1:
+        size /= 1024.0
+        idx += 1
+    if idx == 0:
+        return f"{int(size)} {units[idx]}"
+    return f"{size:.1f} {units[idx]}"
+
+
+def parse_tags(value: Optional[str]) -> List[str]:
+    if not value:
+        return []
+    tags = [tag.strip() for tag in re.split(r"[;,]", value) if tag.strip()]
+    seen = set()
+    unique: List[str] = []
+    for tag in tags:
+        lower = tag.lower()
+        if lower in seen:
+            continue
+        seen.add(lower)
+        unique.append(tag)
+    return unique
+
+
+def _sanitize_storage_path(*segments: Optional[str]) -> str:
+    parts: List[str] = []
+    for segment in segments:
+        if not segment:
+            continue
+        for piece in str(segment).split("/"):
+            piece = piece.strip()
+            if not piece:
+                continue
+            sanitized = sanitize_slug(piece)
+            if sanitized:
+                parts.append(sanitized)
+    return "/".join(parts)
+
+
+def user_has_library_privileges(user: "User") -> bool:
+    if user.role == "admin":
+        return True
+    if user.has_full_access:
+        return True
+    try:
+        snapshot = build_subscription_snapshot(user.model_dump())
+        return bool(snapshot.get("is_active"))
+    except Exception:
+        return False
+
+
 def build_bunny_embed_html(library_id: str, video_guid: str, player_domain: Optional[str] = None) -> str:
     """Generate Bunny.net iframe embed snippet."""
     embed_base = "https://iframe.mediadelivery.net"
@@ -416,6 +492,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
 
 # Stripe Configuration
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY')
@@ -672,6 +749,81 @@ class LinkItem(BaseModel):
     title: str
     url: str
 
+# Library Models
+class LibraryFile(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    url: str
+    path: Optional[str] = None
+    content_type: Optional[str] = None
+    size_bytes: Optional[int] = None
+    size: Optional[str] = None
+    uploaded_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class LibraryComment(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    author_id: Optional[str] = None
+    author_name: str
+    author_avatar: Optional[str] = None
+    message: str
+    rating: Optional[int] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class LibraryContributor(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    avatar: Optional[str] = None
+
+
+class LibraryResourceBase(BaseModel):
+    title: str
+    description: str
+    category: Optional[str] = None
+    type: Optional[str] = "project"
+    tags: List[str] = []
+    allow_download: bool = True
+    status: str = DEFAULT_LIBRARY_STATUS
+    demo_url: Optional[str] = None
+
+
+class LibraryResourceCreate(LibraryResourceBase):
+    pass
+
+
+class LibraryResource(LibraryResourceBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    featured: bool = False
+    is_community: bool = True
+    cover_url: Optional[str] = None
+    preview_url: Optional[str] = None
+    average_rating: float = 0.0
+    rating_count: int = 0
+    downloads: int = 0
+    comment_count: int = 0
+    files: List[LibraryFile] = []
+    comments: List[LibraryComment] = []
+    ratings: List[Dict[str, Any]] = []
+    contributor: Optional[LibraryContributor] = None
+    submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_moderation_note: Optional[str] = None
+
+
+class LibraryRatingRequest(BaseModel):
+    rating: int = Field(ge=1, le=5)
+
+
+class LibraryCommentRequest(BaseModel):
+    message: str
+    rating: Optional[int] = Field(default=None, ge=1, le=5)
+
 # Email Configuration Model
 class EmailConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -745,6 +897,11 @@ class Lesson(LessonBase):
 class CommentBase(BaseModel):
     content: str
     parent_id: Optional[str] = None
+    resource_id: Optional[str] = None
+    resource_title: Optional[str] = None
+    resource_type: Optional[str] = None
+    resource_category: Optional[str] = None
+    resource_cover_url: Optional[str] = None
 
 class CommentCreate(CommentBase):
     lesson_id: Optional[str] = None  # Optional for social posts
@@ -902,7 +1059,10 @@ def create_access_token(data: dict):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def _authenticate_credentials(credentials: HTTPAuthorizationCredentials) -> "User":
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Credenciais de autenticação são necessárias.")
+
     token = credentials.credentials
     last_error = None
 
@@ -942,6 +1102,17 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except Exception as exc:
         logger.exception("Failed to authenticate token: %s", exc)
         raise HTTPException(status_code=401, detail="Invalid token") from exc
+
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    return await _authenticate_credentials(credentials)
+
+
+async def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security)) -> Optional["User"]:
+    if not credentials:
+        return None
+    return await _authenticate_credentials(credentials)
+
 
 async def get_current_admin(current_user: User = Depends(get_current_user)):
     if current_user.role != "admin":
@@ -2919,8 +3090,12 @@ async def create_comment(comment_data: CommentCreate, current_user: User = Depen
             detail="Você precisa estar matriculado em pelo menos um curso para participar da comunidade!"
         )
     
+    payload = comment_data.model_dump()
+    for field in ("resource_id", "resource_title", "resource_type", "resource_category", "resource_cover_url"):
+        payload.pop(field, None)
+
     comment = Comment(
-        **comment_data.model_dump(),
+        **payload,
         user_id=current_user.id,
         user_name=current_user.name,
         user_avatar=current_user.avatar
@@ -3253,6 +3428,351 @@ async def _chunked_file_reader(upload_file: UploadFile, chunk_size: int = 1024 *
         yield chunk
 
 
+async def _upload_to_bunny_storage(
+    upload_file: UploadFile,
+    *,
+    prefix: str,
+    config: Optional[Dict[str, Any]] = None,
+    filename: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Upload a file to Bunny storage using the configured credentials."""
+    cfg = config or await get_bunny_config()
+    cfg = _ensure_bunny_storage_ready(cfg)
+
+    zone_name = cfg["storage_zone_name"]
+    access_key = cfg["storage_api_key"]
+    storage_host = cfg.get("storage_host") or "storage.bunnycdn.com"
+    base_prefix = cfg.get("library_storage_prefix") or cfg.get("storage_directory") or "library"
+    storage_prefix = _sanitize_storage_path(base_prefix, prefix)
+    if not storage_prefix:
+        storage_prefix = "library"
+
+    original_name = filename or upload_file.filename or "recurso"
+    sanitized_name = sanitize_filename(original_name)
+    extension = Path(sanitized_name).suffix
+    unique_name = f"{uuid.uuid4().hex[:16]}{extension}"
+    relative_path = "/".join(part for part in [storage_prefix, unique_name] if part)
+
+    if storage_host.startswith("http://") or storage_host.startswith("https://"):
+        storage_base_endpoint = storage_host.rstrip("/")
+    else:
+        storage_base_endpoint = f"https://{storage_host.rstrip('/')}"
+
+    storage_url = f"{storage_base_endpoint}/{zone_name}/{relative_path}"
+    headers = {
+        "AccessKey": access_key,
+        "Content-Type": upload_file.content_type or "application/octet-stream",
+    }
+    timeout = httpx.Timeout(120.0, connect=30.0)
+
+    size_counter = 0
+
+    async def data_iterator(chunk_size: int = 1024 * 1024):
+        nonlocal size_counter
+        await upload_file.seek(0)
+        while True:
+            chunk = await upload_file.read(chunk_size)
+            if not chunk:
+                break
+            size_counter += len(chunk)
+            yield chunk
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            upload_resp = await client.put(storage_url, headers=headers, data=data_iterator())
+            upload_resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        logger.error("Bunny storage upload failed (status=%s response=%s)", exc.response.status_code, exc.response.text)
+        detail_message = exc.response.text
+        if exc.response.status_code in (401, 403):
+            detail_message = (
+                "Credenciais da Bunny Storage rejeitadas. "
+                "Confirme o nome da Storage Zone e a Storage Password (AccessKey) configurados na Bunny."
+            )
+        else:
+            detail_message = f"Falha ao enviar arquivo para Bunny: {exc.response.text}"
+        raise HTTPException(status_code=exc.response.status_code, detail=detail_message) from exc
+    except httpx.HTTPError as exc:
+        logger.exception("Network error uploading file to Bunny: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Não foi possível comunicar com Bunny para upload do arquivo.",
+        ) from exc
+    finally:
+        await upload_file.close()
+
+    base_url = cfg.get("storage_base_url")
+    if base_url:
+        base_url = base_url.rstrip("/")
+        public_url = f"{base_url}/{relative_path}"
+    else:
+        public_url = f"https://{zone_name}.b-cdn.net/{relative_path}"
+
+    return {
+        "public_url": public_url,
+        "relative_path": relative_path,
+        "content_type": headers["Content-Type"],
+        "size_bytes": size_counter,
+        "original_name": original_name,
+        "sanitized_name": sanitized_name,
+    }
+
+
+def serialize_library_resource(doc: Dict[str, Any], *, include_private: bool = False) -> Dict[str, Any]:
+    if not doc:
+        return {}
+    data = dict(doc)
+    data.pop("_id", None)
+    for key in ("submitted_at", "updated_at"):
+        value = data.get(key)
+        if isinstance(value, datetime):
+            data[key] = value.isoformat()
+    if not include_private:
+        data.pop("ratings", None)
+        data.pop("internal_notes", None)
+    comments = []
+    for comment in data.get("comments", []) or []:
+        item = dict(comment)
+        if isinstance(item.get("created_at"), datetime):
+            item["created_at"] = item["created_at"].isoformat()
+        comments.append(item)
+    data["comments"] = comments
+    if "comment_count" not in data:
+        data["comment_count"] = len(comments)
+    files = []
+    for file_entry in data.get("files", []) or []:
+        item = dict(file_entry)
+        if isinstance(item.get("uploaded_at"), datetime):
+            item["uploaded_at"] = item["uploaded_at"].isoformat()
+        if not item.get("size"):
+            item["size"] = format_file_size(item.get("size_bytes"))
+        item["downloads"] = int(item.get("downloads", 0))
+        files.append(item)
+    data["files"] = files
+    data["average_rating"] = float(data.get("average_rating", 0.0))
+    data["rating_count"] = int(data.get("rating_count", len(data.get("ratings", []) or [])))
+    data["downloads"] = int(data.get("downloads", 0))
+    data["featured"] = bool(data.get("featured"))
+    data["allow_download"] = bool(data.get("allow_download", True))
+    data["allowCommunityDownload"] = data["allow_download"]
+    if isinstance(data.get("community_post_created_at"), datetime):
+        data["community_post_created_at"] = data["community_post_created_at"].isoformat()
+    data["community_post_id"] = data.get("community_post_id")
+    return data
+
+
+async def _get_library_resource_or_404(resource_id: str) -> Dict[str, Any]:
+    resource = await db.library_resources.find_one({"id": resource_id})
+    if not resource:
+        raise HTTPException(status_code=404, detail="Recurso da biblioteca não encontrado.")
+    return resource
+
+
+async def ensure_library_social_post(resource: Dict[str, Any], *, actor: User) -> Optional[str]:
+    """Create a social post highlighting the resource when it is approved/published."""
+    if not resource:
+        return None
+
+    if resource.get("community_post_id"):
+        return resource["community_post_id"]
+
+    status = (resource.get("status") or "").lower()
+    if status not in LIBRARY_PUBLISHED_STATUSES:
+        return None
+
+    contributor = resource.get("contributor") or {}
+    author_id = contributor.get("id") or actor.id
+    author_name = contributor.get("name") or actor.name
+    author_avatar = contributor.get("avatar") or getattr(actor, "avatar", None)
+
+    try:
+        if author_id:
+            contributor_doc = await db.users.find_one(
+                {"id": author_id},
+                {"_id": 0, "id": 1, "name": 1, "avatar": 1},
+            )
+            if contributor_doc:
+                author_name = contributor_doc.get("name") or author_name
+                author_avatar = contributor_doc.get("avatar") or author_avatar
+        else:
+            author_id = actor.id
+
+        title = (resource.get("title") or "").strip() or "Recurso da comunidade"
+        description = (resource.get("description") or "").strip()
+        if len(description) > 280:
+            description = description[:277].rstrip() + "..."
+
+        lines: List[str] = []
+        lines.append("📚 Novo recurso aprovado na Biblioteca da Comunidade!")
+        lines.append("")
+        lines.append(f"**{title}**")
+        if description:
+            lines.append("")
+            lines.append(description)
+
+        extra_details: List[str] = []
+        if resource.get("category"):
+            extra_details.append(f"🏷️ Categoria: {resource['category']}")
+        if resource.get("type"):
+            resource_type_label = str(resource["type"]).replace("_", " ").title()
+            extra_details.append(f"📦 Tipo: {resource_type_label}")
+        if extra_details:
+            lines.append("")
+            lines.extend(extra_details)
+
+        lines.append("")
+        lines.append("Acesse a Biblioteca para baixar, avaliar e comentar este recurso.")
+
+        content = "\n".join(lines)
+
+        post = Comment(
+            content=content,
+            lesson_id=None,
+            user_id=author_id,
+            user_name=author_name or actor.name,
+            user_avatar=author_avatar,
+            parent_id=None,
+            resource_id=resource.get("id"),
+            resource_title=title,
+            resource_type=resource.get("type"),
+            resource_category=resource.get("category"),
+            resource_cover_url=resource.get("cover_url") or resource.get("preview_url"),
+        )
+        post_doc = post.model_dump()
+        post_doc["created_at"] = post_doc["created_at"].isoformat()
+        await db.comments.insert_one(post_doc)
+
+        await db.library_resources.update_one(
+            {"id": resource["id"]},
+            {
+                "$set": {
+                    "community_post_id": post_doc["id"],
+                    "community_post_created_at": datetime.now(timezone.utc),
+                }
+            },
+        )
+
+        logger.info("Library resource %s publicado na comunidade (post %s)", resource["id"], post_doc["id"])
+        return post_doc["id"]
+    except Exception:
+        logger.exception("Failed to create community post for library resource %s", resource.get("id"))
+        return None
+
+
+async def _create_library_resource_document(
+    *,
+    file: UploadFile,
+    cover: Optional[UploadFile],
+    title: str,
+    description: str,
+    category: Optional[str],
+    resource_type: Optional[str],
+    tags_raw: Optional[str],
+    allow_download: bool,
+    demo_url: Optional[str],
+    status_value: Optional[str],
+    current_user: Optional[User],
+    is_community: bool,
+) -> Dict[str, Any]:
+    config = await get_bunny_config()
+    config = _ensure_bunny_storage_ready(config)
+
+    prefix_role = "community" if is_community else "admin"
+    user_segment = sanitize_slug(current_user.id) if current_user and current_user.id else "system"
+    file_upload = await _upload_to_bunny_storage(
+        file,
+        prefix=f"{prefix_role}/{user_segment}",
+        config=config,
+    )
+
+    cover_upload = None
+    if cover is not None:
+        try:
+            cover_upload = await _upload_to_bunny_storage(
+                cover,
+                prefix=f"{prefix_role}/{user_segment}/cover",
+                config=config,
+            )
+        except HTTPException:
+            # If cover upload fails we still persist the resource without cover
+            logger.exception("Falha ao enviar capa para Bunny; continuando sem capa.")
+            cover_upload = None
+
+    now = datetime.now(timezone.utc)
+    category_value = (category or "").strip() or None
+    type_value = (resource_type or "project").strip() or "project"
+    tags_list = parse_tags(tags_raw)
+    status_clean = (status_value or DEFAULT_LIBRARY_STATUS).strip().lower()
+    if status_clean not in LIBRARY_ALLOWED_STATUSES:
+        status_clean = DEFAULT_LIBRARY_STATUS
+    if is_community and status_clean not in {"pending", "under_review"}:
+        # Community submissions always start pending
+        status_clean = DEFAULT_LIBRARY_STATUS
+
+    file_entry = {
+        "id": str(uuid.uuid4()),
+        "name": file_upload["original_name"],
+        "url": file_upload["public_url"],
+        "path": file_upload["relative_path"],
+        "content_type": file_upload["content_type"],
+        "size_bytes": file_upload["size_bytes"],
+        "size": format_file_size(file_upload["size_bytes"]),
+        "uploaded_at": now,
+        "downloads": 0,
+    }
+
+    preview_url = demo_url or None
+    cover_url = None
+    cover_path = None
+    if cover_upload:
+        cover_url = cover_upload["public_url"]
+        cover_path = cover_upload["relative_path"]
+        if not preview_url and cover_upload["content_type"].startswith("video/"):
+            preview_url = cover_url
+
+    resource_doc: Dict[str, Any] = {
+        "id": str(uuid.uuid4()),
+        "title": title.strip(),
+        "description": description.strip(),
+        "category": category_value,
+        "type": type_value,
+        "tags": tags_list,
+        "allow_download": allow_download,
+        "status": status_clean,
+        "demo_url": demo_url,
+        "featured": False,
+        "is_community": is_community,
+        "cover_url": cover_url,
+        "cover_path": cover_path,
+        "preview_url": preview_url,
+        "average_rating": 0.0,
+        "rating_count": 0,
+        "downloads": 0,
+        "comment_count": 0,
+        "files": [file_entry],
+        "comments": [],
+        "ratings": [],
+        "submitted_at": now,
+        "updated_at": now,
+        "last_moderation_note": None,
+        "internal_notes": [],
+        "community_post_id": None,
+        "community_post_created_at": None,
+    }
+
+    if current_user:
+        resource_doc["contributor"] = {
+            "id": current_user.id,
+            "name": current_user.name,
+            "email": current_user.email,
+            "avatar": getattr(current_user, "avatar", None),
+        }
+    else:
+        resource_doc["contributor"] = None
+
+    return resource_doc
+
+
 @api_router.post("/admin/media/bunny/upload/video")
 async def upload_bunny_video(
     file: UploadFile = File(...),
@@ -3517,6 +4037,425 @@ async def upload_bunny_file(
         "public_url": public_url,
         "content_type": content_type,
     }
+
+# ==================== LIBRARY RESOURCES ====================
+
+@api_router.get("/library/resources")
+async def list_library_resources(
+    status: Optional[str] = Query(None),
+    include_all: bool = Query(False),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
+    query: Dict[str, Any] = {}
+    if include_all:
+        if not current_user or current_user.role != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Somente administradores podem visualizar todos os recursos.",
+            )
+        # Allow viewing all except hard archived when explicitly requested
+        query["status"] = {"$ne": "archived"}
+    else:
+        query["status"] = {"$in": list(LIBRARY_PUBLISHED_STATUSES)}
+
+    if status:
+        status_normalized = status.strip().lower()
+        if status_normalized in LIBRARY_ALLOWED_STATUSES:
+            query["status"] = status_normalized
+
+    cursor = (
+        db.library_resources.find(query)
+        .sort([("updated_at", -1), ("submitted_at", -1)])
+    )
+    resources = await cursor.to_list(length=500)
+    return [serialize_library_resource(resource) for resource in resources]
+
+
+@api_router.get("/library/categories")
+async def list_library_categories():
+    filter_query = {"status": {"$in": list(LIBRARY_PUBLISHED_STATUSES)}}
+    categories = await db.library_resources.distinct("category", filter_query)
+    result = []
+    for idx, category in enumerate(categories or []):
+        if not category:
+            continue
+        slug = sanitize_slug(category) or f"category-{idx}"
+        result.append({"id": slug, "name": category})
+    return result
+
+
+@api_router.post("/library/resources")
+async def create_library_resource(
+    title: str = Form(...),
+    description: str = Form(...),
+    category: Optional[str] = Form(None),
+    resource_type: Optional[str] = Form("project", alias="type"),
+    tags: Optional[str] = Form(None),
+    demo_url: Optional[str] = Form(None, alias="demoUrl"),
+    allow_download_raw: Optional[str] = Form(None, alias="allowCommunityDownload"),
+    status_value: Optional[str] = Form(None, alias="status"),
+    file: UploadFile = File(...),
+    cover: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_user),
+):
+    allow_download = _parse_bool(allow_download_raw, True)
+    resource_doc = await _create_library_resource_document(
+        file=file,
+        cover=cover,
+        title=title,
+        description=description,
+        category=category,
+        resource_type=resource_type,
+        tags_raw=tags,
+        allow_download=allow_download,
+        demo_url=demo_url,
+        status_value=status_value,
+        current_user=current_user,
+        is_community=True,
+    )
+    await db.library_resources.insert_one(resource_doc)
+    return serialize_library_resource(resource_doc)
+
+
+@api_router.post("/library/resources/{resource_id}/ratings")
+async def rate_library_resource(
+    resource_id: str,
+    rating_request: LibraryRatingRequest,
+    current_user: User = Depends(get_current_user),
+):
+    if not user_has_library_privileges(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Assinatura ativa necessária para interagir com a biblioteca.",
+        )
+    resource = await _get_library_resource_or_404(resource_id)
+    status_value = resource.get("status")
+    contributor_id = (resource.get("contributor") or {}).get("id")
+    if (
+        status_value not in LIBRARY_PUBLISHED_STATUSES
+        and current_user.role != "admin"
+        and contributor_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível avaliar este recurso no momento.",
+        )
+
+    ratings = resource.get("ratings") or []
+    now = datetime.now(timezone.utc)
+    updated = False
+    for entry in ratings:
+        if entry.get("user_id") == current_user.id:
+            entry["rating"] = rating_request.rating
+            entry["updated_at"] = now
+            updated = True
+            break
+    if not updated:
+        ratings.append(
+            {
+                "id": str(uuid.uuid4()),
+                "user_id": current_user.id,
+                "rating": rating_request.rating,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
+
+    rating_count = len(ratings) or 1
+    average_rating = round(
+        sum(entry.get("rating", 0) for entry in ratings) / rating_count, 2
+    )
+
+    await db.library_resources.update_one(
+        {"id": resource_id},
+        {
+            "$set": {
+                "ratings": ratings,
+                "average_rating": float(average_rating),
+                "rating_count": rating_count,
+                "updated_at": now,
+            }
+        },
+    )
+    return {"average_rating": average_rating, "rating_count": rating_count}
+
+
+@api_router.post("/library/resources/{resource_id}/comments")
+async def comment_library_resource(
+    resource_id: str,
+    comment_request: LibraryCommentRequest,
+    current_user: User = Depends(get_current_user),
+):
+    if not user_has_library_privileges(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Assinatura ativa necessária para interagir com a biblioteca.",
+        )
+    resource = await _get_library_resource_or_404(resource_id)
+    status_value = resource.get("status")
+    contributor_id = (resource.get("contributor") or {}).get("id")
+    if (
+        status_value not in LIBRARY_PUBLISHED_STATUSES
+        and current_user.role != "admin"
+        and contributor_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível comentar este recurso no momento.",
+        )
+
+    message = (comment_request.message or "").strip()
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="O comentário não pode estar vazio.",
+        )
+
+    now = datetime.now(timezone.utc)
+    comment_entry = {
+        "id": str(uuid.uuid4()),
+        "author_id": current_user.id,
+        "author_name": current_user.name,
+        "author_avatar": getattr(current_user, "avatar", None),
+        "message": message,
+        "rating": comment_request.rating,
+        "created_at": now,
+    }
+
+    await db.library_resources.update_one(
+        {"id": resource_id},
+        {
+            "$push": {"comments": comment_entry},
+            "$set": {"updated_at": now},
+            "$inc": {"comment_count": 1},
+        },
+    )
+    return {"message": "Comentário registrado com sucesso."}
+
+
+@api_router.post("/library/resources/{resource_id}/files/{file_id}/download")
+async def download_library_file(
+    resource_id: str,
+    file_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    if not user_has_library_privileges(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Assinatura ativa necessária para acessar este arquivo.",
+        )
+    resource = await _get_library_resource_or_404(resource_id)
+    status_value = resource.get("status")
+    contributor_id = (resource.get("contributor") or {}).get("id")
+    if (
+        status_value not in LIBRARY_PUBLISHED_STATUSES
+        and current_user.role != "admin"
+        and contributor_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Recurso ainda não disponível para download.",
+        )
+
+    allow_download = bool(resource.get("allow_download", True))
+    is_admin = current_user.role == "admin"
+    if not allow_download and not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Download desabilitado para este recurso.",
+        )
+
+    file_entry = None
+    for entry in resource.get("files", []) or []:
+        if str(entry.get("id")) == file_id:
+            file_entry = entry
+            break
+    if not file_entry:
+        raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
+
+    file_url = file_entry.get("url")
+    if not file_url:
+        raise HTTPException(status_code=404, detail="URL do arquivo indisponível.")
+
+    now = datetime.now(timezone.utc)
+    await db.library_resources.update_one(
+        {"id": resource_id, "files.id": file_id},
+        {
+            "$inc": {
+                "downloads": 1,
+                "files.$.downloads": 1,
+            },
+            "$set": {"updated_at": now},
+        },
+    )
+
+    return {
+        "url": file_url,
+        "downloads": int(resource.get("downloads", 0)) + 1,
+        "fileDownloads": int(file_entry.get("downloads", 0)) + 1,
+    }
+
+
+@api_router.get("/admin/library/resources")
+async def admin_list_library_resources(
+    status: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_admin),
+):
+    query: Dict[str, Any] = {}
+    if status:
+        status_normalized = status.strip().lower()
+        if status_normalized in LIBRARY_ALLOWED_STATUSES:
+            query["status"] = status_normalized
+    cursor = (
+        db.library_resources.find(query)
+        .sort([("submitted_at", -1), ("updated_at", -1)])
+    )
+    resources = await cursor.to_list(length=1000)
+    return [serialize_library_resource(resource, include_private=True) for resource in resources]
+
+
+@api_router.post("/admin/library/resources")
+async def admin_create_library_resource(
+    title: str = Form(...),
+    description: str = Form(...),
+    category: Optional[str] = Form(None),
+    resource_type: Optional[str] = Form("project", alias="type"),
+    tags: Optional[str] = Form(None),
+    demo_url: Optional[str] = Form(None, alias="demoUrl"),
+    allow_download_raw: Optional[str] = Form(None, alias="allowCommunityDownload"),
+    status_value: Optional[str] = Form("published", alias="status"),
+    file: UploadFile = File(...),
+    cover: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_admin),
+):
+    allow_download = _parse_bool(allow_download_raw, True)
+    resource_doc = await _create_library_resource_document(
+        file=file,
+        cover=cover,
+        title=title,
+        description=description,
+        category=category,
+        resource_type=resource_type,
+        tags_raw=tags,
+        allow_download=allow_download,
+        demo_url=demo_url,
+        status_value=status_value,
+        current_user=current_user,
+        is_community=False,
+    )
+    await db.library_resources.insert_one(resource_doc)
+    inserted_resource = await _get_library_resource_or_404(resource_doc["id"])
+    if not inserted_resource.get("community_post_id") and inserted_resource.get("status") in LIBRARY_PUBLISHED_STATUSES:
+        await ensure_library_social_post(inserted_resource, actor=current_user)
+        inserted_resource = await _get_library_resource_or_404(resource_doc["id"])
+    return serialize_library_resource(inserted_resource, include_private=True)
+
+
+@api_router.patch("/admin/library/resources/{resource_id}")
+async def admin_update_library_resource(
+    resource_id: str,
+    payload: Dict[str, Any],
+    current_user: User = Depends(get_current_admin),
+):
+    existing_resource = await _get_library_resource_or_404(resource_id)
+    allowed_updates: Dict[str, Any] = {}
+    if "status" in payload and isinstance(payload["status"], str):
+        status_normalized = payload["status"].strip().lower()
+        if status_normalized not in LIBRARY_ALLOWED_STATUSES:
+            raise HTTPException(status_code=400, detail="Status inválido.")
+        allowed_updates["status"] = status_normalized
+    if "featured" in payload:
+        allowed_updates["featured"] = bool(payload["featured"])
+    if "allow_download" in payload or "allowCommunityDownload" in payload:
+        allowed_updates["allow_download"] = _parse_bool(
+            payload.get("allow_download", payload.get("allowCommunityDownload")), True
+        )
+    if "category" in payload:
+        category_value = (payload["category"] or "").strip()
+        allowed_updates["category"] = category_value or None
+    if "tags" in payload:
+        tags_value = payload["tags"]
+        if isinstance(tags_value, str):
+            allowed_updates["tags"] = parse_tags(tags_value)
+        elif isinstance(tags_value, list):
+            allowed_updates["tags"] = [str(tag) for tag in tags_value if str(tag).strip()]
+
+    if not allowed_updates:
+        return serialize_library_resource(existing_resource, include_private=True)
+
+    allowed_updates["updated_at"] = datetime.now(timezone.utc)
+    result = await db.library_resources.update_one({"id": resource_id}, {"$set": allowed_updates})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Recurso da biblioteca não encontrado.")
+    updated_resource = await _get_library_resource_or_404(resource_id)
+    if not updated_resource.get("community_post_id") and updated_resource.get("status") in LIBRARY_PUBLISHED_STATUSES:
+        await ensure_library_social_post(updated_resource, actor=current_user)
+        updated_resource = await _get_library_resource_or_404(resource_id)
+    return serialize_library_resource(updated_resource, include_private=True)
+
+
+@api_router.post("/admin/library/resources/{resource_id}/feature")
+async def admin_feature_library_resource(
+    resource_id: str,
+    payload: Dict[str, Any],
+    current_user: User = Depends(get_current_admin),
+):
+    featured = bool(payload.get("featured", True))
+    result = await db.library_resources.update_one(
+        {"id": resource_id},
+        {"$set": {"featured": featured, "updated_at": datetime.now(timezone.utc)}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Recurso da biblioteca não encontrado.")
+    updated = await _get_library_resource_or_404(resource_id)
+    return serialize_library_resource(updated, include_private=True)
+
+
+@api_router.delete("/admin/library/resources/{resource_id}")
+async def admin_delete_library_resource(
+    resource_id: str,
+    current_user: User = Depends(get_current_admin),
+):
+    resource = await _get_library_resource_or_404(resource_id)
+    result = await db.library_resources.delete_one({"id": resource_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Recurso da biblioteca não encontrado.")
+    # Optionally: trigger background cleanup of Bunny assets using resource["files"] / cover_path
+    logger.info("Library resource %s removido por %s", resource_id, current_user.email)
+    return {"message": "Recurso removido com sucesso."}
+
+
+@api_router.post("/admin/library/resources/{resource_id}/notes")
+async def admin_add_library_note(
+    resource_id: str,
+    payload: Dict[str, Any],
+    current_user: User = Depends(get_current_admin),
+):
+    note = (payload.get("note") or "").strip()
+    if not note:
+        raise HTTPException(status_code=400, detail="A nota não pode estar vazia.")
+    now = datetime.now(timezone.utc)
+    note_entry = {
+        "id": str(uuid.uuid4()),
+        "note": note,
+        "author_id": current_user.id,
+        "author_name": current_user.name,
+        "created_at": now,
+    }
+    result = await db.library_resources.update_one(
+        {"id": resource_id},
+        {
+            "$set": {
+                "last_moderation_note": note,
+                "updated_at": now,
+            },
+            "$push": {"internal_notes": note_entry},
+        },
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Recurso da biblioteca não encontrado.")
+    updated = await _get_library_resource_or_404(resource_id)
+    return serialize_library_resource(updated, include_private=True)
 
 @api_router.post("/admin/media/bunny/sync-collection")
 async def sync_bunny_collection(
@@ -6570,14 +7509,34 @@ async def get_replication_logs(limit: int = 200, current_user: User = Depends(ge
 
 app.include_router(api_router)
 
-cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
-cors_origin_regex = os.environ.get('CORS_ORIGIN_REGEX')
+cors_origin_env = os.environ.get('CORS_ORIGINS')
+if cors_origin_env:
+    cors_origins = [
+        origin.strip()
+        for origin in cors_origin_env.split(',')
+        if origin.strip()
+    ]
+else:
+    cors_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
 
-# Se allow_credentials=True, não podemos usar '*' como origem.
-# Preferimos lista explícita via CORS_ORIGINS ou regex via CORS_ORIGIN_REGEX (ex.: https://.*\.trycloudflare\.com)
+# Remove duplicados preservando a ordem
+cors_origins = list(dict.fromkeys(cors_origins))
+cors_origin_regex = os.environ.get('CORS_ORIGIN_REGEX') or None
+
+allow_credentials = True
+if any(origin == "*" for origin in cors_origins):
+    # Starlette não permite '*' com credentials habilitado
+    allow_credentials = False
+    cors_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
+    allow_credentials=allow_credentials,
     allow_origins=cors_origins,
     allow_origin_regex=cors_origin_regex,
     allow_methods=["*"],
