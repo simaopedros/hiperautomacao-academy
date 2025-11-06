@@ -107,13 +107,18 @@ function App() {
   };
 
   useEffect(() => {
-    if (!user || !isReady) return;
+    if (!isReady) return;
 
-    const normalized = normalizeLanguageCode(user.preferred_language);
-    const locale =
-      user.preferred_locale ||
-      getLocaleFromCode(normalized) ||
-      getCurrentLanguage();
+    // Priorizar o locale persistido pelo i18next (localStorage) para evitar reversões indesejadas
+    const supportedLocales = new Set(['pt-BR', 'en-US', 'es-ES']);
+    const storedLocale = localStorage.getItem('i18nextLng');
+    const resolvedStoredLocale = supportedLocales.has(storedLocale) ? storedLocale : null;
+
+    const normalized = normalizeLanguageCode(user?.preferred_language);
+    const preferredLocale = user?.preferred_locale || getLocaleFromCode(normalized) || null;
+
+    // Ordem de escolha: localStorage -> preferência do usuário -> idioma atual
+    const locale = resolvedStoredLocale || preferredLocale || getCurrentLanguage();
 
     if (!locale) return;
     const currentLocale = getCurrentLanguage();
@@ -249,7 +254,7 @@ function App() {
             path="/profile"
             element={
               user ? (
-                <ProfileSettings user={user} onLogout={handleLogout} />
+            <ProfileSettings user={user} onLogout={handleLogout} updateUser={updateUser} />
               ) : (
                 <Navigate to="/login" replace />
               )

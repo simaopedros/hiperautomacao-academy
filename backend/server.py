@@ -1803,6 +1803,22 @@ async def convert_category_names_to_ids(category_names: List[str]) -> List[str]:
 async def create_course(course_data: CourseCreate, current_user: User = Depends(get_current_admin)):
     # Validation: ensure at least one category (new list or legacy field)
     payload = course_data.model_dump()
+    # Normalize and validate language field for consistency
+    if "language" in payload:
+        raw_lang = payload.get("language")
+        if raw_lang is None:
+            normalized_lang = None
+        elif isinstance(raw_lang, str):
+            sanitized = _sanitize_language_token(raw_lang)
+            normalized_lang = _normalize_language(sanitized)
+            if sanitized in {"", "all", "any", "todos", "todas", "todo"}:
+                normalized_lang = None
+        else:
+            normalized_lang = _normalize_language(raw_lang)
+
+        if normalized_lang is None and raw_lang not in (None, "", "all", "any", "todos", "todas", "todo"):
+            raise HTTPException(status_code=400, detail="Unsupported course language")
+        payload["language"] = normalized_lang
     has_categories = bool(payload.get("categories"))
     has_legacy_category = bool(payload.get("category"))
     if not has_categories and not has_legacy_category:
@@ -1857,6 +1873,23 @@ async def update_course(course_id: str, course_data: CourseUpdate, current_user:
         raise HTTPException(status_code=404, detail="Course not found")
     
     update_data = course_data.model_dump(exclude_unset=True)
+
+    # Normalize and validate language updates
+    if "language" in update_data:
+        raw_lang = update_data.get("language")
+        if raw_lang is None:
+            normalized_lang = None
+        elif isinstance(raw_lang, str):
+            sanitized = _sanitize_language_token(raw_lang)
+            normalized_lang = _normalize_language(sanitized)
+            if sanitized in {"", "all", "any", "todos", "todas", "todo"}:
+                normalized_lang = None
+        else:
+            normalized_lang = _normalize_language(raw_lang)
+
+        if normalized_lang is None and raw_lang not in (None, "", "all", "any", "todos", "todas", "todo"):
+            raise HTTPException(status_code=400, detail="Unsupported course language")
+        update_data["language"] = normalized_lang
 
     # RETROCOMPATIBILIDADE: Detectar se categories contém nomes em vez de IDs
     prospective_categories = update_data.get("categories")
@@ -2648,10 +2681,11 @@ async def get_published_courses(
 
     courses = await db.courses.find({"published": True}, {"_id": 0}).to_list(1000)
     if preferred and not include_all_languages:
+        # Strict filtering: only include courses explicitly tagged with a matching language
         courses = [
             course
             for course in courses
-            if _course_language_matches(course.get("language"), preferred)
+            if (course.get("language") is not None) and _course_language_matches(course.get("language"), preferred)
         ]
     
     # Get user's enrollments from BOTH sources for backward compatibility
