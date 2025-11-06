@@ -154,14 +154,24 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
     setUpdatingLanguage(true);
     try {
       // Primeiro, atualizar o idioma da interface
-      const interfaceLanguage = language === 'pt' ? 'pt-BR' : language === 'en' ? 'en-US' : 'pt-BR';
-      
+      // Quando language é null (Todos os idiomas), mantém o idioma atual da interface
+      const interfaceLanguage =
+        language === null
+          ? currentLanguage
+          : language === 'pt'
+          ? 'pt-BR'
+          : language === 'en'
+          ? 'en-US'
+          : language === 'es'
+          ? 'es-ES'
+          : 'pt-BR';
+
       // Usar o hook changeLanguage
       await changeLanguage(interfaceLanguage);
-      
+
       // Atualizar o estado local para forçar re-render
       setCurrentLanguage(interfaceLanguage);
-      
+
       // Atualizar a preferência do usuário no backend
       const token = localStorage.getItem('token');
       await axios.put(`${API}/auth/language`, 
@@ -177,7 +187,7 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
       setUserLanguage(language);
       // Refresh courses to apply language filter
       await fetchCourses();
-      
+
     } catch (error) {
       console.error('Error updating language:', error);
       alert('Erro ao atualizar idioma. Tente novamente.');

@@ -994,21 +994,40 @@ async def login(credentials: UserLogin):
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
+def _normalize_language(code: Optional[str]) -> Optional[str]:
+    """Normalize language codes to base values used for filtering.
+
+    Accepts extended codes like 'pt-BR', 'en-US', 'es-ES' and returns
+    base codes 'pt', 'en', 'es'. Returns None when input is falsy.
+    """
+    if not code:
+        return None
+    c = str(code).strip().lower()
+    # Map extended locale codes to base
+    if c in {"pt", "pt-br"}:
+        return "pt"
+    if c in {"en", "en-us"}:
+        return "en"
+    if c in {"es", "es-es"}:
+        return "es"
+    # Fallback: try first two letters if contains '-'
+    if "-" in c:
+        return c.split("-")[0]
+    # Unknown code: return None to show all languages
+    return None
+
 @api_router.put("/auth/language", response_model=User)
 async def update_user_language(request: dict, current_user: User = Depends(get_current_user)):
-    """Update user's preferred language"""
+    """Update user's preferred language (accepts base or extended codes)."""
     language = request.get('language')
-    
-    # Validate language code if provided
-    if language and language not in ['pt', 'en', 'es']:
-        raise HTTPException(status_code=400, detail="Invalid language code. Supported: pt, en, es")
-    
-    # Update user's preferred language
+    normalized = _normalize_language(language)
+
+    # Update user's preferred language (normalized)
     await db.users.update_one(
         {"id": current_user.id},
-        {"$set": {"preferred_language": language}}
+        {"$set": {"preferred_language": normalized}}
     )
-    
+
     # Return updated user
     updated_user = await db.users.find_one({"id": current_user.id})
     return User(**updated_user)
@@ -1017,36 +1036,30 @@ async def update_user_language(request: dict, current_user: User = Depends(get_c
 
 @api_router.put("/user/profile", response_model=User)
 async def update_user_profile(profile_data: UserUpdate, current_user: User = Depends(get_current_user)):
-    """Update user profile information"""
-    # Get only the fields that are not None
-    update_fields = {}
-    
+    """Update user profile information (normalizes preferred_language)."""
+    update_fields: dict = {}
+
     if profile_data.name is not None:
         update_fields["name"] = profile_data.name
-    
+
     if profile_data.email is not None:
-        # Check if email is already taken by another user
         existing_user = await db.users.find_one({"email": profile_data.email, "id": {"$ne": current_user.id}})
         if existing_user:
             raise HTTPException(status_code=400, detail="Email already in use by another user")
         update_fields["email"] = profile_data.email
-    
+
     if profile_data.preferred_language is not None:
-        # Validate language code
-        if profile_data.preferred_language not in ['pt', 'en', 'es', 'pt-BR', 'en-US', 'es-ES']:
-            raise HTTPException(status_code=400, detail="Invalid language code")
-        update_fields["preferred_language"] = profile_data.preferred_language
-    
+        normalized = _normalize_language(profile_data.preferred_language)
+        update_fields["preferred_language"] = normalized
+
     if not update_fields:
         raise HTTPException(status_code=400, detail="No fields to update")
-    
-    # Update user in database
+
     await db.users.update_one(
         {"id": current_user.id},
         {"$set": update_fields}
     )
-    
-    # Return updated user
+
     updated_user = await db.users.find_one({"id": current_user.id})
     return User(**updated_user)
 
@@ -2439,21 +2452,21 @@ async def remove_user_from_course(user_id: str, course_id: str, current_user: Us
 
 @api_router.get("/student/courses")
 async def get_published_courses(current_user: User = Depends(get_current_user)):
-    """Get all published courses with enrollment status, filtered by user's preferred language"""
-    
-    # Build course filter query
-    course_filter = {"published": True}
-    
-    # Apply language filter if user has a preferred language
-    if current_user.preferred_language:
-        # Show courses that match user's language OR have no language set (backward compatibility)
+    """Get all published courses with enrollment status, filtered by user's preferred language.
+
+    Accepts both base and extended locale codes stored in preferred_language.
+    """
+    course_filter: dict = {"published": True}
+
+    # Normalize user's preferred language and apply filter
+    preferred = _normalize_language(current_user.preferred_language)
+    if preferred:
         course_filter["$or"] = [
-            {"language": current_user.preferred_language},
-            {"language": {"$exists": False}},  # Courses without language field
-            {"language": None}  # Courses with language explicitly set to None
+            {"language": preferred},
+            {"language": {"$exists": False}},
+            {"language": None}
         ]
-    
-    # Get filtered published courses
+
     courses = await db.courses.find(course_filter, {"_id": 0}).to_list(1000)
     
     # Get user's enrollments from BOTH sources for backward compatibility
