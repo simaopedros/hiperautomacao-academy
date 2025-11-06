@@ -20,11 +20,22 @@ import {
   UploadCloud,
   Archive
 } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 
 const AdminNavigation = ({ user, onLogout }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const displayName = (user?.name && user.name.trim()) || user?.email || 'Admin';
+  const avatarUrl = user?.avatar || user?.avatar_url || '';
+  const avatarInitials =
+    displayName
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part[0]?.toUpperCase())
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('') || 'A';
   
   const [showContentMenu, setShowContentMenu] = useState(false);
   const [showUsersMenu, setShowUsersMenu] = useState(false);
@@ -356,16 +367,26 @@ const AdminNavigation = ({ user, onLogout }) => {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => navigate('/profile')}
-              className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-emerald-500/20 hover:ring-emerald-400/40 transition-all duration-300 hover:scale-105"
+              className="rounded-full shadow-lg ring-2 ring-emerald-500/20 hover:ring-emerald-400/40 transition-all duration-300 hover:scale-105"
               title="Configurações do Perfil"
-              aria-label={`Ir para perfil de ${user?.name || 'Admin'}`}
+              aria-label={`Ir para perfil de ${displayName}`}
             >
-              {(user?.name || 'Admin')[0].toUpperCase()}
+              <Avatar className="h-10 w-10">
+                <AvatarImage
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="object-cover"
+                />
+                <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-cyan-500 text-white font-semibold">
+                  {avatarInitials}
+                </AvatarFallback>
+              </Avatar>
             </button>
             <div className="text-right">
               <p className="text-sm text-gray-400">{t('navigation.dashboard')}</p>
-              <p className="font-semibold text-white">{user?.name || 'Admin'}</p>
+              <p className="font-semibold text-white">{displayName}</p>
             </div>
           </div>
           <button

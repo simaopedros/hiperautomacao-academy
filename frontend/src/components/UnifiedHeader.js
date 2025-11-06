@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 
 const UnifiedHeader = ({ 
   user, 
@@ -32,6 +33,17 @@ const UnifiedHeader = ({
   const { t } = useTranslation();
 
   const isCurrentPage = (path) => location.pathname === path;
+  const displayName = (user?.name && user.name.trim()) || user?.email || '';
+  const resolvedName = displayName || user?.name || user?.email || 'Usuário';
+  const avatarUrl = user?.avatar || user?.avatar_url || '';
+  const avatarInitials =
+    displayName
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part[0]?.toUpperCase())
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('') || 'U';
 
   const navigationItems = [
     {
@@ -165,16 +177,26 @@ const UnifiedHeader = ({
               <>
                 <div className="flex items-center gap-3">
                   <button
+                    type="button"
                     onClick={() => navigate('/profile')}
-                    className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg ring-2 ring-emerald-500/20 hover:ring-emerald-400/40 transition-all duration-300 hover:scale-105"
-                    aria-label={`Ir para perfil de ${user.name}`}
+                    className="rounded-full shadow-lg ring-2 ring-emerald-500/20 hover:ring-emerald-400/40 transition-all duration-300 hover:scale-105"
+                    aria-label={`Ir para perfil de ${resolvedName}`}
                     title="Configurações do Perfil"
                   >
-                    {user.name[0].toUpperCase()}
+                    <Avatar className="h-10 w-10 sm:h-12 sm:w-12">
+                      <AvatarImage
+                        src={avatarUrl}
+                        alt={resolvedName}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-cyan-500 text-white font-semibold">
+                        {avatarInitials}
+                      </AvatarFallback>
+                    </Avatar>
                   </button>
                   <div className="text-right hidden sm:block">
                     <p className="text-xs text-gray-400">{t('dashboard.welcome')}</p>
-                    <p className="font-semibold text-white">{user.name}</p>
+                    <p className="font-semibold text-white">{resolvedName}</p>
                   </div>
                 </div>
                 

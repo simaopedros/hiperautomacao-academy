@@ -240,6 +240,24 @@
       "email": "Email",
       "emailPlaceholder": "your@email.com"
     },
+    "avatar": {
+      "title": "Profile photo",
+      "description": "Upload a square image with at least 300x300 px. Supported formats: JPG or PNG up to 5 MB.",
+      "actions": {
+        "choose": "Choose image",
+        "upload": "Save photo",
+        "uploading": "Saving..."
+      },
+      "selected": "Selected image: {{name}}",
+      "previewAlt": "Current profile photo",
+      "errors": {
+        "maxSize": "The image must be at most 5 MB.",
+        "invalidType": "Please upload a JPG or PNG image.",
+        "noFile": "Select an image before saving."
+      },
+      "uploadSuccess": "Profile photo updated successfully!",
+      "uploadError": "We couldn't update your profile photo."
+    },
     "preferredLanguage": "Preferred Language",
     "languageDescription": "Select the system interface language",
     "actions": {
@@ -276,7 +294,6 @@
         "activeBadge": "Active",
         "limitedBadge": "Limited",
         "loading": "Loading subscription information...",
-        "lifetimeMessage": "Congratulations! You have lifetime access to the platform.",
         "statusTag": {
           "ativa": "Active subscription",
           "inativa": "Inactive subscription",
@@ -735,6 +752,7 @@
       "rate": "Rate this resource",
       "rateValue": "Rate with {{value}} star",
       "ratingHint": "Your feedback highlights the most valuable experiences for the community.",
+      "publishedAt": "Published on {{date}}",
       "comments": "Comments",
       "commentPlaceholder": "Share how you used this resource or give improvement tips...",
       "commentAction": "Send comment",
