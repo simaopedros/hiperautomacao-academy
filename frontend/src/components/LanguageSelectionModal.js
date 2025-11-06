@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { normalizeLanguageCode, getLocaleFromCode } from '@/utils/languages';
 
 const LanguageSelectionModal = ({ isOpen, onClose, onLanguageSelect, currentLanguage }) => {
   const { t, i18n } = useTranslation();
@@ -20,19 +21,10 @@ const LanguageSelectionModal = ({ isOpen, onClose, onLanguageSelect, currentLang
     setIsLoading(true);
     
     try {
-      // Converter código de idioma completo para código simples que o backend espera
-      let backendLanguageCode = selectedLanguage;
-      if (selectedLanguage === 'pt-BR') {
-        backendLanguageCode = 'pt';
-      } else if (selectedLanguage === 'en-US') {
-        backendLanguageCode = 'en';
-      } else if (selectedLanguage === 'es-ES') {
-        backendLanguageCode = 'es';
-      }
-      
       // Alterar idioma no i18n primeiro
       await i18n.changeLanguage(selectedLanguage);
       
+      const backendLanguageCode = normalizeLanguageCode(selectedLanguage);
       const token = localStorage.getItem('token');
       const response = await fetch(`${API}/auth/language`, {
         method: 'PUT',
@@ -47,10 +39,10 @@ const LanguageSelectionModal = ({ isOpen, onClose, onLanguageSelect, currentLang
         // Clonar a resposta ANTES de qualquer tentativa de leitura
         const responseClone = response.clone();
         const updatedUser = await responseClone.json();
-        
-        // Atualizar dados do usuário no localStorage com o código simples
         const userData = JSON.parse(localStorage.getItem('user'));
-        userData.preferred_language = backendLanguageCode;
+        userData.preferred_language = updatedUser.preferred_language || backendLanguageCode;
+        userData.preferred_locale =
+          updatedUser.preferred_locale || getLocaleFromCode(backendLanguageCode);
         localStorage.setItem('user', JSON.stringify(userData));
         
         console.log('Idioma salvo com sucesso:', backendLanguageCode);

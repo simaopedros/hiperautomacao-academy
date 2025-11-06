@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useCallback } from 'react';
+import { LANGUAGE_OPTIONS } from '../utils/languages';
 
 /**
  * Hook personalizado para internacionalização
@@ -9,47 +10,19 @@ export const useI18n = () => {
   const { t, i18n } = useTranslation();
 
   // Função para alterar idioma
-  const changeLanguage = useCallback(async (languageCode) => {
-    try {
-      await i18n.changeLanguage(languageCode);
-      localStorage.setItem('i18nextLng', languageCode);
-      
-      // Atualizar preferência do usuário no backend se estiver logado
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      if (user && user.id) {
-        try {
-          const token = localStorage.getItem('token');
-          // Converter códigos de idioma completos para códigos simples que o backend espera
-          let backendLanguageCode = languageCode;
-          if (languageCode === 'pt-BR') backendLanguageCode = 'pt';
-          else if (languageCode === 'en-US') backendLanguageCode = 'en';
-          else if (languageCode === 'es-ES') backendLanguageCode = 'es';
-          
-          const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
-          const response = await fetch(`${BACKEND_URL}/api/auth/language`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ language: backendLanguageCode })
-          });
-
-          if (response.ok) {
-            const updatedUser = { ...user, preferred_language: backendLanguageCode };
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-          }
-        } catch (error) {
-          console.warn('Erro ao salvar preferência de idioma no servidor:', error);
-        }
+  const changeLanguage = useCallback(
+    async (languageCode) => {
+      try {
+        await i18n.changeLanguage(languageCode);
+        localStorage.setItem('i18nextLng', languageCode);
+        return true;
+      } catch (error) {
+        console.error('Erro ao alterar idioma:', error);
+        return false;
       }
-      
-      return true;
-    } catch (error) {
-      console.error('Erro ao alterar idioma:', error);
-      return false;
-    }
-  }, [i18n]);
+    },
+    [i18n]
+  );
 
   // Função para obter idioma atual
   const getCurrentLanguage = useCallback(() => {
@@ -63,11 +36,11 @@ export const useI18n = () => {
 
   // Função para obter lista de idiomas disponíveis
   const getAvailableLanguages = useCallback(() => {
-    return [
-      { code: 'pt-BR', name: 'Português (Brasil)', flag: '🇧🇷' },
-      { code: 'en-US', name: 'English (United States)', flag: '🇺🇸' },
-      { code: 'es-ES', name: 'Español (España)', flag: '🇪🇸' }
-    ];
+    return LANGUAGE_OPTIONS.map((option) => ({
+      code: option.locale,
+      name: option.label,
+      flag: option.flag
+    }));
   }, []);
 
   // Função para traduzir com fallback e suporte a defaultValue + interpolação

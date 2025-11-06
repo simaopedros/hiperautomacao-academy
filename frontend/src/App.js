@@ -30,9 +30,12 @@ import LanguageSelectionModal from '@/components/LanguageSelectionModal';
 import WebhookMonitor from '@/pages/WebhookMonitor';
 import VersionBadge from '@/components/VersionBadge';
 import AnalyticsTracker from '@/components/AnalyticsTracker';
+import { useI18n } from '@/hooks/useI18n';
+import { getLocaleFromCode, normalizeLanguageCode } from '@/utils/languages';
 
 function App() {
   const { t } = useTranslation();
+  const { changeLanguage, getCurrentLanguage, isReady } = useI18n();
   const [user, setUser] = useState(() => {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
@@ -70,8 +73,12 @@ function App() {
   };
 
   const handleLanguageSelect = (language) => {
-    // Atualizar estado do usuário
-    const updatedUser = { ...user, preferred_language: language };
+    const normalized = normalizeLanguageCode(language);
+    const updatedUser = {
+      ...user,
+      preferred_language: normalized,
+      preferred_locale: getLocaleFromCode(normalized)
+    };
     setUser(updatedUser);
     
     // Atualizar localStorage também
@@ -98,6 +105,33 @@ function App() {
     // Atualizar localStorage também
     localStorage.setItem('user', JSON.stringify(newUser));
   };
+
+  useEffect(() => {
+    if (!isReady) return;
+
+    // Priorizar o locale persistido pelo i18next (localStorage) para evitar reversões indesejadas
+    const supportedLocales = new Set(['pt-BR', 'en-US', 'es-ES']);
+    const storedLocale = localStorage.getItem('i18nextLng');
+    const resolvedStoredLocale = supportedLocales.has(storedLocale) ? storedLocale : null;
+
+    const normalized = normalizeLanguageCode(user?.preferred_language);
+    const preferredLocale = user?.preferred_locale || getLocaleFromCode(normalized) || null;
+
+    // Ordem de escolha: localStorage -> preferência do usuário -> idioma atual
+    const locale = resolvedStoredLocale || preferredLocale || getCurrentLanguage();
+
+    if (!locale) return;
+    const currentLocale = getCurrentLanguage();
+    if (locale !== currentLocale) {
+      changeLanguage(locale);
+    }
+  }, [
+    user?.preferred_language,
+    user?.preferred_locale,
+    changeLanguage,
+    getCurrentLanguage,
+    isReady
+  ]);
 
   if (loading) {
     return (
@@ -220,7 +254,7 @@ function App() {
             path="/profile"
             element={
               user ? (
-                <ProfileSettings user={user} onLogout={handleLogout} />
+            <ProfileSettings user={user} onLogout={handleLogout} updateUser={updateUser} />
               ) : (
                 <Navigate to="/login" replace />
               )
@@ -394,7 +428,13 @@ function App() {
       {/* Modal de seleção de idioma (apenas quando explicitamente aberto) */}
       <LanguageSelectionModal
         isOpen={showLanguageModal}
+        onClose={() => setShowLanguageModal(false)}
         onLanguageSelect={handleLanguageSelect}
+        currentLanguage={
+          user?.preferred_locale ||
+          getLocaleFromCode(normalizeLanguageCode(user?.preferred_language)) ||
+          'pt-BR'
+        }
       />
       <VersionBadge />
     </div>

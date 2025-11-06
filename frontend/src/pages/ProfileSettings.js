@@ -28,12 +28,13 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useI18n } from '../hooks/useI18n';
+import { normalizeLanguageCode, getLocaleFromCode } from '../utils/languages';
 import UnifiedHeader from '../components/UnifiedHeader';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-export default function ProfileSettings({ user, onLogout }) {
+export default function ProfileSettings({ user, onLogout, updateUser }) {
   const { t, changeLanguage, getCurrentLanguage } = useI18n();
   const navigate = useNavigate();
   const statusLabelFallbacks = {
@@ -55,7 +56,9 @@ export default function ProfileSettings({ user, onLogout }) {
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    preferred_language: user?.preferred_language || 'pt-BR',
+    preferred_language: getLocaleFromCode(
+      normalizeLanguageCode(user?.preferred_language || user?.preferred_locale || 'pt-BR')
+    ),
     avatar_url: user?.avatar_url || ''
   });
 
@@ -123,35 +126,25 @@ export default function ProfileSettings({ user, onLogout }) {
     try {
       const token = localStorage.getItem('token');
       
-      // Converter código de idioma completo para código simples que o backend espera
-      const profileDataToSend = { ...profileData };
-      if (profileDataToSend.preferred_language) {
-        if (profileDataToSend.preferred_language === 'pt-BR') {
-          profileDataToSend.preferred_language = 'pt';
-        } else if (profileDataToSend.preferred_language === 'en-US') {
-          profileDataToSend.preferred_language = 'en';
-        } else if (profileDataToSend.preferred_language === 'es-ES') {
-          profileDataToSend.preferred_language = 'es';
-        }
-      }
+      // Normalizar idioma para código base esperado pelo backend e manter locale consistente
+      const baseCode = normalizeLanguageCode(profileData.preferred_language);
+      const preferredLocale = getLocaleFromCode(baseCode);
+      const profileDataToSend = { ...profileData, preferred_language: baseCode };
       
       const response = await axios.put(`${API}/user/profile`, profileDataToSend, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Atualizar dados do usuário no localStorage com o código simples
-      const updatedUser = { ...user, ...profileDataToSend };
+      // Atualizar dados do usuário no localStorage e em memória, mantendo base code e locale
+      const updatedUser = { ...user, ...profileDataToSend, preferred_locale: preferredLocale };
       localStorage.setItem('user', JSON.stringify(updatedUser));
+      if (typeof updateUser === 'function') {
+        updateUser(updatedUser);
+      }
       
       // Atualizar idioma se foi alterado
-      if (profileData.preferred_language !== getCurrentLanguage()) {
-        await changeLanguage(profileData.preferred_language);
-        
-        // Forçar recarregamento da página para atualizar os cursos no dashboard
-        // Isso garante que os cursos sejam filtrados corretamente pelo novo idioma
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
+      if (preferredLocale !== getCurrentLanguage()) {
+        await changeLanguage(preferredLocale);
       }
 
       setMessage({ type: 'success', text: 'Perfil atualizado com sucesso!' });
