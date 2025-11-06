@@ -3143,12 +3143,14 @@ async def upload_bunny_video(
         logger.error("Bunny video upload failed (status=%s response=%s)", exc.response.status_code, exc.response.text)
         # Provide clearer message for auth/credential issues
         if exc.response.status_code in (401, 403):
+            bunny_msg = (exc.response.text or "").strip()
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=(
                     "Falha ao enviar vídeo para Bunny. Verifique as credenciais nas configurações. "
-                    f"(Library ID: {library_id})"
-                ),
+                    f"(Library ID: {library_id}) "
+                    + (f"Resposta Bunny: {bunny_msg[:200]}" if bunny_msg else "")
+                ).strip(),
             ) from exc
         raise HTTPException(
             status_code=exc.response.status_code,
