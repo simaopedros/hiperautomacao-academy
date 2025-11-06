@@ -23,7 +23,6 @@ import {
   Star,
   RefreshCw,
   UploadCloud,
-  Users,
   Video,
   XCircle,
 } from 'lucide-react';
@@ -32,6 +31,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Badge } from '../components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
 import {
   Select,
   SelectContent,
@@ -116,6 +116,27 @@ export default function Library({ user, onLogout }) {
   const [fetchError, setFetchError] = useState(false);
   const [pendingResourceId, setPendingResourceId] = useState(null);
 
+  const getAvatarDetails = useCallback(
+    (name, ...sources) => {
+      const fallbackName = (typeof name === 'string' && name.trim()) || t('library.anonymousUser', 'Criador anônimo');
+      const rawSource = sources.find(
+        (src) => typeof src === 'string' && src && src.trim && src.trim().length > 0
+      );
+      const imageSource = typeof rawSource === 'string' ? rawSource.trim() : '';
+      const initials =
+        fallbackName
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((part) => part[0]?.toUpperCase())
+          .filter(Boolean)
+          .slice(0, 2)
+          .join('') || fallbackName[0]?.toUpperCase() || 'U';
+
+      return { name: fallbackName, image: imageSource, initials };
+    },
+    [t]
+  );
+
   const normalizeResources = useCallback((items) => {
     return (items || [])
       .filter((item) => {
@@ -127,8 +148,24 @@ export default function Library({ user, onLogout }) {
         ...item,
         average_rating: Number(item.average_rating ?? 0),
         downloads: Number(item.downloads ?? 0),
+        tags: Array.isArray(item.tags)
+          ? item.tags
+          : typeof item.tags === 'string'
+            ? item.tags
+                .split(',')
+                .map((tag) => tag.trim())
+                .filter(Boolean)
+            : [],
+        contributor: item.contributor
+          ? {
+              ...item.contributor,
+              avatar: item.contributor.avatar || item.contributor.avatar_url || '',
+              avatar_url: item.contributor.avatar_url || item.contributor.avatar || '',
+              name: item.contributor.name || t('library.anonymousUser'),
+            }
+          : null,
       }));
-  }, []);
+  }, [t]);
 
   const fetchResources = useCallback(async () => {
     setLoadingResources(true);
@@ -182,6 +219,24 @@ export default function Library({ user, onLogout }) {
   useEffect(() => {
     fetchResources();
   }, [fetchResources]);
+
+  const selectedContributor = useMemo(() => {
+    if (!selectedResource) return null;
+    const contributor = selectedResource.contributor || {};
+    return getAvatarDetails(
+      contributor.name,
+      contributor.avatar,
+      contributor.avatar_url,
+      selectedResource.author_avatar,
+      selectedResource.author_avatar_url
+    );
+  }, [selectedResource, getAvatarDetails]);
+  const selectedPublishedAt = useMemo(() => {
+    if (!selectedResource?.submitted_at) return null;
+    const parsed = new Date(selectedResource.submitted_at);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toLocaleDateString();
+  }, [selectedResource]);
 
   useEffect(() => {
     return () => {
@@ -743,8 +798,21 @@ export default function Library({ user, onLogout }) {
             </div>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredResources.map((resource) => (
-                <article
+              {filteredResources.map((resource) => {
+                const contributorDetails = getAvatarDetails(
+                  resource.contributor?.name,
+                  resource.contributor?.avatar,
+                  resource.contributor?.avatar_url,
+                  resource.author_avatar,
+                  resource.author_avatar_url
+                );
+                const submittedAtDate = resource.submitted_at ? new Date(resource.submitted_at) : null;
+                const submittedAtLabel =
+                  submittedAtDate && !Number.isNaN(submittedAtDate.getTime())
+                    ? submittedAtDate.toLocaleDateString()
+                    : null;
+                return (
+                  <article
                   key={resource.id}
                   className={cn(
                     'rounded-3xl border border-white/10 bg-white/5 overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:border-emerald-400/40',
@@ -814,9 +882,25 @@ export default function Library({ user, onLogout }) {
                     </div>
 
                     <div className="flex items-center justify-between pt-2">
-                      <div className="text-sm text-gray-400 flex items-center gap-2">
-                        <Users className="w-4 h-4 text-emerald-300" />
-                        {resource.contributor?.name || t('library.anonymousUser')}
+                      <div className="flex items-center gap-3 text-sm text-gray-400">
+                        <Avatar className="h-9 w-9 ring-2 ring-emerald-500/20 shadow-md bg-gradient-to-br from-emerald-500 to-cyan-500">
+                          <AvatarImage
+                            src={contributorDetails.image}
+                            alt={contributorDetails.name}
+                            className="object-cover"
+                          />
+                          <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-cyan-500 text-white font-semibold">
+                            {contributorDetails.initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-gray-200 font-medium leading-tight">{contributorDetails.name}</p>
+                          {submittedAtLabel && (
+                            <p className="text-xs text-gray-500">
+                              {submittedAtLabel}
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <Button
                         variant="secondary"
@@ -829,7 +913,8 @@ export default function Library({ user, onLogout }) {
                     </div>
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
@@ -1123,6 +1208,31 @@ ${t('library.upload.preview.example.list')}`}
                 <p className="text-sm text-gray-400">
                   {selectedResource.category} • {formatResourceType(selectedResource.type, t)}
                 </p>
+                {selectedContributor && (
+                  <div className="mt-4 flex items-center gap-3">
+                    <Avatar className="h-11 w-11 ring-2 ring-emerald-500/20 shadow-lg bg-gradient-to-br from-emerald-500 to-cyan-500">
+                      <AvatarImage
+                        src={selectedContributor.image}
+                        alt={selectedContributor.name}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-cyan-500 text-white font-semibold">
+                        {selectedContributor.initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="text-sm">
+                      <p className="text-white font-semibold">{selectedContributor.name}</p>
+                      {selectedPublishedAt && (
+                        <p className="text-gray-400">
+                          {t('library.detail.publishedAt', {
+                            date: selectedPublishedAt,
+                            defaultValue: `Publicado em ${selectedPublishedAt}`,
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </DialogHeader>
               <div className="flex flex-1 flex-col lg:flex-row overflow-hidden">
                 <ScrollArea className="flex-1 h-full max-h-full">

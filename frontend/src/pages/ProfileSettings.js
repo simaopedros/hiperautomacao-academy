@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -25,7 +25,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Avatar } from '@/components/ui/avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useI18n } from '../hooks/useI18n';
 import { normalizeLanguageCode, getLocaleFromCode } from '../utils/languages';
@@ -33,6 +33,51 @@ import UnifiedHeader from '../components/UnifiedHeader';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5 MB
+
+const extractErrorMessage = (error, fallback) => {
+  if (!error) return fallback;
+  const { response } = error;
+  const payload = response?.data;
+  const detail = payload?.detail ?? payload?.message ?? payload?.error;
+
+  const pickFromEntry = (entry) => entry?.msg || entry?.message || entry?.detail || null;
+
+  if (typeof detail === 'string') {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (typeof item === 'object' && item !== null) {
+          return pickFromEntry(item) || JSON.stringify(item);
+        }
+        return String(item);
+      })
+      .filter(Boolean);
+    if (messages.length) {
+      return messages.join(' ');
+    }
+  }
+
+  if (typeof detail === 'object' && detail !== null) {
+    const message = pickFromEntry(detail);
+    if (message) return message;
+    try {
+      return JSON.stringify(detail);
+    } catch (jsonError) {
+      console.warn('Não foi possível serializar detalhe do erro:', jsonError);
+    }
+  }
+
+  if (typeof payload === 'string') {
+    return payload;
+  }
+
+  return fallback;
+};
 
 export default function ProfileSettings({ user, onLogout, updateUser }) {
   const { t, changeLanguage, getCurrentLanguage } = useI18n();
@@ -53,13 +98,15 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
   };
   
   // Estados para dados do perfil
+  const initialAvatar = user?.avatar || user?.avatar_url || '';
+
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
     preferred_language: getLocaleFromCode(
       normalizeLanguageCode(user?.preferred_language || user?.preferred_locale || 'pt-BR')
     ),
-    avatar_url: user?.avatar_url || ''
+    avatar: initialAvatar
   });
 
   // Estados para alteração de senha
@@ -80,6 +127,10 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
   // Estados de controle
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(initialAvatar);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef(null);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -106,6 +157,14 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
     fetchSubscriptionPlans();
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (avatarPreview && avatarPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
+
   const fetchUserPreferences = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -115,6 +174,98 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
       setPreferences(response.data);
     } catch (error) {
       console.error('Erro ao buscar preferências:', error);
+    }
+  };
+
+  const handleAvatarSelect = (event) => {
+    setMessage(null);
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setMessage({
+        type: 'error',
+        text: t('profile.avatar.errors.invalidType', 'Envie uma imagem nos formatos JPG ou PNG.')
+      });
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_SIZE) {
+      setMessage({
+        type: 'error',
+        text: t('profile.avatar.errors.maxSize', 'A imagem deve ter no máximo 5 MB.')
+      });
+      event.target.value = '';
+      return;
+    }
+
+    if (avatarPreview && avatarPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(avatarPreview);
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setAvatarPreview(previewUrl);
+    setAvatarFile(file);
+  };
+
+  const handleAvatarUpload = async () => {
+    if (!avatarFile) {
+      setMessage({
+        type: 'error',
+        text: t('profile.avatar.errors.noFile', 'Selecione uma imagem antes de salvar.')
+      });
+      return;
+    }
+
+    setUploadingAvatar(true);
+    setMessage(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', avatarFile);
+
+      const response = await axios.post(`${API}/user/avatar`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      const newAvatarUrl = response.data?.avatar_url;
+      if (!newAvatarUrl) {
+        throw new Error('Invalid avatar response');
+      }
+
+      if (avatarPreview && avatarPreview.startsWith('blob:')) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+
+      setAvatarPreview(newAvatarUrl);
+      setAvatarFile(null);
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = '';
+      }
+      setProfileData((prev) => ({ ...prev, avatar: newAvatarUrl }));
+
+      const updatedUser = { ...user, avatar: newAvatarUrl, avatar_url: newAvatarUrl };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      if (typeof updateUser === 'function') {
+        updateUser(updatedUser);
+      }
+
+      setMessage({
+        type: 'success',
+        text: t('profile.avatar.uploadSuccess', 'Foto de perfil atualizada com sucesso!')
+      });
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: extractErrorMessage(error, t('profile.avatar.uploadError', 'Não foi possível atualizar a foto de perfil.'))
+      });
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -137,11 +288,15 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
 
       // Atualizar dados do usuário no localStorage e em memória, mantendo base code e locale
       const updatedUser = { ...user, ...profileDataToSend, preferred_locale: preferredLocale };
+      if (profileDataToSend.avatar !== undefined) {
+        updatedUser.avatar = profileDataToSend.avatar;
+        updatedUser.avatar_url = profileDataToSend.avatar;
+      }
       localStorage.setItem('user', JSON.stringify(updatedUser));
       if (typeof updateUser === 'function') {
         updateUser(updatedUser);
       }
-      
+
       // Atualizar idioma se foi alterado
       if (preferredLocale !== getCurrentLanguage()) {
         await changeLanguage(preferredLocale);
@@ -149,9 +304,9 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
 
       setMessage({ type: 'success', text: 'Perfil atualizado com sucesso!' });
     } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.detail || 'Erro ao atualizar perfil' 
+      setMessage({
+        type: 'error',
+        text: extractErrorMessage(error, 'Erro ao atualizar perfil')
       });
     } finally {
       setLoading(false);
@@ -191,9 +346,9 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
       
       setMessage({ type: 'success', text: 'Senha alterada com sucesso!' });
     } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.detail || 'Erro ao alterar senha' 
+      setMessage({
+        type: 'error',
+        text: extractErrorMessage(error, 'Erro ao alterar senha')
       });
     } finally {
       setLoading(false);
@@ -212,9 +367,9 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
 
       setMessage({ type: 'success', text: 'Preferências atualizadas com sucesso!' });
     } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.detail || 'Erro ao atualizar preferências' 
+      setMessage({
+        type: 'error',
+        text: extractErrorMessage(error, 'Erro ao atualizar preferências')
       });
     } finally {
       setLoading(false);
@@ -236,9 +391,9 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
       onLogout();
       navigate('/login');
     } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.detail || 'Erro ao excluir conta' 
+      setMessage({
+        type: 'error',
+        text: extractErrorMessage(error, 'Erro ao excluir conta')
       });
     } finally {
       setLoading(false);
@@ -287,7 +442,7 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
     } catch (error) {
       setMessage({
         type: 'error',
-        text: error.response?.data?.detail || 'Erro ao processar assinatura'
+        text: extractErrorMessage(error, 'Erro ao processar assinatura')
       });
     } finally {
       setLoadingSubscription(false);
@@ -304,10 +459,7 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
         {/* Header Section */}
         <div className="glass-panel rounded-3xl border border-white/10 p-8 shadow-[0_25px_90px_rgba(0,0,0,0.55)] animate-fade-in">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-            <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
-              <User className="w-10 h-10 text-white" />
-            </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-6">
             <div className="flex-1">
               <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-emerald-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">
                 {t('profile.header.title', 'Configurações do Perfil')}
@@ -401,6 +553,67 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
               </div>
               <div className="p-8">
                 <form onSubmit={handleProfileUpdate} className="space-y-8">
+                  <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+                    <Avatar className="h-24 w-24 rounded-2xl border border-white/10 shadow-lg">
+                      {avatarPreview ? (
+                        <AvatarImage
+                          src={avatarPreview}
+                          alt={t('profile.avatar.previewAlt', 'Foto de perfil atual')}
+                          className="object-cover"
+                        />
+                      ) : (
+                        <AvatarFallback className="bg-emerald-500/20 text-emerald-200 text-xl font-semibold uppercase">
+                          {(profileData.name || user?.name || 'U').charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-white font-medium flex items-center gap-2">
+                          <Camera className="w-5 h-5 text-emerald-400" />
+                          {t('profile.avatar.title', 'Foto de perfil')}
+                        </p>
+                        <p className="text-sm text-gray-400">
+                          {t('profile.avatar.description', 'Envie uma imagem quadrada com no mínimo 300x300 px (JPG ou PNG, até 5 MB).')}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <input
+                          ref={avatarInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleAvatarSelect}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="border-white/10 text-gray-200 hover:text-white"
+                          onClick={() => avatarInputRef.current?.click()}
+                        >
+                          <Camera className="w-4 h-4 mr-2" />
+                          {t('profile.avatar.actions.choose', 'Selecionar imagem')}
+                        </Button>
+                        <Button
+                          type="button"
+                          className="bg-emerald-500/80 text-black hover:bg-emerald-400 flex items-center gap-2"
+                          onClick={handleAvatarUpload}
+                          disabled={!avatarFile || uploadingAvatar}
+                        >
+                          <Save className="w-4 h-4" />
+                          {uploadingAvatar
+                            ? t('profile.avatar.actions.uploading', 'Salvando...')
+                            : t('profile.avatar.actions.upload', 'Salvar foto')}
+                        </Button>
+                      </div>
+                      {avatarFile && (
+                        <p className="text-xs text-gray-500">
+                          {t('profile.avatar.selected', { name: avatarFile.name })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-3">
                       <Label htmlFor="name" className="text-white font-medium">{t('profile.fields.name', 'Nome Completo')}</Label>
@@ -661,13 +874,6 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
                           >
                             {t('profile.subscription.status.reactivateCta', 'Reativar Assinatura')}
                           </Button>
-                        </div>
-                      )}
-                      {subscriptionData.has_full_access && !subscriptionData.subscription_plan_id && (
-                        <div className="bg-emerald-500/10 border border-emerald-400/20 rounded-xl p-4">
-                          <p className="text-emerald-200">
-                            {t('profile.subscription.status.lifetimeMessage', 'Parabéns! Você tem acesso vitalício à plataforma.')}
-                          </p>
                         </div>
                       )}
                     </div>

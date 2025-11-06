@@ -98,7 +98,7 @@ export default function LibraryModeration({ user, onLogout }) {
     status: 'published',
     allowDownload: true,
   });
-  const statusLabels = useMemo(
+  const STATUS_LABELS = useMemo(
     () => ({
       pending: t('libraryModeration.status.pending'),
       under_review: t('libraryModeration.status.underReview'),
@@ -399,7 +399,7 @@ export default function LibraryModeration({ user, onLogout }) {
   };
 
   const renderStatusBadge = (status) => {
-    const label = statusLabels[status] || status;
+    const label = STATUS_LABELS[status] || status;
     const styles = STATUS_COLORS[status] || 'bg-white/5 text-gray-200 border border-white/10';
     return <span className={`px-3 py-1 rounded-full text-xs font-semibold ${styles}`}>{label}</span>;
   };

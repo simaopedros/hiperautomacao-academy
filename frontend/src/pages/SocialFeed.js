@@ -43,6 +43,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { Separator } from '../components/ui/separator';
 import UnifiedHeader from '../components/UnifiedHeader';
 import '../styles/social-animations.css';
+import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/avatar';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -113,6 +114,38 @@ export default function SocialFeed({ user, onLogout }) {
     }
     return translated;
   }, [t]);
+
+  const getAvatarDetails = useCallback(
+    (name, ...sources) => {
+      const fallbackName = t('social.anonymousUser', 'Usuário');
+      const safeName = (typeof name === 'string' && name.trim()) ? name.trim() : fallbackName;
+      const rawSource = sources.find((src) => typeof src === 'string' && src && src.trim && src.trim().length > 0);
+      const imageSource = typeof rawSource === 'string' ? rawSource.trim() : '';
+      const initials =
+        safeName
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((part) => part[0]?.toUpperCase())
+          .filter(Boolean)
+          .slice(0, 2)
+          .join('') || safeName[0]?.toUpperCase() || 'U';
+
+      return { name: safeName, image: imageSource, initials };
+    },
+    [t]
+  );
+  const currentUserAvatar = getAvatarDetails(user?.name, user?.avatar, user?.avatar_url, user?.profile?.avatar);
+  const selectedPostAvatar = selectedPost
+    ? getAvatarDetails(
+        selectedPost.user_name,
+        selectedPost.user_avatar,
+        selectedPost.author_avatar,
+        selectedPost.avatar_url,
+        selectedPost.avatar,
+        selectedPost.user?.avatar_url,
+        selectedPost.user?.avatar
+      )
+    : null;
 
   // Helper function to get interaction type and styling
   const getInteractionType = (post) => {
@@ -644,6 +677,15 @@ export default function SocialFeed({ user, onLogout }) {
                       const interactionType = getInteractionType(post);
                       const IconComponent = interactionType.icon;
                       
+                      const { name: authorName, image: authorAvatar, initials: authorInitials } = getAvatarDetails(
+                        post.user_name,
+                        post.user_avatar,
+                        post.author_avatar,
+                        post.avatar_url,
+                        post.avatar,
+                        post.user?.avatar_url,
+                        post.user?.avatar
+                      );
                       return (
                         <Card
                         key={post.id}
@@ -659,13 +701,19 @@ export default function SocialFeed({ user, onLogout }) {
                           <div className="flex items-start gap-4">
                             {/* Enhanced Avatar with interaction type indicator */}
                             <div className="relative">
-                              <div 
-                                className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-emerald-500/20 flex-shrink-0 animate-pulse-hover"
-                                role="img"
-                                aria-label={`Avatar do usuário ${post.user_name}`}
+                              <Avatar
+                                className="w-12 h-12 ring-2 ring-emerald-500/20 shadow-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex-shrink-0 animate-pulse-hover"
+                                aria-label={t('social.aria.userAvatar', { name: authorName })}
                               >
-                                {post.user_name[0].toUpperCase()}
-                              </div>
+                                <AvatarImage
+                                  src={authorAvatar}
+                                  alt={authorName}
+                                  className="object-cover"
+                                />
+                                <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-cyan-500 text-white font-semibold text-lg">
+                                  {authorInitials}
+                                </AvatarFallback>
+                              </Avatar>
                               {/* Interaction type indicator */}
                               <div className={`absolute -bottom-1 -right-1 w-6 h-6 bg-gradient-to-br ${interactionType.iconBg} rounded-full flex items-center justify-center border-2 border-[#1a1a1a]`}>
                                 <IconComponent className="w-3 h-3 text-white" />
@@ -677,7 +725,7 @@ export default function SocialFeed({ user, onLogout }) {
                               {/* Header */}
                               <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-3 flex-wrap">
-                                  <span className="font-bold text-white text-lg">{post.user_name}</span>
+                                  <span className="font-bold text-white text-lg">{authorName}</span>
                                   <div className="flex items-center gap-2 text-sm text-gray-400">
                                     <Clock className="w-4 h-4" aria-hidden="true" />
                                     <time dateTime={post.created_at}>{formatDate(post.created_at)}</time>
@@ -973,13 +1021,19 @@ export default function SocialFeed({ user, onLogout }) {
           </DialogHeader>
           <form onSubmit={handleCreatePost} className="space-y-6">
             <div className="flex items-start gap-4">
-              <div 
-                className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg flex-shrink-0"
-                role="img"
-                aria-label={t('social.aria.userAvatar', { name: user.name })}
+              <Avatar
+                className="w-12 h-12 ring-2 ring-emerald-500/20 shadow-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex-shrink-0"
+                aria-label={t('social.aria.userAvatar', { name: currentUserAvatar.name })}
               >
-                {user.name[0].toUpperCase()}
-              </div>
+                <AvatarImage
+                  src={currentUserAvatar.image}
+                  alt={currentUserAvatar.name}
+                  className="object-cover"
+                />
+                <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-cyan-500 text-white font-semibold">
+                  {currentUserAvatar.initials}
+                </AvatarFallback>
+              </Avatar>
               <Textarea
                 id="post-content"
                 value={newPostContent}
@@ -1034,12 +1088,22 @@ export default function SocialFeed({ user, onLogout }) {
               <Card className="bg-[#111111] border-[#252525] shadow-xl">
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold shadow-lg">
-                      {selectedPost.user_name[0].toUpperCase()}
-                    </div>
+                    <Avatar
+                      className="w-12 h-12 ring-2 ring-emerald-500/20 shadow-lg bg-gradient-to-br from-emerald-500 to-cyan-500 flex-shrink-0"
+                      aria-label={t('social.aria.userAvatar', { name: selectedPostAvatar?.name })}
+                    >
+                      <AvatarImage
+                        src={selectedPostAvatar?.image}
+                        alt={selectedPostAvatar?.name}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-cyan-500 text-white font-semibold">
+                        {selectedPostAvatar?.initials || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="font-bold text-white text-lg">{selectedPost.user_name}</span>
+                        <span className="font-bold text-white text-lg">{selectedPostAvatar?.name}</span>
                         <div className="flex items-center gap-2 text-sm text-gray-400">
                           <Clock className="w-4 h-4" />
                           <span>{formatDate(selectedPost.created_at)}</span>
@@ -1102,9 +1166,19 @@ export default function SocialFeed({ user, onLogout }) {
                 <CardContent className="p-6">
                   <form onSubmit={handleReply} className="space-y-4">
                     <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
-                        {user.name[0].toUpperCase()}
-                      </div>
+                      <Avatar
+                        className="w-10 h-10 ring-2 ring-emerald-500/20 shadow-md bg-gradient-to-br from-emerald-500 to-cyan-500 flex-shrink-0"
+                        aria-label={t('social.aria.userAvatar', { name: currentUserAvatar.name })}
+                      >
+                        <AvatarImage
+                          src={currentUserAvatar.image}
+                          alt={currentUserAvatar.name}
+                          className="object-cover"
+                        />
+                        <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-cyan-500 text-white font-semibold text-sm">
+                          {currentUserAvatar.initials}
+                        </AvatarFallback>
+                      </Avatar>
                       <Textarea
                         value={replyContent}
                         onChange={(e) => setReplyContent(e.target.value)}
@@ -1141,36 +1215,57 @@ export default function SocialFeed({ user, onLogout }) {
                     </CardContent>
                   </Card>
                 ) : (
-                  postReplies.map((reply) => (
-                    <Card key={reply.id} className="bg-[#111111] border-[#252525]">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                            {reply.user_name[0].toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-3 mb-2">
-                              <span className="font-semibold text-white">{reply.user_name}</span>
-                              <div className="flex items-center gap-1 text-xs text-gray-500">
-                                <Clock className="w-3 h-3" />
-                                <span>{formatDate(reply.created_at)}</span>
-                              </div>
-                            </div>
-                            <p className="text-gray-300 text-sm mb-3">{reply.content}</p>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleLike(reply.id)}
-                              className="text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 rounded-lg"
+                  postReplies.map((reply) => {
+                    const { name: replyName, image: replyAvatar, initials: replyInitials } = getAvatarDetails(
+                      reply.user_name,
+                      reply.user_avatar,
+                      reply.author_avatar,
+                      reply.avatar_url,
+                      reply.avatar,
+                      reply.user?.avatar_url,
+                      reply.user?.avatar
+                    );
+                    return (
+                      <Card key={reply.id} className="bg-[#111111] border-[#252525]">
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <Avatar
+                              className="w-10 h-10 ring-2 ring-emerald-500/15 shadow-md bg-gradient-to-br from-emerald-500 to-cyan-500 flex-shrink-0"
+                              aria-label={t('social.aria.userAvatar', { name: replyName })}
                             >
-                              <Heart className="w-3 h-3 mr-1" />
-                              {reply.likes}
-                            </Button>
+                              <AvatarImage
+                                src={replyAvatar}
+                                alt={replyName}
+                                className="object-cover"
+                              />
+                              <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-cyan-500 text-white font-semibold text-sm">
+                                {replyInitials}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-2">
+                                <span className="font-semibold text-white">{replyName}</span>
+                                <div className="flex items-center gap-1 text-xs text-gray-500">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{formatDate(reply.created_at)}</span>
+                                </div>
+                              </div>
+                              <p className="text-gray-300 text-sm mb-3">{reply.content}</p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleLike(reply.id)}
+                                className="text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-300 rounded-lg"
+                              >
+                                <Heart className="w-3 h-3 mr-1" />
+                                {reply.likes}
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                        </CardContent>
+                      </Card>
+                    );
+                  })
                 )}
               </div>
             </>

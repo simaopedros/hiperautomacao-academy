@@ -152,6 +152,7 @@
       "rate": "Avalie este recurso",
       "rateValue": "Avaliar com {{value}} estrela",
       "ratingHint": "Seu feedback destaca as experiências mais valiosas para a comunidade.",
+      "publishedAt": "Publicado em {{date}}",
       "comments": "Comentários",
       "commentPlaceholder": "Conte como você usou este recurso ou deixe sugestões de melhoria...",
       "commentAction": "Enviar comentário",
@@ -620,6 +621,24 @@
       "email": "Email",
       "emailPlaceholder": "seu@email.com"
     },
+    "avatar": {
+      "title": "Foto de perfil",
+      "description": "Envie uma imagem quadrada com no mínimo 300x300 px. Formatos suportados: JPG ou PNG, até 5 MB.",
+      "actions": {
+        "choose": "Selecionar imagem",
+        "upload": "Salvar foto",
+        "uploading": "Salvando..."
+      },
+      "selected": "Imagem selecionada: {{name}}",
+      "previewAlt": "Foto de perfil atual",
+      "errors": {
+        "maxSize": "A imagem deve ter no máximo 5 MB.",
+        "invalidType": "Envie uma imagem nos formatos JPG ou PNG.",
+        "noFile": "Selecione uma imagem antes de salvar."
+      },
+      "uploadSuccess": "Foto de perfil atualizada com sucesso!",
+      "uploadError": "Não foi possível atualizar a foto de perfil."
+    },
     "preferredLanguage": "Idioma Preferido",
     "languageDescription": "Selecione o idioma da interface do sistema",
     "actions": {
@@ -656,7 +675,6 @@
         "activeBadge": "Ativo",
         "limitedBadge": "Limitado",
         "loading": "Carregando informações da assinatura...",
-        "lifetimeMessage": "Parabéns! Você tem acesso vitalício à plataforma.",
         "statusTag": {
           "ativa": "Assinatura ativa",
           "inativa": "Assinatura inativa",

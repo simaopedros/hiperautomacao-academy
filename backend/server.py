@@ -76,6 +76,7 @@ _STRIPE_CONFIG_CACHE = {
 }
 
 INVITE_ID_PREFIX = "invite-"
+MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 def _sanitize_language_token(value: Optional[str]) -> str:
@@ -630,6 +631,8 @@ class UserUpdate(BaseModel):
     subscription_valid_until: Optional[datetime] = None
     preferred_language: Optional[str] = None  # User's preferred language (pt, en, es, etc.) - None means show all courses
     preferred_locale: Optional[str] = None
+    avatar: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -639,6 +642,8 @@ class User(UserBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     avatar: Optional[str] = None
+    avatar_url: Optional[str] = None
+    avatar_path: Optional[str] = None
     has_purchased: bool = False  # Whether user has made any purchase
     enrolled_courses: list[str] = []  # List of course IDs user is enrolled in
     invited: bool = False  # Whether user was invited
@@ -1396,6 +1401,18 @@ async def update_user_profile(profile_data: UserUpdate, current_user: User = Dep
     if profile_data.preferred_locale is not None:
         update_fields["preferred_locale"] = profile_data.preferred_locale
 
+    if profile_data.avatar is not None:
+        if profile_data.avatar and not _is_valid_http_url(profile_data.avatar):
+            raise HTTPException(status_code=400, detail="URL de avatar inválida.")
+        update_fields["avatar"] = profile_data.avatar or None
+        update_fields["avatar_url"] = profile_data.avatar or None
+
+    if profile_data.avatar_url is not None:
+        if profile_data.avatar_url and not _is_valid_http_url(profile_data.avatar_url):
+            raise HTTPException(status_code=400, detail="URL de avatar inválida.")
+        update_fields["avatar"] = profile_data.avatar_url or None
+        update_fields["avatar_url"] = profile_data.avatar_url or None
+
     if not update_fields:
         raise HTTPException(status_code=400, detail="No fields to update")
 
@@ -1406,6 +1423,63 @@ async def update_user_profile(profile_data: UserUpdate, current_user: User = Dep
 
     updated_user = await db.users.find_one({"id": current_user.id})
     return User(**updated_user)
+
+
+@api_router.post("/user/avatar")
+async def upload_user_avatar(
+    avatar_file: UploadFile = File(None, alias="file"),
+    legacy_avatar_file: UploadFile = File(None, alias="avatar_file"),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload and set the user's profile avatar, storing the file on Bunny Storage."""
+    file_obj = avatar_file or legacy_avatar_file
+    if not file_obj or not file_obj.filename:
+        raise HTTPException(status_code=400, detail="Nenhum arquivo foi enviado.")
+
+    content_type = (file_obj.content_type or "").lower()
+    if not content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Envie um arquivo de imagem (JPG ou PNG).")
+
+    file_obj.file.seek(0, os.SEEK_END)
+    size = file_obj.file.tell()
+    file_obj.file.seek(0)
+    if size and size > MAX_AVATAR_SIZE_BYTES:
+        await file_obj.close()
+        raise HTTPException(status_code=400, detail="A imagem deve ter no máximo 5 MB.")
+    await file_obj.seek(0)
+
+    config = await get_bunny_config()
+    config = _ensure_bunny_storage_ready(config)
+
+    existing = await db.users.find_one({"id": current_user.id}, {"_id": 0, "avatar_path": 1})
+
+    sanitized_name = sanitize_filename(file_obj.filename or "avatar.png")
+    upload_result = await _upload_to_bunny_storage(
+        file_obj,
+        prefix=f"avatars/{current_user.id}",
+        config=config,
+        filename=sanitized_name,
+    )
+
+    avatar_url = upload_result["public_url"]
+    avatar_path = upload_result["relative_path"]
+
+    await db.users.update_one(
+        {"id": current_user.id},
+        {
+            "$set": {
+                "avatar": avatar_url,
+                "avatar_url": avatar_url,
+                "avatar_path": avatar_path,
+                "updated_at": datetime.now(timezone.utc),
+            }
+        },
+    )
+
+    if existing and existing.get("avatar_path") and existing["avatar_path"] != avatar_path:
+        await _delete_from_bunny_storage(existing["avatar_path"], config=config)
+
+    return {"avatar_url": avatar_url, "avatar": avatar_url}
 
 @api_router.put("/user/password")
 async def update_user_password(password_data: dict, current_user: User = Depends(get_current_user)):
@@ -3518,6 +3592,47 @@ async def _upload_to_bunny_storage(
     }
 
 
+async def _delete_from_bunny_storage(
+    relative_path: Optional[str],
+    *,
+    config: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """Remove a file from Bunny storage. Returns True when deletion succeeded or file missing."""
+    if not relative_path:
+        return False
+
+    cfg = config or await get_bunny_config()
+    cfg = _ensure_bunny_storage_ready(cfg)
+
+    zone_name = cfg["storage_zone_name"]
+    access_key = cfg["storage_api_key"]
+    storage_host = cfg.get("storage_host") or "storage.bunnycdn.com"
+    if storage_host.startswith("http://") or storage_host.startswith("https://"):
+        storage_base_endpoint = storage_host.rstrip("/")
+    else:
+        storage_base_endpoint = f"https://{storage_host.rstrip('/')}"
+
+    target_url = f"{storage_base_endpoint}/{zone_name}/{relative_path.lstrip('/')}"
+    headers = {"AccessKey": access_key}
+    timeout = httpx.Timeout(30.0, connect=10.0)
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.delete(target_url, headers=headers)
+            if resp.status_code in (200, 204, 404):
+                return True
+            logger.warning(
+                "Bunny storage delete failed path=%s status=%s body=%s",
+                relative_path,
+                resp.status_code,
+                resp.text[:200],
+            )
+            return False
+    except httpx.HTTPError as exc:
+        logger.warning("Network error deleting file from Bunny storage (%s): %s", relative_path, exc)
+        return False
+
+
 def serialize_library_resource(doc: Dict[str, Any], *, include_private: bool = False) -> Dict[str, Any]:
     if not doc:
         return {}
@@ -3558,7 +3673,50 @@ def serialize_library_resource(doc: Dict[str, Any], *, include_private: bool = F
     if isinstance(data.get("community_post_created_at"), datetime):
         data["community_post_created_at"] = data["community_post_created_at"].isoformat()
     data["community_post_id"] = data.get("community_post_id")
+    contributor = data.get("contributor")
+    if isinstance(contributor, dict) and contributor:
+        avatar = contributor.get("avatar") or contributor.get("avatar_url")
+        if avatar:
+            contributor.setdefault("avatar", avatar)
+            contributor.setdefault("avatar_url", avatar)
     return data
+
+
+async def _hydrate_resource_contributors(resources: List[Dict[str, Any]]) -> None:
+    if not resources:
+        return
+
+    contributor_ids: set[str] = set()
+    for resource in resources:
+        contributor = resource.get("contributor") or {}
+        if contributor.get("id") and not contributor.get("avatar"):
+            contributor_ids.add(contributor["id"])
+
+    if not contributor_ids:
+        return
+
+    cursor = db.users.find(
+        {"id": {"$in": list(contributor_ids)}},
+        {"_id": 0, "id": 1, "name": 1, "avatar": 1, "avatar_url": 1},
+    )
+    user_map: Dict[str, Dict[str, Any]] = {}
+    async for user_doc in cursor:
+        user_map[user_doc["id"]] = user_doc
+
+    for resource in resources:
+        contributor = resource.get("contributor")
+        if not contributor or not contributor.get("id"):
+            continue
+        user_doc = user_map.get(contributor["id"])
+        if not user_doc:
+            continue
+        contributor.setdefault("name", user_doc.get("name"))
+        avatar = contributor.get("avatar") or user_doc.get("avatar") or user_doc.get("avatar_url")
+        if avatar:
+            contributor["avatar"] = avatar
+            contributor.setdefault("avatar_url", avatar)
+            resource.setdefault("author_avatar", avatar)
+            resource.setdefault("author_avatar_url", avatar)
 
 
 async def _get_library_resource_or_404(resource_id: str) -> Dict[str, Any]:
@@ -4068,6 +4226,7 @@ async def list_library_resources(
         .sort([("updated_at", -1), ("submitted_at", -1)])
     )
     resources = await cursor.to_list(length=500)
+    await _hydrate_resource_contributors(resources)
     return [serialize_library_resource(resource) for resource in resources]
 
 
@@ -4114,6 +4273,7 @@ async def create_library_resource(
         is_community=True,
     )
     await db.library_resources.insert_one(resource_doc)
+    await _hydrate_resource_contributors([resource_doc])
     return serialize_library_resource(resource_doc)
 
 
@@ -4311,6 +4471,7 @@ async def admin_list_library_resources(
         .sort([("submitted_at", -1), ("updated_at", -1)])
     )
     resources = await cursor.to_list(length=1000)
+    await _hydrate_resource_contributors(resources)
     return [serialize_library_resource(resource, include_private=True) for resource in resources]
 
 
@@ -4348,6 +4509,7 @@ async def admin_create_library_resource(
     if not inserted_resource.get("community_post_id") and inserted_resource.get("status") in LIBRARY_PUBLISHED_STATUSES:
         await ensure_library_social_post(inserted_resource, actor=current_user)
         inserted_resource = await _get_library_resource_or_404(resource_doc["id"])
+    await _hydrate_resource_contributors([inserted_resource])
     return serialize_library_resource(inserted_resource, include_private=True)
 
 
@@ -4381,6 +4543,7 @@ async def admin_update_library_resource(
             allowed_updates["tags"] = [str(tag) for tag in tags_value if str(tag).strip()]
 
     if not allowed_updates:
+        await _hydrate_resource_contributors([existing_resource])
         return serialize_library_resource(existing_resource, include_private=True)
 
     allowed_updates["updated_at"] = datetime.now(timezone.utc)
@@ -4391,6 +4554,7 @@ async def admin_update_library_resource(
     if not updated_resource.get("community_post_id") and updated_resource.get("status") in LIBRARY_PUBLISHED_STATUSES:
         await ensure_library_social_post(updated_resource, actor=current_user)
         updated_resource = await _get_library_resource_or_404(resource_id)
+    await _hydrate_resource_contributors([updated_resource])
     return serialize_library_resource(updated_resource, include_private=True)
 
 
@@ -4408,6 +4572,7 @@ async def admin_feature_library_resource(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Recurso da biblioteca não encontrado.")
     updated = await _get_library_resource_or_404(resource_id)
+    await _hydrate_resource_contributors([updated])
     return serialize_library_resource(updated, include_private=True)
 
 
@@ -4455,6 +4620,7 @@ async def admin_add_library_note(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Recurso da biblioteca não encontrado.")
     updated = await _get_library_resource_or_404(resource_id)
+    await _hydrate_resource_contributors([updated])
     return serialize_library_resource(updated, include_private=True)
 
 @api_router.post("/admin/media/bunny/sync-collection")
@@ -5130,15 +5296,35 @@ async def get_social_feed(current_user: User = Depends(get_current_user), filter
         query["lesson_id"] = {"$ne": None}  # Only lesson comments
     
     comments = await db.comments.find(query, {"_id": 0}).sort("created_at", -1).limit(50).to_list(50)
-    
+
+    missing_avatar_user_ids: set[str] = set()
     for comment in comments:
         if isinstance(comment['created_at'], str):
             comment['created_at'] = datetime.fromisoformat(comment['created_at'])
-        
+        if comment.get("user_avatar") and not comment.get("avatar_url"):
+            comment["avatar_url"] = comment["user_avatar"]
+        if not comment.get("user_avatar"):
+            missing_avatar_user_ids.add(comment["user_id"])
+
         # Count replies
         replies_count = await db.comments.count_documents({"parent_id": comment['id']})
         comment['replies_count'] = replies_count
-    
+    if missing_avatar_user_ids:
+        user_cursor = db.users.find(
+            {"id": {"$in": list(missing_avatar_user_ids)}},
+            {"_id": 0, "id": 1, "avatar": 1, "avatar_url": 1}
+        )
+        avatars_map = {}
+        async for user_doc in user_cursor:
+            avatar = user_doc.get("avatar") or user_doc.get("avatar_url")
+            if avatar:
+                avatars_map[user_doc["id"]] = avatar
+        for comment in comments:
+            avatar = comment.get("user_avatar") or avatars_map.get(comment["user_id"])
+            if avatar:
+                comment["user_avatar"] = avatar
+                comment.setdefault("avatar_url", avatar)
+
     return comments
 
 @api_router.get("/social/post/{post_id}")
@@ -5159,12 +5345,41 @@ async def get_post_detail(post_id: str, current_user: User = Depends(get_current
     
     if isinstance(post['created_at'], str):
         post['created_at'] = datetime.fromisoformat(post['created_at'])
+    if post.get("user_avatar") and not post.get("avatar_url"):
+        post["avatar_url"] = post["user_avatar"]
+    if not post.get("user_avatar"):
+        user_doc = await db.users.find_one({"id": post["user_id"]}, {"_id": 0, "avatar": 1, "avatar_url": 1})
+        if user_doc:
+            avatar = user_doc.get("avatar") or user_doc.get("avatar_url")
+            if avatar:
+                post["user_avatar"] = avatar
+                post.setdefault("avatar_url", avatar)
     
     # Get replies
     replies = await db.comments.find({"parent_id": post_id}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    missing_replies_avatar_ids: set[str] = set()
     for reply in replies:
         if isinstance(reply['created_at'], str):
             reply['created_at'] = datetime.fromisoformat(reply['created_at'])
+        if reply.get("user_avatar") and not reply.get("avatar_url"):
+            reply["avatar_url"] = reply["user_avatar"]
+        if not reply.get("user_avatar"):
+            missing_replies_avatar_ids.add(reply["user_id"])
+    if missing_replies_avatar_ids:
+        reply_users_cursor = db.users.find(
+            {"id": {"$in": list(missing_replies_avatar_ids)}},
+            {"_id": 0, "id": 1, "avatar": 1, "avatar_url": 1}
+        )
+        reply_avatar_map = {}
+        async for user_doc in reply_users_cursor:
+            avatar = user_doc.get("avatar") or user_doc.get("avatar_url")
+            if avatar:
+                reply_avatar_map[user_doc["id"]] = avatar
+        for reply in replies:
+            avatar = reply.get("user_avatar") or reply_avatar_map.get(reply["user_id"])
+            if avatar:
+                reply["user_avatar"] = avatar
+                reply.setdefault("avatar_url", avatar)
     
     # Get lesson info if applicable
     lesson_info = None
