@@ -87,6 +87,8 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
   // Recarregar cursos quando o idioma do usuário muda
   useEffect(() => {
     // Sempre recarregar cursos quando userLanguage muda, incluindo quando é null (todos os idiomas)
+    // Resetar filtro de categoria para evitar estado inválido após troca de idioma
+    setSelectedCategory('all');
     fetchCourses();
   }, [userLanguage]);
 
@@ -185,6 +187,8 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
       }
       
       setUserLanguage(language);
+      // Garantir que não haja filtro de categoria que esconda cursos após troca de idioma
+      setSelectedCategory('all');
       // Refresh courses to apply language filter
       await fetchCourses();
 
