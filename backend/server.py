@@ -2753,10 +2753,11 @@ async def get_published_courses(
 
 @api_router.get("/student/courses/{course_id}")
 async def get_course_detail(course_id: str, current_user: User = Depends(get_current_user)):
-    course = await db.courses.find_one({"id": course_id, "published": True}, {"_id": 0})
+    # Allow fetching course details regardless of published status when the user has access
+    course = await db.courses.find_one({"id": course_id}, {"_id": 0})
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    
+
     # Check if user has access to this course (backward compatible check)
     has_access = await user_has_course_access(current_user.id, course_id, current_user.has_full_access)
     if not has_access:
