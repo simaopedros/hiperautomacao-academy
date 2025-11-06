@@ -242,7 +242,8 @@ export default function LessonPlayer({ user, onLogout }) {
   const fetchCourseAndFindNeighbours = async (moduleId, token) => {
     try {
       const coursesResponse = await axios.get(`${API}/student/courses`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
+        params: { include_all_languages: true }
       });
 
       for (const course of coursesResponse.data) {
