@@ -26,6 +26,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useI18n } from '../hooks/useI18n';
 import { normalizeLanguageCode, getLocaleFromCode } from '../utils/languages';
@@ -646,19 +653,22 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
                       <Globe className="w-5 h-5 text-emerald-400" />
                       {t('profile.preferredLanguage', 'Idioma Preferido')}
                     </Label>
-                    <select
-                      id="language"
+                    <Select
                       value={profileData.preferred_language}
-                      onChange={(e) => {
-                        setProfileData({...profileData, preferred_language: e.target.value});
-                        changeLanguage(e.target.value);
+                      onValueChange={(value) => {
+                        setProfileData((prev) => ({ ...prev, preferred_language: value }));
+                        changeLanguage(value);
                       }}
-                      className="w-full p-4 bg-white/5 border border-white/10 text-white rounded-xl focus:outline-none focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 hover:border-emerald-400/30 transition-all duration-300"
                     >
-                      <option value="pt-BR">🇧🇷 Português (Brasil)</option>
-                      <option value="en-US">🇺🇸 English (US)</option>
-                      <option value="es-ES">🇪🇸 Español (España)</option>
-                    </select>
+                      <SelectTrigger className="w-full bg-white/5 border border-white/10 text-white rounded-xl p-4 focus:ring-2 focus:ring-emerald-400/20 focus:border-emerald-400/50 hover:border-emerald-400/30 transition-all duration-300">
+                        <SelectValue placeholder={t('profile.languagePlaceholder', 'Selecione o idioma')} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#050b16] border border-white/10 text-white rounded-2xl shadow-2xl">
+                        <SelectItem value="pt-BR">🇧🇷 Português (Brasil)</SelectItem>
+                        <SelectItem value="en-US">🇺🇸 English (US)</SelectItem>
+                        <SelectItem value="es-ES">🇪🇸 Español (España)</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <p className="text-sm text-gray-400">
                       {t('profile.languageDescription', 'Selecione o idioma da interface do sistema')}
                     </p>
