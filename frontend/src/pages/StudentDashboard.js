@@ -20,11 +20,19 @@ import {
   HeadphonesIcon,
   Shield,
   Archive,
+  Lock,
 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { useI18n } from '../hooks/useI18n';
 import { useLanguagePreferences } from '../hooks/useLanguagePreferences';
 import UnifiedHeader from '../components/UnifiedHeader';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -538,25 +546,25 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
                 <label className="text-xs uppercase tracking-[0.3em] text-emerald-200" htmlFor="statusFilter">
                   {t('dashboard.quickActions') || 'Filtrar por status'}
                 </label>
-                <select
-                  id="statusFilter"
-                  value={courseFilter}
-                  onChange={(e) => setCourseFilter(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="all">
-                    {(t('dashboard.all') || 'Todos')} ({courses.length})
-                  </option>
-                  <option value="in_progress">
-                    {(t('dashboard.inProgress') || 'Em andamento')} ({courses.filter((c) => (c.has_access || c.is_enrolled) && !courseCompletionMap[c.id]).length})
-                  </option>
-                  <option value="completed">
-                    {(t('dashboard.completed') || 'Concluídos')} ({courses.filter((c) => (c.has_access || c.is_enrolled) && courseCompletionMap[c.id]).length})
-                  </option>
-                  <option value="favorites">
-                    {(t('dashboard.favorites') || 'Favoritos')} ({courses.filter((c) => favoriteCourseIds.includes(c.id)).length})
-                  </option>
-                </select>
+                <Select value={courseFilter} onValueChange={setCourseFilter}>
+                  <SelectTrigger className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-gray-200 hover:border-emerald-400/40 focus:ring-2 focus:ring-emerald-500">
+                    <SelectValue placeholder={t('dashboard.quickActions')} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#050b16] border border-white/10 text-gray-100 rounded-2xl shadow-xl">
+                    <SelectItem value="all">
+                      {(t('dashboard.all') || 'Todos')} ({courses.length})
+                    </SelectItem>
+                    <SelectItem value="in_progress">
+                      {(t('dashboard.inProgress') || 'Em andamento')} ({courses.filter((c) => (c.has_access || c.is_enrolled) && !courseCompletionMap[c.id]).length})
+                    </SelectItem>
+                    <SelectItem value="completed">
+                      {(t('dashboard.completed') || 'Concluídos')} ({courses.filter((c) => (c.has_access || c.is_enrolled) && courseCompletionMap[c.id]).length})
+                    </SelectItem>
+                    <SelectItem value="favorites">
+                      {(t('dashboard.favorites') || 'Favoritos')} ({courses.filter((c) => favoriteCourseIds.includes(c.id)).length})
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Select de Categoria */}
@@ -564,21 +572,21 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
                 <label htmlFor="categoryFilter" className="text-xs uppercase tracking-[0.3em] text-emerald-200">
                   {t('dashboard.filterByCategory')}
                 </label>
-                <select
-                  id="categoryFilter"
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="all">
-                    {t('dashboard.allCategories')} ({courses.length})
-                  </option>
-                  {getCategoriesWithCourses().map((cat) => (
-                    <option key={cat.id} value={cat.name}>
-                      {cat.name} ({cat.courseCount})
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-gray-200 hover:border-emerald-400/40 focus:ring-2 focus:ring-emerald-500">
+                    <SelectValue placeholder={t('dashboard.filterByCategory')} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#050b16] border border-white/10 text-gray-100 rounded-2xl shadow-xl max-h-64">
+                    <SelectItem value="all">
+                      {t('dashboard.allCategories')} ({courses.length})
+                    </SelectItem>
+                    {getCategoriesWithCourses().map((cat) => (
+                      <SelectItem key={cat.id} value={cat.name}>
+                        {cat.name} ({cat.courseCount})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
                 {getCategoriesWithCourses().length === 0 && courses.length > 0 && (
                   <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-400/20">
@@ -690,31 +698,45 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
                           if (courseFilter === 'favorites') return favoriteCourseIds.includes(course.id);
                           return true;
                         })
-                        .map((course, index) => (
-                        <div
-                          key={course.id}
-                          data-testid={`course-card-${course.id}`}
-                          className="glass-panel rounded-3xl border border-white/10 cursor-pointer animate-fade-in transition-transform hover:-translate-y-1"
-                          style={{ animationDelay: `${index * 0.08}s` }}
-                          onClick={() => navigate(`/course/${course.id}`)}
-                        >
-                          <div className="aspect-video bg-gradient-to-br from-emerald-600 to-cyan-600 flex items-center justify-center relative overflow-hidden rounded-2xl">
-                            {course.thumbnail_url ? (
-                              <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
-                            ) : (
-                              <Play size={56} className="text-white/70" />
-                            )}
-                            <div className="absolute inset-0 bg-black/30" />
-                            {/* Favorite toggle */}
-                            <button
-                              type="button"
-                              className={`absolute top-3 right-3 rounded-full p-2 border transition-colors ${favoriteCourseIds.includes(course.id) ? 'bg-amber-500/20 border-amber-400 text-amber-300' : 'bg-white/10 border-white/20 text-white/70 hover:bg-white/20'}`}
-                              onClick={(e) => { e.stopPropagation(); toggleFavorite(course.id); }}
-                              aria-label="Toggle favorite"
-                            >
-                              <Star size={16} className={favoriteCourseIds.includes(course.id) ? 'fill-current' : ''} />
-                            </button>
-                          </div>
+                        .map((course, index) => {
+                          const hasCourseAccess = Boolean(course.has_access || course.is_enrolled);
+                          const isLocked = !hasCourseAccess;
+                          return (
+                          <div
+                            key={course.id}
+                            data-testid={`course-card-${course.id}`}
+                            className="glass-panel rounded-3xl border border-white/10 cursor-pointer animate-fade-in transition-transform hover:-translate-y-1"
+                            style={{ animationDelay: `${index * 0.08}s` }}
+                            onClick={() => navigate(`/course/${course.id}`)}
+                          >
+                            <div className="aspect-video bg-gradient-to-br from-emerald-600 to-cyan-600 flex items-center justify-center relative overflow-hidden rounded-2xl">
+                              {course.thumbnail_url ? (
+                                <img
+                                  src={course.thumbnail_url}
+                                  alt={course.title}
+                                  className={`w-full h-full object-cover transition-opacity duration-300 ${isLocked ? 'filter grayscale opacity-70' : ''}`}
+                                />
+                              ) : (
+                                <Play size={56} className="text-white/70" />
+                              )}
+                              <div className={`absolute inset-0 ${isLocked ? 'bg-black/50' : 'bg-black/30'}`} />
+                              {isLocked && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <div className="rounded-full bg-black/60 border border-white/20 p-3 shadow-lg">
+                                    <Lock className="w-6 h-6 text-white" />
+                                  </div>
+                                </div>
+                              )}
+                              {/* Favorite toggle */}
+                              <button
+                                type="button"
+                                className={`absolute top-3 right-3 rounded-full p-2 border transition-colors ${favoriteCourseIds.includes(course.id) ? 'bg-amber-500/20 border-amber-400 text-amber-300' : 'bg-white/10 border-white/20 text-white/70 hover:bg-white/20'}`}
+                                onClick={(e) => { e.stopPropagation(); toggleFavorite(course.id); }}
+                                aria-label="Toggle favorite"
+                              >
+                                <Star size={16} className={favoriteCourseIds.includes(course.id) ? 'fill-current' : ''} />
+                              </button>
+                            </div>
 
                           <div className="p-5 space-y-3">
                             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -784,8 +806,9 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
                               </div>
                             )}
                           </div>
-                        </div>
-                      ))}
+                          </div>
+                          );
+                        })}
                     </div>
                   </div>
                 );
@@ -816,31 +839,45 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
                           if (courseFilter === 'favorites') return favoriteCourseIds.includes(course.id);
                           return true;
                         })
-                        .map((course, index) => (
-                        <div
-                          key={course.id}
-                          data-testid={`course-card-${course.id}`}
-                          className="glass-panel rounded-3xl border border-white/10 cursor-pointer animate-fade-in transition-transform hover:-translate-y-1"
-                          style={{ animationDelay: `${index * 0.08}s` }}
-                          onClick={() => navigate(`/course/${course.id}`)}
-                        >
-                          <div className="aspect-video bg-gradient-to-br from-emerald-600 to-cyan-600 flex items-center justify-center relative overflow-hidden rounded-2xl">
-                            {course.thumbnail_url ? (
-                              <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
-                            ) : (
-                              <Play size={56} className="text-white/70" />
-                            )}
-                            <div className="absolute inset-0 bg-black/30" />
-                            {/* Favorite toggle */}
-                            <button
-                              type="button"
-                              className={`absolute top-3 right-3 rounded-full p-2 border transition-colors ${favoriteCourseIds.includes(course.id) ? 'bg-amber-500/20 border-amber-400 text-amber-300' : 'bg-white/10 border-white/20 text-white/70 hover:bg-white/20'}`}
-                              onClick={(e) => { e.stopPropagation(); toggleFavorite(course.id); }}
-                              aria-label="Toggle favorite"
-                            >
-                              <Star size={16} className={favoriteCourseIds.includes(course.id) ? 'fill-current' : ''} />
-                            </button>
-                          </div>
+                        .map((course, index) => {
+                          const hasCourseAccess = Boolean(course.has_access || course.is_enrolled);
+                          const isLocked = !hasCourseAccess;
+                          return (
+                          <div
+                            key={course.id}
+                            data-testid={`course-card-${course.id}`}
+                            className="glass-panel rounded-3xl border border-white/10 cursor-pointer animate-fade-in transition-transform hover:-translate-y-1"
+                            style={{ animationDelay: `${index * 0.08}s` }}
+                            onClick={() => navigate(`/course/${course.id}`)}
+                          >
+                            <div className="aspect-video bg-gradient-to-br from-emerald-600 to-cyan-600 flex items-center justify-center relative overflow-hidden rounded-2xl">
+                              {course.thumbnail_url ? (
+                                <img
+                                  src={course.thumbnail_url}
+                                  alt={course.title}
+                                  className={`w-full h-full object-cover transition-opacity duration-300 ${isLocked ? 'filter grayscale opacity-70' : ''}`}
+                                />
+                              ) : (
+                                <Play size={56} className="text-white/70" />
+                              )}
+                              <div className={`absolute inset-0 ${isLocked ? 'bg-black/50' : 'bg-black/30'}`} />
+                              {isLocked && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <div className="rounded-full bg-black/60 border border-white/20 p-3 shadow-lg">
+                                    <Lock className="w-6 h-6 text-white" />
+                                  </div>
+                                </div>
+                              )}
+                              {/* Favorite toggle */}
+                              <button
+                                type="button"
+                                className={`absolute top-3 right-3 rounded-full p-2 border transition-colors ${favoriteCourseIds.includes(course.id) ? 'bg-amber-500/20 border-amber-400 text-amber-300' : 'bg-white/10 border-white/20 text-white/70 hover:bg-white/20'}`}
+                                onClick={(e) => { e.stopPropagation(); toggleFavorite(course.id); }}
+                                aria-label="Toggle favorite"
+                              >
+                                <Star size={16} className={favoriteCourseIds.includes(course.id) ? 'fill-current' : ''} />
+                              </button>
+                            </div>
 
                           <div className="p-5 space-y-3">
                             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -910,8 +947,9 @@ export default function StudentDashboard({ user, onLogout, updateUser }) {
                               </div>
                             )}
                           </div>
-                        </div>
-                      ))}
+                          </div>
+                          );
+                        })}
                     </div>
                   </div>
                 );
