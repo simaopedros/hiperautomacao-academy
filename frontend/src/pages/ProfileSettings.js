@@ -236,7 +236,6 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
       const response = await axios.post(`${API}/user/avatar`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
         }
       });
 

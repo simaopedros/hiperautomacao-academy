@@ -2,6 +2,8 @@ from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request,
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+from starlette.staticfiles import StaticFiles
+from starlette.routing import NoMatchFound
 from motor.motor_asyncio import AsyncIOMotorClient
 from replication.replicator import ReplicationManager, wrap_database
 from replication.config_store import load_config, save_config
@@ -35,6 +37,10 @@ from urllib.parse import urlparse
 import unicodedata
 
 ROOT_DIR = Path(__file__).parent
+MEDIA_ROOT = ROOT_DIR / "media"
+AVATAR_MEDIA_ROOT = MEDIA_ROOT / "avatars"
+MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+AVATAR_MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
 # Load default env first (backwards compatibility), then env-specific overrides
 default_env_file = ROOT_DIR / '.env'
@@ -288,6 +294,94 @@ def sanitize_filename(filename: str) -> str:
     if not suffix or len(suffix) > 12:
         suffix = ""
     return f"{stem}{suffix}"
+
+
+def _ensure_local_media_dirs() -> None:
+    """Make sure local media directories exist before writing files."""
+    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    AVATAR_MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+
+
+def _normalize_public_base_url(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    return stripped.rstrip("/")
+
+
+def _build_media_url(relative_path: str, request: Optional[Request] = None) -> str:
+    """Build a public URL for a relative media path."""
+    clean_relative = relative_path.strip().lstrip("/").replace("\\", "/")
+
+    explicit_base = _normalize_public_base_url(os.environ.get("PUBLIC_MEDIA_BASE_URL"))
+    if explicit_base:
+        return f"{explicit_base}/media/{clean_relative}"
+
+    if request is not None:
+        try:
+            return str(request.url_for("media", path=clean_relative))
+        except NoMatchFound:
+            pass
+
+        forwarded_host = request.headers.get("x-forwarded-host")
+        forwarded_proto = request.headers.get("x-forwarded-proto")
+        forwarded_port = request.headers.get("x-forwarded-port")
+
+        if forwarded_host:
+            scheme = forwarded_proto or request.url.scheme
+            host = forwarded_host
+            if forwarded_port and ":" not in host:
+                host = f"{host}:{forwarded_port}"
+            return f"{scheme}://{host}/media/{clean_relative}"
+
+        base_url = str(request.base_url).rstrip("/")
+        if base_url.endswith("/api"):
+            base_url = base_url[: -len("/api")]
+        return f"{base_url}/media/{clean_relative}"
+
+    return f"/media/{clean_relative}"
+
+
+def _is_valid_http_url(value: Optional[str]) -> bool:
+    """Return True if value is an HTTP/HTTPS URL with a hostname."""
+    if not value:
+        return False
+    parsed = urlparse(value.strip())
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+async def _save_avatar_locally(upload_file: UploadFile, user_id: str, request: Optional[Request]) -> Dict[str, str]:
+    """Persist an uploaded avatar to the local media directory."""
+    _ensure_local_media_dirs()
+    sanitized_name = sanitize_filename(upload_file.filename or "avatar.png")
+    suffix = Path(sanitized_name).suffix or ".png"
+    unique_name = f"{user_id}-{uuid.uuid4().hex[:12]}{suffix}"
+    relative_path = f"avatars/{unique_name}"
+    destination = MEDIA_ROOT / relative_path
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    await upload_file.seek(0)
+    with destination.open("wb") as out_file:
+        while True:
+            chunk = await upload_file.read(1_048_576)
+            if not chunk:
+                break
+            out_file.write(chunk)
+
+    public_url = _build_media_url(relative_path, request)
+    return {"relative_path": relative_path.replace("\\", "/"), "public_url": public_url}
+
+
+def _delete_local_avatar(relative_path: str) -> None:
+    """Remove a previously saved local avatar file."""
+    clean_relative = relative_path.strip().lstrip("/").replace("\\", "/")
+    target = MEDIA_ROOT / clean_relative
+    try:
+        target.unlink(missing_ok=True)
+    except Exception as exc:
+        logger.warning("Could not delete local avatar %s: %s", target, exc)
 
 def sanitize_slug(value: Optional[str]) -> str:
     """Sanitize a human name into an ASCII slug: lowercase, hyphens, no special chars."""
@@ -625,6 +719,7 @@ def _is_valid_base_url(url: str) -> bool:
 
 # Create the main app
 app = FastAPI()
+app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")
 api_router = APIRouter(prefix="/api")
 
 # ==================== MODELS ====================
@@ -768,6 +863,128 @@ class Module(ModuleBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     course_id: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Certificate Models
+CERTIFICATE_BINDINGS = {
+    "student_name",
+    "course_title",
+    "completion_date",
+    "issued_date",
+    "validation_code",
+    "hours",
+    "instructor_name",
+    "custom",
+}
+
+CERTIFICATE_TEMPLATE_STATUSES = {"draft", "published"}
+
+
+class CertificateTextElement(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    label: str
+    binding: str = "custom"  # determines whether backend fills content dynamically
+    content: Optional[str] = None
+    font_family: str = "Poppins"
+    font_weight: str = "600"
+    font_size: int = 32
+    color: str = "#0f172a"
+    align: str = "center"
+    uppercase: bool = False
+    letter_spacing: float = 0.5
+    width: float = 60.0  # percentage
+    x: float = 20.0  # percentage
+    y: float = 20.0  # percentage
+    z_index: int = 1
+
+    @classmethod
+    def validate_binding(cls, value: str) -> str:
+        normalized = (value or "custom").strip().lower()
+        if normalized not in CERTIFICATE_BINDINGS:
+            return "custom"
+        return normalized
+
+    def model_post_init(self, __context):
+        object.__setattr__(self, "binding", self.validate_binding(self.binding))
+        if not self.label:
+            object.__setattr__(self, "label", self.binding.title())
+
+
+class CertificateTemplateBase(BaseModel):
+    name: str
+    course_id: str
+    description: Optional[str] = None
+    background_url: Optional[str] = None
+    background_path: Optional[str] = None
+    badge_url: Optional[str] = None
+    accent_color: str = "#10b981"
+    text_elements: List[CertificateTextElement] = Field(default_factory=list)
+    status: str = "draft"
+    workload_hours: Optional[int] = None
+    validation_message: Optional[str] = None
+    signature_images: List[str] = Field(default_factory=list)
+
+
+class CertificateTemplate(CertificateTemplateBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+
+
+class CertificateTemplateCreate(CertificateTemplateBase):
+    pass
+
+
+class CertificateTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    background_url: Optional[str] = None
+    background_path: Optional[str] = None
+    badge_url: Optional[str] = None
+    accent_color: Optional[str] = None
+    text_elements: Optional[List[CertificateTextElement]] = None
+    status: Optional[str] = None
+    workload_hours: Optional[int] = None
+    validation_message: Optional[str] = None
+    signature_images: Optional[List[str]] = None
+
+
+class CertificateIssue(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    template_id: str
+    course_id: str
+    user_id: str
+    student_name: str
+    student_email: str
+    course_title: str
+    workload_hours: Optional[int] = None
+    token: str = Field(default_factory=lambda: secrets.token_urlsafe(12))
+    validation_url: Optional[str] = None
+    metadata: Dict[str, Any] = {}
+    issued_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    completed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    template_snapshot: Optional[Dict[str, Any]] = None
+
+
+class CertificateIssueWithTemplate(CertificateIssue):
+    template: Optional[CertificateTemplate] = None
+
+
+class AdminIssueCertificatePayload(BaseModel):
+    user_id: Optional[str] = None
+    email: Optional[EmailStr] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    completed_at: Optional[datetime] = None
+    force_new: bool = False
+
+
+class StudentCertificateIssuePayload(BaseModel):
+    course_id: str
+    force_new: bool = False
 
 # Link Model for lessons
 class LinkItem(BaseModel):
@@ -1454,6 +1671,7 @@ async def update_user_profile(profile_data: UserUpdate, current_user: User = Dep
 async def upload_user_avatar(
     avatar_file: UploadFile = File(None, alias="file"),
     legacy_avatar_file: UploadFile = File(None, alias="avatar_file"),
+    request: Request = None,
     current_user: User = Depends(get_current_user),
 ):
     """Upload and set the user's profile avatar, storing the file on Bunny Storage."""
@@ -1474,20 +1692,32 @@ async def upload_user_avatar(
     await file_obj.seek(0)
 
     config = await get_bunny_config()
-    config = _ensure_bunny_storage_ready(config)
+    bunny_config = None
+    use_bunny = False
+    if config:
+        try:
+            bunny_config = _ensure_bunny_storage_ready(config)
+            use_bunny = True
+        except HTTPException as exc:
+            logger.warning("Bunny storage config incompleto. Usando armazenamento local de avatar. Motivo: %s", exc.detail)
 
     existing = await db.users.find_one({"id": current_user.id}, {"_id": 0, "avatar_path": 1})
 
     sanitized_name = sanitize_filename(file_obj.filename or "avatar.png")
-    upload_result = await _upload_to_bunny_storage(
-        file_obj,
-        prefix=f"avatars/{current_user.id}",
-        config=config,
-        filename=sanitized_name,
-    )
 
-    avatar_url = upload_result["public_url"]
-    avatar_path = upload_result["relative_path"]
+    if use_bunny and bunny_config:
+        upload_result = await _upload_to_bunny_storage(
+            file_obj,
+            prefix=f"avatars/{current_user.id}",
+            config=bunny_config,
+            filename=sanitized_name,
+        )
+        avatar_url = upload_result["public_url"]
+        avatar_path = upload_result["relative_path"]
+    else:
+        upload_result = await _save_avatar_locally(file_obj, current_user.id, request)
+        avatar_url = upload_result["public_url"]
+        avatar_path = f"local:{upload_result['relative_path']}"
 
     await db.users.update_one(
         {"id": current_user.id},
@@ -1501,8 +1731,12 @@ async def upload_user_avatar(
         },
     )
 
-    if existing and existing.get("avatar_path") and existing["avatar_path"] != avatar_path:
-        await _delete_from_bunny_storage(existing["avatar_path"], config=config)
+    existing_path = (existing or {}).get("avatar_path")
+    if existing_path and existing_path != avatar_path:
+        if existing_path.startswith("local:"):
+            _delete_local_avatar(existing_path.split("local:", 1)[1])
+        elif bunny_config:
+            await _delete_from_bunny_storage(existing_path, config=bunny_config)
 
     return {"avatar_url": avatar_url, "avatar": avatar_url}
 
@@ -1808,39 +2042,6 @@ async def update_user_preferences(
     except Exception as e:
         logger.error(f"Error updating preferences for user {current_user.id}: {e}")
         raise HTTPException(status_code=500, detail="Error updating user preferences")
-
-@api_router.put("/user/profile")
-async def update_user_profile(
-    profile_data: dict,
-    current_user: User = Depends(get_current_user)
-):
-    """Update current user's profile"""
-    try:
-        # Validate and prepare update data
-        valid_keys = {"name", "preferred_language", "avatar_url"}
-        update_data = {k: v for k, v in profile_data.items() if k in valid_keys and v is not None}
-        
-        if not update_data:
-            raise HTTPException(status_code=400, detail="No valid profile data provided")
-        
-        # Update user profile
-        result = await db.users.update_one(
-            {"id": current_user.id},
-            {"$set": update_data}
-        )
-        
-        if result.modified_count == 0:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # Get updated user data
-        updated_user = await db.users.find_one({"id": current_user.id}, {"_id": 0})
-        
-        logger.info(f"Updated profile for user {current_user.email}: {update_data}")
-        return updated_user
-        
-    except Exception as e:
-        logger.error(f"Error updating profile for user {current_user.id}: {e}")
-        raise HTTPException(status_code=500, detail="Error updating user profile")
 
 @api_router.put("/user/password")
 async def update_user_password(
@@ -3073,9 +3274,15 @@ async def get_lesson_detail(lesson_id: str, current_user: User = Depends(get_cur
             detail="You need to be enrolled in this course to access this lesson"
         )
     
+    course = await db.courses.find_one({"id": course_id}, {"_id": 0, "title": 1})
+
     if isinstance(lesson['created_at'], str):
         lesson['created_at'] = datetime.fromisoformat(lesson['created_at'])
     
+    lesson['course_id'] = course_id
+    if course and course.get('title'):
+        lesson['course_title'] = course['title']
+
     return lesson
 
 # ==================== PROGRESS ROUTES ====================
@@ -3124,8 +3331,27 @@ async def update_progress(progress_data: ProgressBase, current_user: User = Depe
                 # Course completed! Log completion
                 course = await db.courses.find_one({"id": course_id})
                 course_title = course.get("title", "Unknown Course") if course else "Unknown Course"
+                completion_ts = datetime.now(timezone.utc)
                 
                 logger.info(f"User {current_user.id} completed course {course_id}: {course_title}")
+                
+                # Auto-issue certificate when template is available
+                try:
+                    certificate = await issue_certificate_for_completion(
+                        user=current_user,
+                        course_id=course_id,
+                        completed_at=completion_ts,
+                        metadata={"source": "auto-progress"},
+                    )
+                    if certificate:
+                        logger.info(
+                            "Certificate %s issued automatically for user %s course %s",
+                            certificate["id"],
+                            current_user.email,
+                            course_id,
+                        )
+                except Exception as exc:
+                    logger.exception("Failed to issue certificate automatically: %s", exc)
                 
                 # Trigger gamification reward (now just logs)
                 await give_gamification_reward(
@@ -3175,6 +3401,415 @@ async def user_has_access(user_id: str) -> bool:
     # No subscription or inactive subscription: fall back to enrollment-based access (legacy behavior)
     enrollment = await db.enrollments.find_one({"user_id": user_id})
     return enrollment is not None
+
+
+def _normalize_certificate_status(value: Optional[str]) -> str:
+    status = (value or "draft").strip().lower()
+    if status not in CERTIFICATE_TEMPLATE_STATUSES:
+        return "draft"
+    return status
+
+
+def _serialize_certificate_elements(elements: Optional[List[Union[CertificateTextElement, Dict[str, Any]]]]) -> List[Dict[str, Any]]:
+    if not elements:
+        return []
+    serialized: List[Dict[str, Any]] = []
+    for element in elements:
+        if isinstance(element, CertificateTextElement):
+            serialized.append(element.model_dump())
+        else:
+            serialized.append(CertificateTextElement(**element).model_dump())
+    return serialized
+
+
+def _build_template_snapshot(template_doc: Dict[str, Any]) -> Dict[str, Any]:
+    if not template_doc:
+        return {}
+    keys = [
+        "id",
+        "name",
+        "description",
+        "background_url",
+        "background_path",
+        "badge_url",
+        "accent_color",
+        "text_elements",
+        "status",
+        "workload_hours",
+        "validation_message",
+        "signature_images",
+    ]
+    snapshot = {key: template_doc.get(key) for key in keys if key in template_doc}
+    snapshot["text_elements"] = _serialize_certificate_elements(snapshot.get("text_elements"))
+    return snapshot
+
+
+async def _get_active_certificate_template(course_id: str) -> Optional[Dict[str, Any]]:
+    template = await db.certificate_templates.find_one(
+        {
+            "course_id": course_id,
+            "status": {"$in": ["published", "ativo", "active"]},
+        },
+        {"_id": 0},
+    )
+    if template:
+        template["status"] = "published"
+        template["text_elements"] = _serialize_certificate_elements(template.get("text_elements"))
+    return template
+
+
+async def _get_template_or_404(template_id: str) -> Dict[str, Any]:
+    template = await db.certificate_templates.find_one({"id": template_id}, {"_id": 0})
+    if not template:
+        raise HTTPException(status_code=404, detail="Modelo de certificado não encontrado")
+    template["text_elements"] = _serialize_certificate_elements(template.get("text_elements"))
+    return template
+
+
+async def issue_certificate_for_completion(
+    *,
+    user: User,
+    course_id: str,
+    completed_at: Optional[datetime] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    template: Optional[Dict[str, Any]] = None,
+    force_new: bool = False,
+) -> Optional[Dict[str, Any]]:
+    template_doc = template or await _get_active_certificate_template(course_id)
+    if not template_doc:
+        return None
+
+    if not force_new:
+        existing = await db.certificates.find_one(
+            {"user_id": user.id, "course_id": course_id},
+            {"_id": 0},
+        )
+        if existing:
+            return existing
+
+    course = await db.courses.find_one({"id": course_id}, {"_id": 0})
+    if not course:
+        return None
+
+    student_name = user.name or user.email
+    instructor_name = course.get("instructor_name") or course.get("instructor") or ""
+    issued_at = datetime.now(timezone.utc)
+    completion_ts = completed_at or issued_at
+    token = secrets.token_urlsafe(16)
+    validation_url = f"{get_frontend_url()}/certificates/validate?token={token}"
+    metadata_payload = {
+        "instructor_name": instructor_name,
+        "course_id": course_id,
+        **(metadata or {}),
+    }
+
+    certificate = CertificateIssue(
+        template_id=template_doc["id"],
+        course_id=course_id,
+        user_id=user.id,
+        student_name=student_name,
+        student_email=user.email,
+        course_title=course.get("title", "Curso"),
+        workload_hours=template_doc.get("workload_hours"),
+        token=token,
+        validation_url=validation_url,
+        metadata=metadata_payload,
+        issued_at=issued_at,
+        completed_at=completion_ts,
+    ).model_dump()
+    certificate["template_snapshot"] = _build_template_snapshot(template_doc)
+
+    await db.certificates.insert_one(certificate)
+    logger.info("Certificate issued user=%s course=%s template=%s", user.email, course_id, template_doc["id"])
+    return certificate
+
+
+async def _user_completed_course(user_id: str, course_id: str) -> bool:
+    modules = await db.modules.find({"course_id": course_id}).to_list(1000)
+    if not modules:
+        return False
+
+    module_ids = [module["id"] for module in modules]
+    lessons = await db.lessons.find({"module_id": {"$in": module_ids}}).to_list(5000)
+    if not lessons:
+        return False
+
+    lesson_ids = [lesson["id"] for lesson in lessons]
+    progresses = await db.progress.find({
+        "user_id": user_id,
+        "lesson_id": {"$in": lesson_ids}
+    }).to_list(len(lesson_ids))
+
+    completed = [item for item in progresses if item.get("completed")]
+    return len(completed) == len(lesson_ids)
+
+
+# ==================== CERTIFICATE ROUTES ====================
+
+
+@api_router.post("/admin/certificates/uploads")
+async def upload_certificate_asset(
+    file: UploadFile = File(...),
+    asset_type: str = Query("background", alias="type"),
+    current_user: User = Depends(get_current_admin),
+):
+    prefix_map = {
+        "background": "certificates/backgrounds",
+        "badge": "certificates/badges",
+        "signature": "certificates/signatures",
+    }
+    normalized_type = (asset_type or "background").lower()
+    prefix = prefix_map.get(normalized_type, "certificates/assets")
+    upload = await _upload_to_bunny_storage(file, prefix=prefix)
+    return {
+        "url": upload["public_url"],
+        "path": upload["relative_path"],
+        "content_type": upload["content_type"],
+        "size_bytes": upload["size_bytes"],
+        "type": normalized_type,
+        "original_name": upload["original_name"],
+    }
+
+
+@api_router.post("/admin/certificates/templates", response_model=CertificateTemplate)
+async def create_certificate_template(
+    template_data: CertificateTemplateCreate,
+    current_user: User = Depends(get_current_admin),
+):
+    course = await db.courses.find_one({"id": template_data.course_id})
+    if not course:
+        raise HTTPException(status_code=404, detail="Curso não encontrado para vincular certificado")
+
+    payload = template_data.model_dump()
+    payload["status"] = _normalize_certificate_status(payload.get("status"))
+    payload["text_elements"] = _serialize_certificate_elements(payload.get("text_elements"))
+
+    template = CertificateTemplate(
+        **payload,
+        created_by=current_user.email,
+        updated_by=current_user.email,
+    )
+    template_dict = template.model_dump()
+    await db.certificate_templates.insert_one(template_dict)
+    return template
+
+
+@api_router.get("/admin/certificates/templates", response_model=List[CertificateTemplate])
+async def list_certificate_templates(
+    course_id: Optional[str] = None,
+    current_user: User = Depends(get_current_admin),
+):
+    query: Dict[str, Any] = {}
+    if course_id:
+        query["course_id"] = course_id
+    templates = (
+        await db.certificate_templates.find(query, {"_id": 0})
+        .sort("updated_at", -1)
+        .to_list(200)
+    )
+    return [CertificateTemplate(**tpl) for tpl in templates]
+
+
+@api_router.get("/admin/certificates/templates/{template_id}", response_model=CertificateTemplate)
+async def get_certificate_template(template_id: str, current_user: User = Depends(get_current_admin)):
+    template = await _get_template_or_404(template_id)
+    return CertificateTemplate(**template)
+
+
+@api_router.put("/admin/certificates/templates/{template_id}", response_model=CertificateTemplate)
+async def update_certificate_template(
+    template_id: str,
+    template_data: CertificateTemplateUpdate,
+    current_user: User = Depends(get_current_admin),
+):
+    template = await _get_template_or_404(template_id)
+    update_payload = template_data.model_dump(exclude_unset=True)
+
+    if "status" in update_payload:
+        update_payload["status"] = _normalize_certificate_status(update_payload["status"])
+    if "text_elements" in update_payload and update_payload["text_elements"] is not None:
+        update_payload["text_elements"] = _serialize_certificate_elements(update_payload["text_elements"])
+
+    update_payload["updated_at"] = datetime.now(timezone.utc)
+    update_payload["updated_by"] = current_user.email
+
+    await db.certificate_templates.update_one({"id": template_id}, {"$set": update_payload})
+    template.update(update_payload)
+    template["text_elements"] = _serialize_certificate_elements(template.get("text_elements"))
+    return CertificateTemplate(**template)
+
+
+@api_router.delete("/admin/certificates/templates/{template_id}")
+async def delete_certificate_template(template_id: str, current_user: User = Depends(get_current_admin)):
+    await _get_template_or_404(template_id)
+    issued_count = await db.certificates.count_documents({"template_id": template_id})
+    if issued_count > 0:
+        raise HTTPException(
+            status_code=409,
+            detail="Não é possível excluir: existem certificados emitidos com este modelo. Desative ou crie outro modelo.",
+        )
+    await db.certificate_templates.delete_one({"id": template_id})
+    return {"message": "Modelo removido com sucesso"}
+
+
+@api_router.post("/admin/certificates/templates/{template_id}/issue", response_model=CertificateIssue)
+async def admin_issue_certificate(
+    template_id: str,
+    payload: AdminIssueCertificatePayload,
+    current_user: User = Depends(get_current_admin),
+):
+    template = await _get_template_or_404(template_id)
+    user_doc = None
+    if payload.user_id:
+        user_doc = await db.users.find_one({"id": payload.user_id})
+    elif payload.email:
+        user_doc = await db.users.find_one({"email": payload.email.lower()})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    user_model = User(**user_doc)
+    certificate = await issue_certificate_for_completion(
+        user=user_model,
+        course_id=template["course_id"],
+        completed_at=payload.completed_at,
+        metadata={**payload.metadata, "source": "admin"},
+        template=template,
+        force_new=payload.force_new,
+    )
+    if not certificate:
+        raise HTTPException(status_code=400, detail="Não foi possível emitir o certificado")
+    return CertificateIssue(**certificate)
+
+
+@api_router.get("/admin/certificates/issues", response_model=List[CertificateIssueWithTemplate])
+async def list_issued_certificates(
+    template_id: Optional[str] = None,
+    course_id: Optional[str] = None,
+    search: Optional[str] = None,
+    current_user: User = Depends(get_current_admin),
+):
+    query: Dict[str, Any] = {}
+    if template_id:
+        query["template_id"] = template_id
+    if course_id:
+        query["course_id"] = course_id
+    if search:
+        regex = {"$regex": re.escape(search), "$options": "i"}
+        query["$or"] = [
+            {"student_name": regex},
+            {"student_email": regex},
+            {"token": regex},
+        ]
+
+    certificates = (
+        await db.certificates.find(query, {"_id": 0})
+        .sort("issued_at", -1)
+        .limit(200)
+        .to_list(200)
+    )
+    template_ids = {c.get("template_id") for c in certificates if c.get("template_id")}
+    templates = (
+        await db.certificate_templates.find({"id": {"$in": list(template_ids)}}, {"_id": 0}).to_list(len(template_ids) or 0)
+        if template_ids
+        else []
+    )
+    template_map = {tpl["id"]: CertificateTemplate(**tpl).model_dump() for tpl in templates}
+
+    enriched: List[CertificateIssueWithTemplate] = []
+    for cert in certificates:
+        template_payload = template_map.get(cert.get("template_id")) or cert.get("template_snapshot")
+        cert["template"] = template_payload
+        enriched.append(CertificateIssueWithTemplate(**cert))
+    return enriched
+
+
+@api_router.get("/certificates/me", response_model=List[CertificateIssueWithTemplate])
+async def get_my_certificates(current_user: User = Depends(get_current_user)):
+    certificates = (
+        await db.certificates.find({"user_id": current_user.id}, {"_id": 0})
+        .sort("issued_at", -1)
+        .to_list(100)
+    )
+    template_ids = {c.get("template_id") for c in certificates if c.get("template_id")}
+    templates = (
+        await db.certificate_templates.find({"id": {"$in": list(template_ids)}}, {"_id": 0}).to_list(len(template_ids) or 0)
+        if template_ids
+        else []
+    )
+    template_map = {tpl["id"]: CertificateTemplate(**tpl).model_dump() for tpl in templates}
+
+    response: List[CertificateIssueWithTemplate] = []
+    for cert in certificates:
+        template_payload = template_map.get(cert.get("template_id")) or cert.get("template_snapshot")
+        cert["template"] = template_payload
+        response.append(CertificateIssueWithTemplate(**cert))
+    return response
+
+
+@api_router.post("/certificates/issue", response_model=CertificateIssueWithTemplate)
+async def issue_certificate_for_user(
+    payload: StudentCertificateIssuePayload,
+    current_user: User = Depends(get_current_user),
+):
+    has_completed = await _user_completed_course(current_user.id, payload.course_id)
+    if not has_completed:
+        raise HTTPException(
+            status_code=400,
+            detail="Você precisa concluir todas as aulas do curso antes de emitir o certificado.",
+        )
+
+    template = await _get_active_certificate_template(payload.course_id)
+    if not template:
+        raise HTTPException(
+            status_code=404,
+            detail="Ainda não há um modelo de certificado publicado para este curso.",
+        )
+
+    certificate = await issue_certificate_for_completion(
+        user=current_user,
+        course_id=payload.course_id,
+        template=template,
+        force_new=payload.force_new,
+    )
+    if not certificate:
+        raise HTTPException(status_code=400, detail="Não foi possível emitir o certificado no momento.")
+
+    certificate["template"] = template or certificate.get("template_snapshot")
+    return CertificateIssueWithTemplate(**certificate)
+
+
+@api_router.get("/certificates/validate")
+async def validate_certificate(token: str = Query(..., min_length=6)):
+    token = token.strip()
+    cert = await db.certificates.find_one({"token": token}, {"_id": 0})
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certificado não encontrado ou inválido")
+    template_payload = await db.certificate_templates.find_one({"id": cert.get("template_id")}, {"_id": 0})
+    cert["template"] = template_payload or cert.get("template_snapshot")
+    validation_message = ""
+    if cert["template"] and cert["template"].get("validation_message"):
+        validation_message = cert["template"]["validation_message"]
+    return {
+        "valid": True,
+        "validation_message": validation_message or "Certificado localizado e válido.",
+        "certificate": CertificateIssueWithTemplate(**cert),
+    }
+
+
+@api_router.get("/certificates/{certificate_id}", response_model=CertificateIssueWithTemplate)
+async def get_certificate_detail(
+    certificate_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    cert = await db.certificates.find_one({"id": certificate_id}, {"_id": 0})
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certificado não encontrado")
+    if current_user.role != "admin" and cert.get("user_id") != current_user.id:
+        raise HTTPException(status_code=403, detail="Acesso negado a este certificado")
+
+    template_payload = await db.certificate_templates.find_one({"id": cert.get("template_id")}, {"_id": 0})
+    cert["template"] = template_payload or cert.get("template_snapshot")
+    return CertificateIssueWithTemplate(**cert)
 
 # ==================== COMMENT ROUTES ====================
 

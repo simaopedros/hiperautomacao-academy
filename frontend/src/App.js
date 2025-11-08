@@ -20,6 +20,9 @@ import AdminFinance from '@/pages/AdminFinance';
 import PaymentSettings from '@/pages/PaymentSettings';
 import ProfileSettings from '@/pages/ProfileSettings';
 import PdfViewer from '@/pages/PdfViewer';
+import AdminCertificates from '@/pages/AdminCertificates';
+import MyCertificates from '@/pages/MyCertificates';
+import CertificateValidation from '@/pages/CertificateValidation';
 
 import GamificationSettings from '@/pages/GamificationSettings';
 import GatewaySettings from '@/pages/GatewaySettings';
@@ -387,6 +390,16 @@ function App() {
             }
           />
           <Route
+            path="/admin/certificates"
+            element={
+              user && user.role === 'admin' ? (
+                <AdminCertificates user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
             path="/subscribe"
             element={
               user ? (
@@ -406,6 +419,17 @@ function App() {
               )
             }
           />
+          <Route
+            path="/certificates"
+            element={
+              user ? (
+                <MyCertificates user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route path="/certificates/validate" element={<CertificateValidation />} />
         </Routes>
       </BrowserRouter>
 

@@ -140,6 +140,9 @@ mongo*.tar.gz
 *.sqlite
 *.sqlite3
 
+# Uploaded media
+media/
+
 # MongoDB binaries/cache
 mongodb/**/*.wt
 mongodb/**/*.turtle
