@@ -23,6 +23,7 @@ import PdfViewer from '@/pages/PdfViewer';
 import AdminCertificates from '@/pages/AdminCertificates';
 import MyCertificates from '@/pages/MyCertificates';
 import CertificateValidation from '@/pages/CertificateValidation';
+import CertificateShare from '@/pages/CertificateShare';
 
 import GamificationSettings from '@/pages/GamificationSettings';
 import GatewaySettings from '@/pages/GatewaySettings';
@@ -429,6 +430,7 @@ function App() {
               )
             }
           />
+          <Route path="/certificates/share/:shareId" element={<CertificateShare />} />
           <Route path="/certificates/validate" element={<CertificateValidation />} />
         </Routes>
       </BrowserRouter>

@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import UnifiedHeader from '@/components/UnifiedHeader';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Copy, Download, ShieldCheck, ExternalLink, Award, Loader2, FileDown } from 'lucide-react';
+import { Copy, Download, ShieldCheck, ExternalLink, Award, Loader2, FileDown, Linkedin } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -129,10 +129,10 @@ const MyCertificates = ({ user, onLogout }) => {
   };
 
   const handleDownload = async () => {
-    if (!previewRef.current || !selectedCertificate) return;
+    if (!selectedCertificate) return;
     try {
       setExportingFormat('png');
-      const dataUrl = await toPng(previewRef.current, { cacheBust: true, pixelRatio: 2 });
+      const dataUrl = await captureCertificateImage();
       const link = document.createElement('a');
       const courseName = selectedCertificate.course_title?.replace(/\s+/g, '-') || 'certificado';
       link.download = `${courseName}-${selectedCertificate.token}.png`;
@@ -146,10 +146,10 @@ const MyCertificates = ({ user, onLogout }) => {
   };
 
   const handleDownloadPdf = async () => {
-    if (!previewRef.current || !selectedCertificate) return;
+    if (!selectedCertificate) return;
     try {
       setExportingFormat('pdf');
-      const dataUrl = await toPng(previewRef.current, { cacheBust: true, pixelRatio: 2 });
+      const dataUrl = await captureCertificateImage();
       const pdf = new jsPDF('landscape', 'pt', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -161,6 +161,66 @@ const MyCertificates = ({ user, onLogout }) => {
     } finally {
       setExportingFormat(null);
     }
+  };
+
+  const getCertificateOrigin = () =>
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'https://hiperautomacao.academy';
+
+  const captureCertificateImage = async () => {
+    if (!previewRef.current) {
+      throw new Error('Preview não está disponível');
+    }
+    return toPng(previewRef.current, { cacheBust: true, pixelRatio: 2 });
+  };
+
+  const createCertificateShare = async (imageData, token) => {
+    const payload = {
+      token,
+      image_data: imageData
+    };
+    const response = await axios.post(`${API}/certificates/share`, payload, { headers });
+    return response.data;
+  };
+
+  const handleShareLinkedIn = async () => {
+    if (!selectedCertificate) return;
+    try {
+      setExportingFormat('share');
+      const imageData = await captureCertificateImage();
+      const { share_id } = await createCertificateShare(imageData, selectedCertificate.token);
+      const sharePageUrl = `${getCertificateOrigin()}/certificates/share/${share_id}`;
+      const validationUrl = `${getCertificateOrigin()}/certificates/validate?token=${selectedCertificate.token}`;
+      const summary = t(
+        'certificatesPage.linkedinSummary',
+        'Concluí {{course}} na Hiperautomação Academy. Token {{token}}. Valide em {{validationUrl}}.',
+        {
+          course: selectedCertificate.course_title || template?.name || 'certificado',
+          token: selectedCertificate.token,
+          validationUrl
+        }
+      );
+      const shareUrl = new URL('https://www.linkedin.com/sharing/share-offsite/');
+      shareUrl.searchParams.set('url', sharePageUrl);
+      shareUrl.searchParams.set('title', selectedCertificate.course_title || template?.name || 'Certificado');
+      shareUrl.searchParams.set('summary', summary);
+      shareUrl.searchParams.set('source', 'Hiperautomação Academy');
+      window.open(shareUrl.toString(), '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      alert(error?.response?.data?.detail || 'Falha ao compartilhar no LinkedIn');
+    } finally {
+      setExportingFormat(null);
+    }
+  };
+
+  const handleAddLinkedInSkill = () => {
+    if (!selectedCertificate) return;
+    const skillName = selectedCertificate.course_title || template?.name || 'Hiperautomação Academy';
+    const skillUrl = new URL('https://www.linkedin.com/profile/add');
+    skillUrl.searchParams.set('startTask', 'SKILL');
+    skillUrl.searchParams.set('skill', skillName);
+    window.open(skillUrl.toString(), '_blank', 'noopener,noreferrer');
   };
 
   const issuableCourses = useMemo(() => {
@@ -489,6 +549,28 @@ const MyCertificates = ({ user, onLogout }) => {
                   >
                     <ExternalLink className="mr-2" size={16} />
                     {t('certificatesPage.openValidation', 'Abrir página de validação')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-white/20"
+                    onClick={handleShareLinkedIn}
+                    disabled={!selectedCertificate || exportingFormat === 'share'}
+                  >
+                    {exportingFormat === 'share' ? (
+                      <Loader2 className="animate-spin mr-2" size={16} />
+                    ) : (
+                      <Linkedin className="mr-2" size={16} />
+                    )}
+                    {t('certificatesPage.shareLinkedIn', 'Compartilhar no LinkedIn')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-white/20"
+                    onClick={handleAddLinkedInSkill}
+                    disabled={!selectedCertificate}
+                  >
+                    <Linkedin className="mr-2" size={16} />
+                    {t('certificatesPage.addSkillLinkedIn', 'Adicionar habilidade no LinkedIn')}
                   </Button>
                 </div>
 

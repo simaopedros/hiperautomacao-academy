@@ -1016,7 +1016,21 @@
     "readyToIssueDescription": "Clique para gerar seu diploma digital personalizado.",
     "readyCourseSubtitle": "Disponível para emissão imediata.",
     "issueCta": "Emitir certificado",
-    "issueError": "Não foi possível emitir o certificado. Tente novamente em instantes."
+    "issueError": "Não foi possível emitir o certificado. Tente novamente em instantes.",
+    "shareLinkedIn": "Compartilhar no LinkedIn",
+    "addSkillLinkedIn": "Adicionar habilidade no LinkedIn",
+    "linkedinSummary": "Concluí {{course}} na Hiperautomação Academy. Token {{token}}. Valide em {{validationUrl}}."
+  },
+  "certificateShare": {
+    "title": "Certificado compartilhado",
+    "subtitle": "Baixe o PNG oficial e confira a autenticidade com o link de validação.",
+    "download": "Baixar certificado",
+    "validationLink": "Ir para validação",
+    "tokenLabel": "Token de validação",
+    "issuedOn": "Emitido em",
+    "courseLabel": "Curso",
+    "sharedFor": "Emitido para {{name}}",
+    "notFound": "Link expirado ou inválido."
   },
   "certificateValidation": {
     "badge": "Validação de autenticidade",

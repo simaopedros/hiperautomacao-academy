@@ -974,6 +974,28 @@ class CertificateIssueWithTemplate(CertificateIssue):
     template: Optional[CertificateTemplate] = None
 
 
+class CertificateShareRequest(BaseModel):
+    token: str
+    image_data: str
+    model_config = ConfigDict(extra="ignore")
+
+
+class CertificateShareResponse(BaseModel):
+    share_id: str
+    expires_at: datetime
+    model_config = ConfigDict(extra="ignore")
+
+
+class CertificateSharePreview(BaseModel):
+    share_id: str = Field(alias="id")
+    token: str
+    course_title: Optional[str] = None
+    student_name: Optional[str] = None
+    issued_at: Optional[datetime] = None
+    image_data: str
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+
 class AdminIssueCertificatePayload(BaseModel):
     user_id: Optional[str] = None
     email: Optional[EmailStr] = None
@@ -3776,6 +3798,47 @@ async def issue_certificate_for_user(
 
     certificate["template"] = template or certificate.get("template_snapshot")
     return CertificateIssueWithTemplate(**certificate)
+
+
+@api_router.post("/certificates/share", response_model=CertificateShareResponse)
+async def create_certificate_share(
+    share_data: CertificateShareRequest,
+    current_user: User = Depends(get_current_user),
+):
+    token = (share_data.token or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="Token de certificado inválido.")
+    certificate = await db.certificates.find_one({"token": token}, {"_id": 0})
+    if not certificate:
+        raise HTTPException(status_code=404, detail="Certificado não encontrado.")
+    if certificate.get("user_id") != current_user.id:
+        raise HTTPException(status_code=403, detail="Você não tem permissão para compartilhar este certificado.")
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=2)
+    share_id = str(uuid.uuid4())
+    share_doc = {
+        "id": share_id,
+        "certificate_id": certificate["id"],
+        "token": token,
+        "user_id": current_user.id,
+        "course_id": certificate.get("course_id"),
+        "course_title": certificate.get("course_title"),
+        "student_name": certificate.get("student_name"),
+        "issued_at": certificate.get("issued_at"),
+        "image_data": share_data.image_data,
+        "created_at": now,
+        "expires_at": expires_at,
+    }
+    await db.certificate_shares.insert_one(share_doc)
+    return CertificateShareResponse(share_id=share_id, expires_at=expires_at)
+
+
+@api_router.get("/certificates/share/{share_id}", response_model=CertificateSharePreview)
+async def get_certificate_share(share_id: str):
+    share = await db.certificate_shares.find_one({"id": share_id}, {"_id": 0})
+    if not share:
+        raise HTTPException(status_code=404, detail="Compartilhamento não encontrado.")
+    return CertificateSharePreview(**share)
 
 
 @api_router.get("/certificates/validate")
@@ -8430,6 +8493,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def ensure_certificate_share_indexes():
+    await db.certificate_shares.create_index("expires_at", expireAfterSeconds=0)
+
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
