@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -11,10 +11,10 @@ import {
   ArrowLeft,
   HeadphonesIcon,
   Play,
-  Archive
+  Archive,
+  Award
 } from 'lucide-react';
 import { Button } from './ui/button';
-import { Badge } from './ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 
 const UnifiedHeader = ({ 
@@ -22,7 +22,6 @@ const UnifiedHeader = ({
   onLogout, 
   showInsights, 
   setShowInsights, 
-  setShowLanguageSettings,
   supportConfig,
   resumeLessonId,
   showBackButton = false,
@@ -63,6 +62,12 @@ const UnifiedHeader = ({
       label: t('dashboard.library'),
       icon: Archive,
       testId: 'library-nav'
+    },
+    {
+      path: '/certificates',
+      label: t('dashboard.certificates', 'Certificados'),
+      icon: Award,
+      testId: 'certificates-nav'
     }
   ];
 

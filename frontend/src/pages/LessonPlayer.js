@@ -25,10 +25,21 @@ import {
   Sparkles,
   LayoutDashboard,
   ChevronLeft,
-  X
+  X,
+  Loader2,
+  PartyPopper,
+  Award
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
+} from '@/components/ui/dialog';
 import useI18n from '@/hooks/useI18n';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -77,6 +88,9 @@ export default function LessonPlayer({ user, onLogout }) {
   const [motivationMessage, setMotivationMessage] = useState(null);
   const [completionPulse, setCompletionPulse] = useState(false);
   const [isQuickMenuCollapsed, setIsQuickMenuCollapsed] = useState(false);
+  const [certificateCelebration, setCertificateCelebration] = useState(null);
+  const [isIssuingCertificate, setIsIssuingCertificate] = useState(false);
+  const [certificateSuccess, setCertificateSuccess] = useState(false);
 
   const motivationTimeoutRef = useRef(null);
   const completionPulseTimeoutRef = useRef(null);
@@ -223,6 +237,21 @@ export default function LessonPlayer({ user, onLogout }) {
     []
   );
 
+  useEffect(() => {
+    if (!certificateCelebration || typeof window === 'undefined') return;
+    confetti({
+      particleCount: 160,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+    confetti({
+      particleCount: 120,
+      angle: 120,
+      spread: 60,
+      origin: { x: 0.2, y: 0.6 }
+    });
+  }, [certificateCelebration]);
+
   const fetchLesson = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -231,7 +260,7 @@ export default function LessonPlayer({ user, onLogout }) {
       });
       setLesson(response.data);
 
-      await fetchCourseAndFindNeighbours(response.data.module_id, token);
+      await fetchCourseAndFindNeighbours(response.data.module_id, token, response.data.course_id);
     } catch (error) {
       console.error('Error fetching lesson:', error);
     } finally {
@@ -239,23 +268,16 @@ export default function LessonPlayer({ user, onLogout }) {
     }
   };
 
-  const fetchCourseAndFindNeighbours = async (moduleId, token) => {
+  const fetchCourseAndFindNeighbours = async (moduleId, token, courseId) => {
     try {
-      const coursesResponse = await axios.get(`${API}/student/courses`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { include_all_languages: true }
-      });
-
-      for (const course of coursesResponse.data) {
-        const detailResponse = await axios.get(`${API}/student/courses/${course.id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        let detail = detailResponse.data;
-        const modules = detail.modules || [];
-
-        const moduleFound = modules.find((module) => module.id === moduleId);
-        if (!moduleFound) continue;
+      const inspectCourseDetail = async (detail) => {
+        const modules = detail?.modules || [];
+        const moduleFound = modules.find(
+          (module) => String(module.id) === String(moduleId)
+        );
+        if (!moduleFound) {
+          return false;
+        }
 
         let progressItems = [];
         try {
@@ -267,15 +289,17 @@ export default function LessonPlayer({ user, onLogout }) {
           console.error('Error fetching progress data:', progressError);
         }
 
-        detail = enhanceCourseWithProgress(detail, progressItems);
-        const enhancedModules = detail.modules || [];
-        const enhancedModule = enhancedModules.find((module) => module.id === moduleId) ?? moduleFound;
+        const enhancedDetail = enhanceCourseWithProgress(detail, progressItems);
+        const enhancedModules = enhancedDetail.modules || [];
+        const enhancedModule = enhancedModules.find(
+          (moduleItem) => String(moduleItem.id) === String(moduleId)
+        ) ?? moduleFound;
 
-        setCourseData(detail);
-        setProgressSummary(calculateProgress(detail));
+        setCourseData(enhancedDetail);
+        setProgressSummary(calculateProgress(enhancedDetail));
         setModuleInfo({
-          courseId: detail.id,
-          courseTitle: detail.title,
+          courseId: enhancedDetail.id,
+          courseTitle: enhancedDetail.title,
           moduleId: enhancedModule.id,
           moduleTitle: enhancedModule.title
         });
@@ -292,13 +316,11 @@ export default function LessonPlayer({ user, onLogout }) {
           const modulesList = enhancedModules || [];
           const activeKey = enhancedModule.id ?? enhancedModule.title;
 
-          // Remove modules that no longer exist
           Object.keys(modulesState).forEach((key) => {
             const exists = modulesList.some((item) => (item.id ?? item.title) === key);
             if (!exists) delete modulesState[key];
           });
 
-          // Ensure all modules have an entry
           modulesList.forEach((moduleItem) => {
             const key = moduleItem.id ?? moduleItem.title;
             if (!(key in modulesState)) {
@@ -318,54 +340,70 @@ export default function LessonPlayer({ user, onLogout }) {
         setNextModuleEntry(null);
 
         let lastVisited = null;
-        let foundCurrent = false;
 
-        for (let moduleIndex = 0; moduleIndex < enhancedModules.length; moduleIndex += 1) {
-          const module = enhancedModules[moduleIndex];
+        for (const module of enhancedModules) {
           const lessons = module.lessons || [];
-          for (let index = 0; index < lessons.length; index += 1) {
-            const lessonItem = lessons[index];
-            const isCurrent = String(lessonItem.id) === String(lessonId);
+          for (let i = 0; i < lessons.length; i += 1) {
+            const lessonItem = lessons[i];
+            if (String(lessonItem.id) === String(lessonId)) {
+              const previous = lessons[i - 1];
+              const next = lessons[i + 1];
+              setPreviousLesson(previous || lastVisited);
 
-            if (foundCurrent) {
-              setNextLesson((current) => current ?? lessonItem);
-              break;
-            }
-
-            if (isCurrent) {
-              setPreviousLesson(lastVisited);
-              foundCurrent = true;
-            } else {
-              lastVisited = lessonItem;
-            }
-          }
-
-          if (foundCurrent) {
-            if (!nextLesson) {
-              const upcomingLessons = module.lessons || [];
-              const currentIndex = upcomingLessons.findIndex(
-                (lessonItem) => String(lessonItem.id) === String(lessonId)
-              );
-              const localNext = currentIndex >= 0 ? upcomingLessons[currentIndex + 1] : null;
-              if (!localNext) {
+              if (next) {
+                setNextLesson(next);
+              } else {
+                const moduleIndex = enhancedModules.findIndex(
+                  (moduleItem) => moduleItem.id === module.id
+                );
                 const nextModule = enhancedModules[moduleIndex + 1];
                 if (nextModule) {
-                  const firstLesson = (nextModule.lessons || [])[0];
-                  if (firstLesson) {
-                    setNextModuleEntry({
-                      moduleId: nextModule.id,
-                      moduleTitle: nextModule.title,
-                      lesson: firstLesson
-                    });
-                  }
+                  setNextModuleEntry({
+                    module: nextModule,
+                    lesson: nextModule.lessons?.[0]
+                  });
+                } else {
+                  setNextModuleEntry(null);
                 }
               }
+
+              return true;
             }
-            break;
           }
+          lastVisited = lessons.at(-1) ?? lastVisited;
         }
 
-        return;
+        return false;
+      };
+
+      if (courseId) {
+        try {
+          const detailResponse = await axios.get(`${API}/student/courses/${courseId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const handled = await inspectCourseDetail(detailResponse.data);
+          if (handled) {
+            return;
+          }
+        } catch (courseError) {
+          console.error('Error fetching course detail by course_id:', courseError);
+        }
+      }
+
+      const coursesResponse = await axios.get(`${API}/student/courses`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { include_all_languages: true }
+      });
+
+      for (const course of coursesResponse.data) {
+        const detailResponse = await axios.get(`${API}/student/courses/${course.id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const handled = await inspectCourseDetail(detailResponse.data);
+        if (handled) {
+          return;
+        }
       }
     } catch (error) {
       console.error('Error fetching course data:', error);
@@ -516,6 +554,13 @@ export default function LessonPlayer({ user, onLogout }) {
           const summary = calculateProgress(updatedCourse);
           projectedSummary = summary;
           setProgressSummary(summary);
+          if (
+            targetCompleted &&
+            moduleInfo?.courseId &&
+            summary.coursePercent === 100
+          ) {
+            triggerCertificateCelebration(moduleInfo.courseId, moduleInfo.courseTitle);
+          }
           return updatedCourse;
         });
       }
@@ -534,6 +579,13 @@ export default function LessonPlayer({ user, onLogout }) {
           setMotivationMessage(`Excelente! Você concluiu ${completedLessons}/${totalLessons} aulas 🎉`);
         } else {
           setMotivationMessage('Excelente! Aula concluída 🎉');
+        }
+
+        if (
+          moduleInfo?.courseId &&
+          (projectedSummary.coursePercent === 100 || completedLessons === totalLessons)
+        ) {
+          triggerCertificateCelebration(moduleInfo.courseId, moduleInfo.courseTitle);
         }
 
         motivationTimeoutRef.current = setTimeout(() => {
@@ -581,6 +633,47 @@ export default function LessonPlayer({ user, onLogout }) {
 
   const toggleQuickMenu = () => {
     setIsQuickMenuCollapsed((previous) => !previous);
+  };
+
+  const triggerCertificateCelebration = (courseId, courseTitle) => {
+    if (!courseId) return;
+    setCertificateCelebration({
+      courseId,
+      courseTitle,
+      issued: false,
+    });
+    setCertificateSuccess(false);
+  };
+
+  const handleIssueCertificateNow = async () => {
+    if (!certificateCelebration?.courseId) return;
+    try {
+      setIsIssuingCertificate(true);
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${API}/certificates/issue`,
+        { course_id: certificateCelebration.courseId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setCertificateSuccess(true);
+      setCertificateCelebration((previous) => ({
+        ...previous,
+        issued: true,
+      }));
+    } catch (error) {
+      alert(
+        error?.response?.data?.detail ||
+          t('lesson.certificateModalError', 'Não foi possível gerar seu certificado agora.')
+      );
+    } finally {
+      setIsIssuingCertificate(false);
+    }
+  };
+
+  const closeCelebrationModal = () => {
+    if (isIssuingCertificate) return;
+    setCertificateCelebration(null);
+    setCertificateSuccess(false);
   };
 
   const organizeComments = () => {
@@ -1410,10 +1503,70 @@ export default function LessonPlayer({ user, onLogout }) {
                 </aside>
               )}
             </div>
-          </div>
-        </main>
+        </div>
+      </main>
 
-        <div className={`fixed bottom-6 right-6 z-40 hidden flex-col md:flex ${isQuickMenuCollapsed ? 'w-[72px]' : 'w-[320px]'}`}>
+      <Dialog open={Boolean(certificateCelebration)} onOpenChange={closeCelebrationModal}>
+        <DialogContent className="bg-[#050914] border border-emerald-500/30 text-white shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl font-bold text-emerald-300">
+              <PartyPopper className="text-yellow-300" />
+              {t('lesson.certificateModalTitle', 'Parabéns!')}
+            </DialogTitle>
+            <DialogDescription className="text-gray-200 text-base">
+              {t(
+                'lesson.certificateModalSubtitle',
+                'Você concluiu o curso {{course}}. Que tal gerar seu certificado oficial agora?',
+                { course: certificateCelebration?.courseTitle || '' }
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-gray-200">
+              {certificateSuccess
+                ? t(
+                    'lesson.certificateModalSuccess',
+                    'Certificado emitido com sucesso! Acesse sua área de certificados para baixar e compartilhar.'
+                  )
+                : t(
+                    'lesson.certificateModalHint',
+                    'Nossos modelos já estão configurados com o visual oficial do curso. Clique abaixo para gerar seu PDF.'
+                  )}
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {!certificateCelebration?.issued ? (
+                <Button
+                  onClick={handleIssueCertificateNow}
+                  disabled={isIssuingCertificate}
+                  className="bg-emerald-600 hover:bg-emerald-500 flex-1"
+                >
+                  {isIssuingCertificate ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Award className="mr-2 h-4 w-4" />
+                  )}
+                  {t('lesson.certificateModalAction', 'Gerar certificado')}
+                </Button>
+              ) : (
+                <Button asChild className="bg-emerald-600 hover:bg-emerald-500 flex-1">
+                  <a href="/certificates">
+                    {t('lesson.certificateModalGoToCertificates', 'Ver meus certificados')}
+                  </a>
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={closeCelebrationModal}
+                className="border-white/20 text-white hover:bg-white/10 flex-1"
+              >
+                {t('common.close', 'Fechar')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div className={`fixed bottom-6 right-6 z-40 hidden flex-col md:flex ${isQuickMenuCollapsed ? 'w-[72px]' : 'w-[320px]'}`}>
           <div className={`glass-panel flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-xl ${isQuickMenuCollapsed ? 'items-center p-3' : 'p-4'}`}>
             <div className={`flex w-full items-center ${isQuickMenuCollapsed ? 'justify-center' : 'justify-between'}`}>
               {!isQuickMenuCollapsed && (
