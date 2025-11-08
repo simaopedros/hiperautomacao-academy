@@ -2,49 +2,56 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import Backend from 'i18next-http-backend';
+import {
+  LANGUAGE_OPTIONS,
+  normalizeLanguageCode,
+  getLocaleFromCode
+} from '../utils/languages';
 
 // Importar traduções locais como fallback
 import ptBR from './locales/pt-BR.json';
 import enUS from './locales/en-US.json';
 import esES from './locales/es-ES.json';
+import frFR from './locales/fr-FR.json';
 
-const supportedLanguages = ['pt-BR', 'en-US', 'es-ES'];
-const fallbackLanguage = 'pt-BR';
+const fallbackLanguage = getLocaleFromCode('pt') || 'pt-BR';
+const supportedLanguages = LANGUAGE_OPTIONS.map((option) => option.locale);
+const localeLookup = new Map(
+  supportedLanguages.map((locale) => [locale.toLowerCase(), locale])
+);
+
+const localeResources = {
+  'pt-BR': ptBR,
+  'en-US': enUS,
+  'es-ES': esES,
+  'fr-FR': frFR
+};
 
 const normalizeLanguage = (lng) => {
   if (!lng) {
     return fallbackLanguage;
   }
 
+  const normalizedCode = normalizeLanguageCode(lng);
+  const localeFromCode = getLocaleFromCode(normalizedCode);
+  if (localeFromCode) {
+    return localeFromCode;
+  }
+
   const lower = lng.toLowerCase();
-
-  if (lower === 'pt' || lower.startsWith('pt-')) {
-    return 'pt-BR';
+  if (localeLookup.has(lower)) {
+    return localeLookup.get(lower);
   }
 
-  if (lower === 'en' || lower.startsWith('en-')) {
-    return 'en-US';
-  }
-
-  if (lower === 'es' || lower.startsWith('es-')) {
-    return 'es-ES';
-  }
-
-  const exact = supportedLanguages.find((lang) => lang.toLowerCase() === lower);
-  return exact || fallbackLanguage;
+  return fallbackLanguage;
 };
 
-const resources = {
-  'pt-BR': {
-    translation: ptBR
-  },
-  'en-US': {
-    translation: enUS
-  },
-  'es-ES': {
-    translation: esES
-  }
-};
+const resources = supportedLanguages.reduce((acc, locale) => {
+  acc[locale] = {
+    translation: localeResources[locale] || enUS
+  };
+  return acc;
+}, {});
 
 const detectionOptions = {
   order: ['localStorage', 'navigator', 'htmlTag'],

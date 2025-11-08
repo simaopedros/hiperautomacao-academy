@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Database, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
@@ -25,8 +25,8 @@ export default function ReplicationSettings({ user, onLogout }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const token = localStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
+  const token = useMemo(() => localStorage.getItem('token'), []);
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -47,9 +47,21 @@ export default function ReplicationSettings({ user, onLogout }) {
   }, [headers]);
 
   const fetchSavedConfig = useCallback(async () => {
-    // Status endpoint informa se está configurado; mantemos o form independente
+    try {
+      const res = await axios.get(`${API}/admin/replication/config`, { headers });
+      const data = res.data || {};
+      setForm({
+        mongo_url: data.mongo_url || '',
+        db_name: data.db_name || '',
+        username: data.username || '',
+        password: data.password || '',
+        replication_enabled: !!data.replication_enabled,
+      });
+    } catch (err) {
+      console.error('Erro ao obter configuração da replicação:', err);
+    }
     await fetchStatus();
-  }, [fetchStatus]);
+  }, [headers, fetchStatus]);
 
   useEffect(() => {
     (async () => {
@@ -57,6 +69,17 @@ export default function ReplicationSettings({ user, onLogout }) {
       setLoading(false);
     })();
   }, [fetchSavedConfig, fetchLogs]);
+
+  useEffect(() => {
+    if (!status?.replication_enabled) {
+      return;
+    }
+    const interval = setInterval(() => {
+      fetchStatus();
+      fetchLogs();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [status?.replication_enabled, fetchStatus, fetchLogs]);
 
   const updateField = (e) => {
     const { name, value, type, checked } = e.target;
@@ -83,7 +106,7 @@ export default function ReplicationSettings({ user, onLogout }) {
         form,
         { headers: { ...headers, 'Content-Type': 'application/json' } }
       );
-      await fetchStatus();
+      await fetchSavedConfig();
       alert(res.data?.message || 'Configuração salva');
     } catch (err) {
       alert(err.response?.data?.detail || 'Erro ao salvar configuração');

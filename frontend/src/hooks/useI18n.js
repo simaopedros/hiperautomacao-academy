@@ -2,6 +2,14 @@ import { useTranslation } from 'react-i18next';
 import { useCallback } from 'react';
 import { LANGUAGE_OPTIONS } from '../utils/languages';
 
+const DEFAULT_LOCALE = 'pt-BR';
+const DEFAULT_CURRENCY_BY_LOCALE = {
+  'pt-BR': 'BRL',
+  'en-US': 'USD',
+  'es-ES': 'EUR',
+  'fr-FR': 'EUR'
+};
+
 /**
  * Hook personalizado para internacionalização
  * Fornece funcionalidades adicionais além do useTranslation padrão
@@ -26,7 +34,7 @@ export const useI18n = () => {
 
   // Função para obter idioma atual
   const getCurrentLanguage = useCallback(() => {
-    return i18n.language || 'pt-BR';
+    return i18n.language || DEFAULT_LOCALE;
   }, [i18n.language]);
 
   // Função para verificar se um idioma está disponível
@@ -73,49 +81,25 @@ export const useI18n = () => {
 
   // Função para formatar números baseado no idioma
   const formatNumber = useCallback((number, options = {}) => {
-    const currentLang = getCurrentLanguage();
-    let locale = 'pt-BR';
-    
-    if (currentLang === 'en-US') {
-      locale = 'en-US';
-    } else if (currentLang === 'es-ES') {
-      locale = 'es-ES';
-    }
-    
+    const locale = getCurrentLanguage() || DEFAULT_LOCALE;
     return new Intl.NumberFormat(locale, options).format(number);
   }, [getCurrentLanguage]);
 
   // Função para formatar datas baseado no idioma
   const formatDate = useCallback((date, options = {}) => {
-    const currentLang = getCurrentLanguage();
-    let locale = 'pt-BR';
-    
-    if (currentLang === 'en-US') {
-      locale = 'en-US';
-    } else if (currentLang === 'es-ES') {
-      locale = 'es-ES';
-    }
-    
+    const locale = getCurrentLanguage() || DEFAULT_LOCALE;
     return new Intl.DateTimeFormat(locale, options).format(new Date(date));
   }, [getCurrentLanguage]);
 
   // Função para formatar moeda baseado no idioma
-  const formatCurrency = useCallback((amount, currency = 'BRL') => {
-    const currentLang = getCurrentLanguage();
-    let locale = 'pt-BR';
-    let currencyCode = 'BRL';
-    
-    if (currentLang === 'en-US') {
-      locale = 'en-US';
-      currencyCode = 'USD';
-    } else if (currentLang === 'es-ES') {
-      locale = 'es-ES';
-      currencyCode = 'EUR';
-    }
-    
+  const formatCurrency = useCallback((amount, currency) => {
+    const locale = getCurrentLanguage() || DEFAULT_LOCALE;
+    const currencyCode =
+      currency || DEFAULT_CURRENCY_BY_LOCALE[locale] || DEFAULT_CURRENCY_BY_LOCALE[DEFAULT_LOCALE];
+
     return new Intl.NumberFormat(locale, {
       style: 'currency',
-      currency: currency || currencyCode
+      currency: currencyCode
     }).format(amount);
   }, [getCurrentLanguage]);
 

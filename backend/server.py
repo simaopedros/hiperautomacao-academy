@@ -94,6 +94,7 @@ _SUPPORTED_LANGUAGES_RAW: Dict[str, Dict[str, Any]] = {
     "pt": {
         "label": "Português (Brasil)",
         "interface_locale": "pt-BR",
+        "course_locales": ["pt", "pt-BR"],
         "aliases": [
             "pt",
             "pt-br",
@@ -112,6 +113,7 @@ _SUPPORTED_LANGUAGES_RAW: Dict[str, Dict[str, Any]] = {
     "en": {
         "label": "English (US)",
         "interface_locale": "en-US",
+        "course_locales": ["en", "en-US"],
         "aliases": [
             "en",
             "en-us",
@@ -128,6 +130,7 @@ _SUPPORTED_LANGUAGES_RAW: Dict[str, Dict[str, Any]] = {
     "es": {
         "label": "Español",
         "interface_locale": "es-ES",
+        "course_locales": ["es", "es-ES"],
         "aliases": [
             "es",
             "es-es",
@@ -139,6 +142,22 @@ _SUPPORTED_LANGUAGES_RAW: Dict[str, Dict[str, Any]] = {
             "castellano",
         ],
         "prefixes": ["es", "esp", "span", "castel", "cast"],
+    },
+    "fr": {
+        "label": "Français",
+        "interface_locale": "fr-FR",
+        "course_locales": ["fr", "fr-FR"],
+        "aliases": [
+            "fr",
+            "fr-fr",
+            "fr_fr",
+            "french",
+            "frances",
+            "francês",
+            "francais",
+            "français",
+        ],
+        "prefixes": ["fr", "fre", "fra"],
     },
 }
 
@@ -157,10 +176,11 @@ for base_code, data in _SUPPORTED_LANGUAGES_RAW.items():
         "interface_locale": data.get("interface_locale"),
         "aliases": {alias for alias in aliases if alias},
         "prefixes": prefixes if prefixes else (base_code,),
+        "course_locales": tuple(data.get("course_locales", [])),
     }
 
 DEFAULT_LANGUAGE_ORDER: List[str] = [
-    code for code in ("pt", "es", "en") if code in SUPPORTED_LANGUAGES
+    code for code in ("pt", "es", "en", "fr") if code in SUPPORTED_LANGUAGES
 ]
 DEFAULT_INTERFACE_LOCALE = {
     code: info.get("interface_locale")
@@ -1308,12 +1328,17 @@ def _language_variants(base_code: Optional[str]) -> List[str]:
     """
     if not base_code:
         return []
-    variants_map = {
-        "pt": ["pt", "pt-BR"],
-        "en": ["en", "en-US"],
-        "es": ["es", "es-ES"],
-    }
-    return variants_map.get(base_code, [base_code])
+    info = SUPPORTED_LANGUAGES.get(base_code)
+    if not info:
+        return [base_code]
+    variants = {base_code}
+    interface_locale = info.get("interface_locale")
+    if interface_locale:
+        variants.add(interface_locale)
+    for variant in info.get("course_locales", []):
+        if variant:
+            variants.add(variant)
+    return list(variants)
 
 
 def _default_locale_for(base_code: Optional[str]) -> Optional[str]:
@@ -7596,6 +7621,19 @@ async def get_replication_status(current_user: User = Depends(get_current_admin)
             "errors": replication_manager.stats.total_errors,
             "last_error": replication_manager.stats.last_error,
         },
+    }
+
+
+@api_router.get("/admin/replication/config")
+async def get_replication_config(current_user: User = Depends(get_current_admin)):
+    cfg = load_config()
+    # Normalize null values so the frontend form can be populated safely
+    return {
+        "mongo_url": cfg.get("mongo_url") or "",
+        "db_name": cfg.get("db_name") or "",
+        "username": cfg.get("username") or "",
+        "password": cfg.get("password") or "",
+        "replication_enabled": bool(cfg.get("replication_enabled", False)),
     }
 
 

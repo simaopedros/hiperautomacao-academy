@@ -32,7 +32,7 @@ import WebhookMonitor from '@/pages/WebhookMonitor';
 import VersionBadge from '@/components/VersionBadge';
 import AnalyticsTracker from '@/components/AnalyticsTracker';
 import { useI18n } from '@/hooks/useI18n';
-import { getLocaleFromCode, normalizeLanguageCode } from '@/utils/languages';
+import { getLocaleFromCode, normalizeLanguageCode, LANGUAGE_OPTIONS } from '@/utils/languages';
 
 function App() {
   const { t } = useTranslation();
@@ -45,6 +45,10 @@ function App() {
   const [loading] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [dismissTrigger, setDismissTrigger] = useState(0);
+  const supportedLocales = useMemo(
+    () => new Set(LANGUAGE_OPTIONS.map((option) => option.locale)),
+    []
+  );
 
   // Verificar se usuário precisa selecionar idioma (apenas para estudantes)
   const needsLanguageSelection = user && !user.preferred_language && user.role !== 'admin';
@@ -111,7 +115,6 @@ function App() {
     if (!isReady) return;
 
     // Priorizar o locale persistido pelo i18next (localStorage) para evitar reversões indesejadas
-    const supportedLocales = new Set(['pt-BR', 'en-US', 'es-ES']);
     const storedLocale = localStorage.getItem('i18nextLng');
     const resolvedStoredLocale = supportedLocales.has(storedLocale) ? storedLocale : null;
 
@@ -131,7 +134,8 @@ function App() {
     user?.preferred_locale,
     changeLanguage,
     getCurrentLanguage,
-    isReady
+    isReady,
+    supportedLocales
   ]);
 
   if (loading) {

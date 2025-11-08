@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useI18n } from '../hooks/useI18n';
-import { normalizeLanguageCode, getLocaleFromCode } from '../utils/languages';
+import { normalizeLanguageCode, getLocaleFromCode, LANGUAGE_OPTIONS } from '../utils/languages';
 import UnifiedHeader from '../components/UnifiedHeader';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -663,10 +663,13 @@ export default function ProfileSettings({ user, onLogout, updateUser }) {
                       <SelectTrigger className="w-full bg-white/5 border border-white/10 text-white rounded-xl p-4 focus:ring-2 focus:ring-emerald-400/20 focus:border-emerald-400/50 hover:border-emerald-400/30 transition-all duration-300">
                         <SelectValue placeholder={t('profile.languagePlaceholder', 'Selecione o idioma')} />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#050b16] border border-white/10 text-white rounded-2xl shadow-2xl">
-                        <SelectItem value="pt-BR">🇧🇷 Português (Brasil)</SelectItem>
-                        <SelectItem value="en-US">🇺🇸 English (US)</SelectItem>
-                        <SelectItem value="es-ES">🇪🇸 Español (España)</SelectItem>
+                      <SelectContent className="bg-[#050b16] border border-white/10 text-white rounded-2xl shadow-2xl max-h-80 overflow-y-auto">
+                        {LANGUAGE_OPTIONS.map((option) => (
+                          <SelectItem key={option.code} value={option.locale}>
+                            <span className="mr-2">{option.flag}</span>
+                            {option.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <p className="text-sm text-gray-400">

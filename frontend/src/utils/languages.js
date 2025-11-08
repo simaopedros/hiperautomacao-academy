@@ -1,4 +1,4 @@
-const BASE_LANGUAGE_ORDER = ['pt', 'es', 'en'];
+const BASE_LANGUAGE_ORDER = ['pt', 'es', 'en', 'fr'];
 
 const RAW_LANGUAGE_OPTIONS = [
   {
@@ -58,6 +58,24 @@ const RAW_LANGUAGE_OPTIONS = [
       'us'
     ],
     prefixes: ['en', 'eng', 'ing']
+  },
+  {
+    code: 'fr',
+    locale: 'fr-FR',
+    label: 'Français',
+    description: 'Cours en français',
+    flag: '🇫🇷',
+    aliases: [
+      'fr',
+      'fr-fr',
+      'fr_fr',
+      'french',
+      'frances',
+      'francês',
+      'francais',
+      'français'
+    ],
+    prefixes: ['fr', 'fre', 'fra']
   }
 ];
 
