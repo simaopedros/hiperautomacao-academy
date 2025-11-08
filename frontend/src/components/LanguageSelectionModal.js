@@ -1,21 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { normalizeLanguageCode, getLocaleFromCode } from '@/utils/languages';
+import {
+  normalizeLanguageCode,
+  getLocaleFromCode,
+  LANGUAGE_OPTIONS
+} from '@/utils/languages';
+
+const FALLBACK_LOCALE = getLocaleFromCode('pt') || 'pt-BR';
+
+const resolveInitialLocale = (locale, supported) => {
+  if (locale && supported.has(locale)) {
+    return locale;
+  }
+  const normalized = normalizeLanguageCode(locale);
+  const fromCode = getLocaleFromCode(normalized);
+  if (fromCode && supported.has(fromCode)) {
+    return fromCode;
+  }
+  return FALLBACK_LOCALE;
+};
 
 const LanguageSelectionModal = ({ isOpen, onClose, onLanguageSelect, currentLanguage }) => {
   const { t, i18n } = useTranslation();
-  const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage || 'pt-BR');
+  const supportedLocales = useMemo(
+    () => new Set(LANGUAGE_OPTIONS.map((option) => option.locale)),
+    []
+  );
+  const [selectedLanguage, setSelectedLanguage] = useState(() =>
+    resolveInitialLocale(currentLanguage, supportedLocales)
+  );
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setSelectedLanguage(resolveInitialLocale(currentLanguage, supportedLocales));
+  }, [currentLanguage, supportedLocales]);
 
   // Configuração da URL da API
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
-
-  const languages = [
-    { code: 'pt-BR', name: t('languageSelection.portuguese'), flag: '🇧🇷' },
-    { code: 'en-US', name: t('languageSelection.english'), flag: '🇺🇸' },
-    { code: 'es-ES', name: t('languageSelection.spanish'), flag: '🇪🇸' }
-  ];
 
   const handleLanguageSelect = async () => {
     setIsLoading(true);
@@ -85,12 +107,12 @@ const LanguageSelectionModal = ({ isOpen, onClose, onLanguageSelect, currentLang
           </p>
         </div>
 
-        <div className="space-y-3 mb-6">
-          {languages.map((language) => (
+        <div className="space-y-3 mb-6 max-h-80 overflow-y-auto pr-2">
+          {LANGUAGE_OPTIONS.map((language) => (
             <label
-              key={language.code}
+              key={language.locale}
               className={`flex items-center p-4 border rounded-lg cursor-pointer transition-all ${
-                selectedLanguage === language.code
+                selectedLanguage === language.locale
                   ? 'border-emerald-500 bg-emerald-500/10'
                   : 'border-gray-600 hover:border-emerald-500/50'
               }`}
@@ -98,13 +120,13 @@ const LanguageSelectionModal = ({ isOpen, onClose, onLanguageSelect, currentLang
               <input
                 type="radio"
                 name="language"
-                value={language.code}
-                checked={selectedLanguage === language.code}
+                value={language.locale}
+                checked={selectedLanguage === language.locale}
                 onChange={(e) => setSelectedLanguage(e.target.value)}
                 className="sr-only"
               />
               <span className="text-2xl mr-3">{language.flag}</span>
-              <span className="text-white font-medium">{language.name}</span>
+              <span className="text-white font-medium">{language.label}</span>
             </label>
           ))}
         </div>

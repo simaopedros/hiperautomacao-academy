@@ -1,0 +1,985 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "save": "Sauvegarder",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "create": "Créer",
+    "update": "Mise à jour",
+    "search": "Recherche",
+    "filter": "Filtre",
+    "clear": "Clear",
+    "close": "Fermer",
+    "open": "Ouvrir",
+    "yes": "Oui",
+    "no": "Non",
+    "back": "Dos",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Soumettre",
+    "reset": "Réinitialiser",
+    "language": "Langue",
+    "selectLanguage": "Sélectionnez la langue",
+    "returningToDashboard": "Retour au tableau de bord...",
+    "checkingPaymentStatus": "Vérification de l'état du paiement...",
+    "add": "Ajouter",
+    "download": "Télécharger",
+    "info": "Informations",
+    "select": "Sélectionner",
+    "upload": "Télécharger",
+    "view": "Voir",
+    "warning": "Avertissement"
+  },
+  "auth": {
+    "login": "Se connecter",
+    "register": "S'inscrire",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "emailPlaceholder": "votre@email.com",
+    "passwordPlaceholder": "********",
+    "accessPlatform": "Accédez à votre plateforme",
+    "forgotPassword": {
+      "title": "Récupérer le mot de passe",
+      "subtitle": "Entrez votre email et nous vous enverrons des instructions sécurisées pour réinitialiser votre mot de passe",
+      "link": "Mot de passe oublié ?",
+      "emailSent": "E-mail envoyé",
+      "emailSentMessage": "Si l'e-mail {{email}} est enregistré, vous recevrez des instructions pour réinitialiser votre mot de passe.",
+      "checkInbox": "Vérifiez votre boîte de réception, vos spams ou votre dossier de promotions.",
+      "sendInstructions": "Envoyer les instructions"
+    }
+  },
+  "navigation": {
+    "dashboard": "Tableau de bord",
+    "courses": "Cours",
+    "students": "Students",
+    "categories": "Catégories",
+    "finance": "Finance",
+    "settings": "Paramètres",
+    "profile": "Profil",
+    "help": "Aide",
+    "support": "Soutien",
+    "socialFeed": "Flux social",
+    "subscriptions": "Abonnements",
+    "payments": "Paiements",
+    "gamification": "Gamification"
+  },
+  "dashboard": {
+    "welcome": "Welcome",
+    "overview": "Aperçu",
+    "statistics": "Statistiques",
+    "recentActivity": "Activité récente",
+    "quickActions": "Actions rapides",
+    "totalStudents": "Nombre total d'étudiants",
+    "totalCourses": "Cours totaux",
+    "totalRevenue": "Revenu total",
+    "activeSubscriptions": "Abonnements actifs",
+    "myCourses": "Mes cours",
+    "social": "Social",
+    "library": "Bibliothèque",
+    "subscription": "Abonnement",
+    "hideOverview": "Masquer l'aperçu",
+    "showOverview": "Afficher l'aperçu",
+    "languageSettings": "Paramètres de langue",
+    "logout": "Déconnexion",
+    "continue": "Continuer",
+    "continueDescription": "Reprenez là où vous vous étiez arrêté",
+    "quickAccessLastLessons": "Accès rapide à vos dernières leçons et progrès d’apprentissage.",
+    "loadingLastLessons": "Chargement de vos dernières leçons...",
+    "noCourseStarted": "Vous n'avez encore commencé aucun cours.Commencez-en un pour qu'il apparaisse ici.",
+    "continueLesson": "Continuer la leçon",
+    "watchNow": "Regardez maintenant",
+    "yourJourney": "Votre voyage",
+    "journeyDescription": "Continuez à évoluer avec de nouveaux cours et des défis pratiques.",
+    "journeySubDescription": "Accédez au contenu mis à jour, participez à la communauté et profitez d'expériences premium.",
+    "activeCourses": "Cours actifs",
+    "waitingForYou": "Dans votre attente",
+    "catalog": "Catalogue",
+    "newCoursesMonthly": "De nouveaux cours arrivent chaque mois",
+    "shortcuts": "Raccourcis",
+    "community": "Communauté",
+    "profileSettings": "Paramètres du profil",
+    "overviewHidden": "Aperçu masqué",
+    "informationHidden": "Informations cachées",
+    "showOverviewDescription": "Affichez vos indicateurs et raccourcis pour suivre les cours actifs et un accès rapide.",
+    "availableCourses": "Cours disponibles",
+    "availableCoursesDescription": "Explorez le contenu et utilisez les méthodes de paiement intégrées pour débloquer de nouvelles voies.",
+    "allCategories": "All",
+    "filterByCategory": "Filtrer par catégorie",
+    "categoriesAvailable": "catégories disponibles",
+    "coursesWithoutCategories": "Certains cours n'ont pas de catégories définies",
+    "loadingCourses": "Chargement des cours...",
+    "noCoursesAvailable": "Aucun cours disponible pour le moment",
+    "noCoursesInLanguage": "Aucun cours n'est encore disponible dans cette langue.",
+    "viewAllCoursesHint": "Vous pouvez parcourir tous les cours sur la plateforme ci-dessous.",
+    "viewAllCoursesButton": "Voir tous les cours",
+    "viewMyLanguageButton": "Retourner à ma langue",
+    "viewingAllCourses": "Vous consultez tous les cours disponibles, quelle que soit la langue.",
+    "noCategory": "Aucune catégorie",
+    "courses": "cours",
+    "enrolled": "Enrolled",
+    "access": "Accéder",
+    "buy": "Acheter",
+    "selectLanguageDescription": "Sélectionnez votre langue préférée pour filtrer les cours disponibles :",
+    "allLanguages": "Toutes les langues",
+    "allLanguagesDescription": "Voir les cours dans n'importe quelle langue",
+    "portuguese": "portugais",
+    "portugueseCourses": "Cours en portugais",
+    "englishCourses": "Cours en anglais",
+    "spanishCourses": "Cours en espagnol",
+    "updatingLanguage": "Mise à jour de la langue...",
+    "nextAction": "Action suivante",
+    "all": "All",
+    "inProgress": "En cours",
+    "completed": "Complété",
+    "favorites": "Favoris"
+  },
+  "courses": {
+    "title": "Cours",
+    "createCourse": "Créer un cours",
+    "editCourse": "Modifier le cours",
+    "deleteCourse": "Supprimer un cours",
+    "courseName": "Nom du cours",
+    "courseDescription": "Description du cours",
+    "courseCategory": "Catégorie de cours",
+    "coursePrice": "Prix ​​du cours",
+    "courseDuration": "Durée du cours",
+    "courseLevel": "Niveau du cours",
+    "courseStatus": "Statut du cours",
+    "published": "Publié",
+    "draft": "Brouillon",
+    "archived": "Archivé",
+    "lessons": "Leçons",
+    "addLesson": "Ajouter une leçon",
+    "lessonTitle": "Titre de la leçon",
+    "lessonContent": "Contenu de la leçon",
+    "lessonVideo": "Vidéo de la leçon",
+    "lessonDuration": "Durée de la leçon"
+  },
+  "students": {
+    "title": "Students",
+    "addStudent": "Ajouter un étudiant",
+    "editStudent": "Modifier l'élève",
+    "deleteStudent": "Supprimer un élève",
+    "studentName": "Nom de l'étudiant",
+    "studentEmail": "Courriel de l'étudiant",
+    "studentPhone": "Téléphone étudiant",
+    "enrollmentDate": "Date d'inscription",
+    "lastAccess": "Dernier accès",
+    "coursesEnrolled": "Cours inscrits",
+    "progress": "Progrès",
+    "status": "Statut",
+    "active": "Active",
+    "inactive": "Inactive",
+    "suspended": "Suspended"
+  },
+  "categories": {
+    "title": "Catégories",
+    "createCategory": "Créer une catégorie",
+    "editCategory": "Modifier la catégorie",
+    "deleteCategory": "Supprimer la catégorie",
+    "categoryName": "Nom de la catégorie",
+    "categoryDescription": "Description de la catégorie",
+    "categoryColor": "Catégorie Couleur",
+    "categoryIcon": "Icône de catégorie",
+    "coursesCount": "Nombre de cours"
+  },
+  "finance": {
+    "title": "Finance",
+    "revenue": "Revenu",
+    "expenses": "Dépenses",
+    "profit": "Profit",
+    "transactions": "Transactions",
+    "reports": "Rapports",
+    "monthlyRevenue": "Revenu mensuel",
+    "yearlyRevenue": "Revenu annuel",
+    "paymentMethods": "Méthodes de paiement",
+    "subscriptionPlans": "Plans d'abonnement"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "general": "General",
+    "security": "Sécurité",
+    "notifications": "Notifications",
+    "integrations": "Intégrations",
+    "appearance": "Apparence",
+    "language": "Langue",
+    "timezone": "Fuseau horaire",
+    "currency": "Devise",
+    "theme": "Thème",
+    "lightMode": "Mode lumière",
+    "darkMode": "Mode sombre",
+    "systemMode": "Mode système"
+  },
+  "profile": {
+    "header": {
+      "title": "Paramètres du profil",
+      "subtitle": "Gérer vos informations personnelles et vos préférences de compte"
+    },
+    "role": {
+      "admin": "Administrator",
+      "student": "Student"
+    },
+    "tabs": {
+      "profile": "Profil",
+      "security": "Sécurité",
+      "subscription": "Abonnements",
+      "preferences": "Préférences",
+      "account": "Compte"
+    },
+    "personal": {
+      "title": "Informations personnelles",
+      "subtitle": "Mettez à jour vos informations de base et vos préférences linguistiques"
+    },
+    "fields": {
+      "name": "Nom et prénom",
+      "namePlaceholder": "Votre nom complet",
+      "email": "E-mail",
+      "emailPlaceholder": "votre@email.com"
+    },
+    "avatar": {
+      "title": "Photo de profil",
+      "description": "Téléchargez une image carrée d'au moins 300 x 300 px.Formats pris en charge : JPG ou PNG jusqu'à 5 Mo.",
+      "actions": {
+        "choose": "Choisir une image",
+        "upload": "Enregistrer la photo",
+        "uploading": "Économie..."
+      },
+      "selected": "Image sélectionnée : {{name}}",
+      "previewAlt": "Photo de profil actuelle",
+      "errors": {
+        "maxSize": "L'image doit faire au maximum 5 Mo.",
+        "invalidType": "Veuillez télécharger une image JPG ou PNG.",
+        "noFile": "Sélectionnez une image avant de l'enregistrer."
+      },
+      "uploadSuccess": "Photo de profil mise à jour avec succès !",
+      "uploadError": "Nous n'avons pas pu mettre à jour votre photo de profil."
+    },
+    "preferredLanguage": "Langue préférée",
+    "languageDescription": "Sélectionnez la langue de l'interface système",
+    "actions": {
+      "saveLoading": "Économie...",
+      "save": "Enregistrer les modifications"
+    },
+    "security": {
+      "title": "Sécurité du compte",
+      "subtitle": "Protégez votre compte en changeant régulièrement votre mot de passe",
+      "currentPassword": "Mot de passe actuel",
+      "currentPasswordPlaceholder": "Entrez votre mot de passe actuel",
+      "newPassword": "Nouveau mot de passe",
+      "newPasswordPlaceholder": "Entrez le nouveau mot de passe",
+      "confirmPassword": "Confirmer le nouveau mot de passe",
+      "confirmPasswordPlaceholder": "Confirmez le nouveau mot de passe",
+      "tipsTitle": "Conseils pour un mot de passe fort :",
+      "tip1": "• Utilisez au moins 8 caractères",
+      "tip2": "• Mélangez les lettres majuscules et minuscules",
+      "tip3": "• Inclure des chiffres et des symboles spéciaux",
+      "tip4": "• Évitez les informations personnelles évidentes",
+      "actions": {
+        "saveLoading": "Changement...",
+        "save": "Changer le mot de passe"
+      }
+    },
+    "subscription": {
+      "status": {
+        "title": "Statut de l'abonnement",
+        "subtitle": "Informations sur votre abonnement actuel",
+        "fullAccessActive": "Accès complet actif",
+        "limitedAccess": "Accès limité",
+        "validUntil": "Valable jusqu'au :",
+        "plan": "Plan:",
+        "activeBadge": "Active",
+        "limitedBadge": "Limited",
+        "loading": "Chargement des informations d'abonnement...",
+        "statusTag": {
+          "ativa": "Abonnement actif",
+          "inativa": "Abonnement inactif",
+          "ativa_ate_final_do_periodo": "Actif jusqu'à la fin de la période",
+          "ativa_com_renovacao_automatica": "Actif avec renouvellement automatique",
+          "cancelada": "Abonnement annulé",
+          "expirada": "Abonnement expiré"
+        }
+      },
+      "plans": {
+        "title": "Forfaits disponibles",
+        "subtitle": "Choisissez le forfait qui correspond le mieux à vos besoins",
+        "recommended": "RECOMMENDED",
+        "accessForDays": "Accès pendant {{days}} jours",
+        "subscribeLoading": "Traitement...",
+        "subscribeCta": "Abonnez-vous maintenant",
+        "noneAvailable": "Aucun forfait disponible pour le moment"
+      }
+    },
+    "preferences": {
+      "title": "Notifications et préférences",
+      "subtitle": "Configurez comment et quand vous souhaitez recevoir des notifications",
+      "email": {
+        "title": "Notifications par courrier électronique",
+        "description": "Recevez des mises à jour importantes par e-mail"
+      },
+      "course": {
+        "title": "Rappels de cours",
+        "description": "Recevez des rappels sur les cours en cours"
+      },
+      "social": {
+        "title": "Notifications sociales",
+        "description": "Recevoir des notifications sur les activités de la communauté"
+      },
+      "marketing": {
+        "title": "E-mails marketing",
+        "description": "Recevez des nouvelles et des promotions spéciales"
+      },
+      "actions": {
+        "saveLoading": "Économie...",
+        "save": "Enregistrer les préférences"
+      }
+    },
+    "account": {
+      "title": "Paramètres du compte",
+      "subtitle": "Gérer les paramètres avancés de votre compte",
+      "dangerZone": {
+        "title": "Zone dangereuse",
+        "description": "Les actions ci-dessous sont irréversibles.Procédez avec prudence.",
+        "deleteLoading": "Suppression...",
+        "deleteCta": "Supprimer le compte définitivement"
+      },
+      "info": {
+        "title": "Informations sur le compte",
+        "memberSince": "Membre depuis :",
+        "lastLogin": "Dernière connexion :",
+        "accountId": "Identifiant du compte :"
+      }
+    },
+    "notifications": {
+      "social": {
+        "title": "Notifications sociales",
+        "description": "Recevoir des notifications sur les activités de la communauté"
+      }
+    }
+  },
+  "subscription": {
+    "title": "Abonnement",
+    "confirming": "Confirmation de votre abonnement...",
+    "plans": "Forfaits",
+    "currentPlan": "Forfait actuel",
+    "upgradePlan": "Plan de mise à niveau",
+    "cancelSubscription": "Annuler l'abonnement",
+    "renewSubscription": "Renouveler l'abonnement",
+    "billingHistory": "Historique de facturation",
+    "nextBilling": "Facturation suivante",
+    "paymentMethod": "Mode de paiement",
+    "updatePayment": "Mettre à jour le paiement"
+  },
+  "gamification": {
+    "title": "Gamification",
+    "points": "Points",
+    "badges": "Insignes",
+    "leaderboard": "Classement",
+    "achievements": "Réalisations",
+    "level": "Niveau",
+    "experience": "Expérience",
+    "rewards": "Récompenses",
+    "challenges": "Défis"
+  },
+  "social": {
+    "title": "Flux social",
+    "post": "Poste",
+    "comment": "Commentaire",
+    "like": "Comme",
+    "share": "Partager",
+    "follow": "Suivre",
+    "unfollow": "Ne plus suivre",
+    "followers": "Followers",
+    "following": "Following",
+    "posts": "Messages",
+    "activity": "Activité",
+    "feedTitle": "Flux communautaire",
+    "feedSubtitle": "Connectez-vous, apprenez et grandissez avec notre communauté",
+    "communityDescription": "Rejoignez les discussions, partagez vos connaissances et connectez-vous avec d'autres étudiants.",
+    "newDiscussion": "Nouvelle discussion",
+    "searchDiscussions": "Rechercher des discussions",
+    "searchPlaceholder": "Rechercher des sujets, des auteurs ou du contenu...",
+    "clearSearch": "Effacer la recherche",
+    "noResults": "Aucun résultat pour \"{{searchTerm}}\"",
+    "resultsFound": "{{count}} résultat{{count, plural, one {} other {s}}} trouvé",
+    "filters": "Filtres",
+    "filterAll": "All",
+    "filterDiscussions": "Discussions",
+    "filterLessons": "Leçons",
+    "sortBy": "Trier par",
+    "sortRecent": "Le plus récent",
+    "sortPopular": "Les plus populaires",
+    "sortOldest": "Le plus ancien",
+    "activeCommunity": "Communauté active",
+    "ongoingDiscussions": "Discussions en cours",
+    "postsCount": "messages",
+    "totalFiltered": "Total filtré",
+    "page": "Page",
+    "pageOf": "Page {{current}} sur {{total}}",
+    "loading": "Chargement des discussions",
+    "noDiscussionsFound": "Aucune discussion trouvée",
+    "noDiscussionsMessage": "Nous n'avons trouvé aucune discussion avec \"{{searchTerm}}\".Essayez d'autres termes de recherche.",
+    "beFirstMessage": "Soyez le premier à démarrer une conversation intéressante !",
+    "beFirstToStart": "Soyez le premier à démarrer une discussion !",
+    "createFirstDiscussion": "Créer une première discussion",
+    "interactionTypes": {
+      "newLesson": "Nouvelle leçon",
+      "lessonComment": "Commentaire de la leçon",
+      "discussion": "Discussion",
+      "reply": "Répondre",
+      "libraryResource": "Ressource de la bibliothèque"
+    },
+    "libraryPost": {
+      "defaultTitle": "Ressource communautaire",
+      "summaryFallback": "Consultez tous les détails de cette ressource directement dans la bibliothèque."
+    },
+    "timeAgo": {
+      "now": "tout à l' heure",
+      "minutesAgo": "il y a {{count}} minutes",
+      "hoursAgo": "Il y a {{count}}h",
+      "daysAgo": "Il y a {{count}}d"
+    },
+    "actions": {
+      "moreOptions": "Plus d'options pour cette discussion",
+      "likePost": "J'aime la discussion, {{count}} aime",
+      "replyPost": "Répondre à la discussion, {{count}} réponses",
+      "viewLesson": "Voir la leçon associée",
+      "viewResource": "Afficher la ressource dans la bibliothèque",
+      "sharePost": "Partager la discussion",
+      "bookmarkPost": "Ajouter une discussion aux favoris",
+      "accessLesson": "Accéder à la leçon"
+    },
+    "pagination": {
+      "previousPage": "Page précédente",
+      "nextPage": "Page suivante",
+      "goToPage": "Aller à la page {{page}}"
+    },
+    "createPost": {
+      "title": "Nouvelle discussion",
+      "description": "Formulaire pour créer une nouvelle discussion communautaire",
+      "placeholder": "Partagez vos idées, questions ou connaissances avec la communauté...",
+      "contentLabel": "Contenu des discussions",
+      "contentHelp": "Rédigez le contenu de votre discussion pour le partager avec la communauté",
+      "writeContentHelp": "Écrivez le contenu de votre discussion ici",
+      "shareIdeasPlaceholder": "Partagez vos idées, questions ou expériences...",
+      "cancel": "Annuler",
+      "publish": "Publier",
+      "cancelCreation": "Annuler la création de la discussion",
+      "publishDiscussion": "Publier une nouvelle discussion"
+    },
+    "postDetail": {
+      "title": "Discussion détaillée",
+      "replies": "Réponses",
+      "noReplies": "Aucune réponse pour l'instant.Soyez le premier !",
+      "replyPlaceholder": "Écrivez votre réponse...",
+      "writeReplyPlaceholder": "Tapez votre réponse ici...",
+      "reply": "Répondre"
+    },
+    "lessonPost": {
+      "newLessonAvailable": "Nouvelle leçon disponible",
+      "defaultTitle": "Nouvelle leçon disponible",
+      "defaultDescription": "Cliquez pour accéder au contenu de la leçon.",
+      "accessLesson": "Accéder à la leçon"
+    },
+    "errors": {
+      "enrollmentRequired": "Vous devez être inscrit à ce cours pour accéder à cette leçon",
+      "lessonNotFound": "Leçon introuvable",
+      "accessError": "Erreur lors de l'accès à la leçon.Veuillez réessayer."
+    },
+    "aria": {
+      "mainContent": "Contenu principal de la communauté",
+      "sidebar": "Barre latérale avec actions et filtres",
+      "createDiscussion": "Créer une nouvelle discussion communautaire",
+      "searchField": "Champ de recherche pour filtrer les discussions",
+      "filterDiscussions": "Filtrer les discussions par type",
+      "filterBy": "Filtrer par {{type}}",
+      "sortBy": "Trier par {{type}}",
+      "communityFeed": "Fil de discussion de la communauté",
+      "userAvatar": "Avatar de l'utilisateur {{name}}",
+      "interactionType": "Type d'interaction : {{type}}",
+      "discussionActions": "Actions de discussion"
+    }
+  },
+  "moderation": {
+    "title": "Modération de la communauté",
+    "description": "Gérer les discussions et les commentaires de la plateforme",
+    "stats": {
+      "totalPosts": "Total des messages",
+      "comments": "Commentaires",
+      "activeUsers": "Utilisateurs actifs",
+      "postsToday": "Messages aujourd'hui"
+    },
+    "search": {
+      "placeholder": "Recherche par contenu ou utilisateur..."
+    },
+    "filters": {
+      "all": "All",
+      "discussions": "Discussions",
+      "lessons": "Leçons"
+    },
+    "post": {
+      "discussion": "Discussion",
+      "lesson": "Leçon",
+      "replies": "réponses",
+      "likes": "goûts",
+      "viewDetails": "Afficher les détails",
+      "deletePost": "Supprimer le message",
+      "noPostsFound": "Aucun message trouvé"
+    },
+    "postDetail": {
+      "title": "Détails du message",
+      "replies": "Réponses",
+      "repliesTitle": "Réponses",
+      "noReplies": "Aucune réponse"
+    },
+    "confirmations": {
+      "deletePost": "Êtes-vous sûr de vouloir supprimer ce message et toutes ses réponses ?",
+      "deleteComment": "Êtes-vous sûr de vouloir supprimer ce commentaire ?"
+    },
+    "errors": {
+      "deletePost": "Erreur lors de la suppression du message",
+      "deleteComment": "Erreur lors de la suppression du commentaire",
+      "replyComment": "Erreur lors de l'envoi de la réponse"
+    },
+    "defaultUser": "User",
+    "adminReply": {
+      "title": "Répondre en tant qu'administrateur",
+      "placeholder": "Écrivez une réponse officielle à ce message...",
+      "send": "Répondre"
+    }
+  },
+  "messages": {
+    "success": {
+      "saved": "Enregistré avec succès !",
+      "deleted": "Supprimé avec succès !",
+      "updated": "Mis à jour avec succès !",
+      "created": "Créé avec succès !",
+      "sent": "Envoyé avec succès !"
+    },
+    "error": {
+      "general": "Une erreur inattendue s'est produite",
+      "network": "Erreur de connexion",
+      "notFound": "Pas trouvé",
+      "unauthorized": "Non autorisé",
+      "forbidden": "Accès refusé",
+      "validation": "Erreur de validation",
+      "requestProcessing": "Erreur de traitement de la demande"
+    },
+    "confirmation": {
+      "delete": "Êtes-vous sûr de vouloir supprimer ?",
+      "save": "Êtes-vous sûr de vouloir enregistrer ?",
+      "cancel": "Êtes-vous sûr de vouloir annuler ?"
+    }
+  },
+  "validation": {
+    "required": "Ce champ est obligatoire",
+    "email": "Entrez un email valide",
+    "minLength": "Doit contenir au moins {{count}} caractères",
+    "maxLength": "Doit contenir au maximum {{count}} caractères",
+    "numeric": "Doit être un nombre",
+    "positive": "Doit être un nombre positif",
+    "url": "Entrez une URL valide",
+    "phone": "Entrez un numéro de téléphone valide"
+  },
+  "languageSelection": {
+    "title": "Sélectionnez votre langue préférée",
+    "subtitle": "Choisissez la langue que vous souhaitez utiliser sur la plateforme",
+    "portuguese": "Portugais (Brésil)",
+    "english": "Anglais (États-Unis)",
+    "spanish": "Español (Espagne)",
+    "confirm": "Confirmer la sélection",
+    "skip": "Passer pour l'instant"
+  },
+  "languageNotice": {
+    "title": "Langue non définie",
+    "message": "Définissez votre langue préférée dans les paramètres de profil pour filtrer les cours dans votre langue.",
+    "cta": "Aller au profil",
+    "close": "Fermer l'avis"
+  },
+  "payment": {
+    "pending": "⏳ Paiement en attente.Cliquez sur « Vérifier le paiement » sur le tableau de bord pour confirmer.",
+    "verifyButton": "Utilisez le bouton « Vérifier le paiement » sur le tableau de bord pour confirmer.",
+    "success": "Paiement effectué avec succès !",
+    "cancelled": "Paiement annulé",
+    "error": "Erreur de paiement"
+  },
+  "course": {
+    "paymentError": "Erreur lors de la création du paiement",
+    "notFound": "Cours introuvable",
+    "backToCourses": "Retour aux cours",
+    "enrollmentRequired": "Ce cours nécessite une inscription",
+    "enrollmentDescription": "Pour accéder au contenu de ce cours, vous devez vous inscrire en effectuant un achat direct.",
+    "directPurchase": "Achat direct",
+    "buyCourse": "Acheter un cours",
+    "notAvailableForPurchase": "Ce cours n'est pas disponible à l'achat pour le moment.",
+    "courseContent": "Contenu du cours",
+    "noContentAvailable": "Ce cours n'a pas encore de contenu disponible.",
+    "module": "Module",
+    "upsell": {
+      "heading": "Abonnez-vous pour accéder",
+      "subtitle": "Débloquez ce cours et bien plus encore.",
+      "benefitsTitle": "Vous obtenez",
+      "benefit1": "Planifier des cours",
+      "benefit2": "Communauté",
+      "benefit3": "Progrès et certificat",
+      "benefit4": "Gamification & crédits",
+      "choosePlan": "Choisissez votre forfait",
+      "instantAccessNote": "Accès instantané, paiement sécurisé",
+      "loadingPlans": "Plans de chargement",
+      "noPlans": "Aucun forfait disponible",
+      "cta": "Abonnez-vous maintenant",
+      "viewPlans": "Voir les forfaits"
+    }
+  },
+  "library": {
+    "anonymousUser": "Créateur anonyme",
+    "fallbackCategory": "General",
+    "hero": {
+      "badge": "Centre de ressources",
+      "title": "Bibliothèque d'automatisations et de modèles prêts à l'emploi",
+      "subtitle": "Téléchargez des projets prêts pour la production, des modèles à fort impact et partagez vos propres créations pour responsabiliser l'ensemble de la communauté.",
+      "uploadCta": "Partagez votre projet",
+      "exploreCta": "Découvrez les temps forts",
+      "storage": "Stockage rapide",
+      "storageHint": "Fichiers protégés",
+      "bunnyDescription": "Toutes les ressources sont fournies via une infrastructure optimisée pour garantir des téléchargements sécurisés et rapides dans le monde entier avec la latence la plus faible possible.",
+      "communityCta": "Rejoignez la discussion"
+    },
+    "error": {
+      "loadFailed": "Nous n'avons pas pu charger la bibliothèque communautaire.",
+      "loadFailedHint": "Actualisez ou réessayez sous peu pour synchroniser avec les dernières ressources approuvées.",
+      "retry": "Essayer à nouveau"
+    },
+    "restricted": {
+      "onlySubscribers": "Seuls les abonnés actifs ou les membres à vie peuvent interagir avec la bibliothèque."
+    },
+    "stats": {
+      "totalDownloads": "Téléchargements",
+      "contributors": "Creators",
+      "communityItems": "Objets communautaires"
+    },
+    "filters": {
+      "title": "Filtres intelligents",
+      "subtitle": "Affinez l’expérience pour trouver la ressource idéale en quelques secondes.",
+      "highlightFeatured": "Prioriser les vedettes",
+      "clear": "Réinitialiser",
+      "searchPlaceholder": "Rechercher par titre, hashtag ou contributeur",
+      "category": "Catégorie",
+      "categoryAll": "Toutes les catégories",
+      "type": "Taper",
+      "typeAll": "Tous types",
+      "sort": "Trier par",
+      "sortRecent": "Le plus récent",
+      "sortPopular": "Les plus téléchargés",
+      "sortRating": "Mieux noté"
+    },
+    "types": {
+      "project": "Projet",
+      "template": "Modèle",
+      "snippet": "Fragment",
+      "documentation": "Documentation",
+      "other": "Autre"
+    },
+    "featured": {
+      "title": "Explorez la collection communautaire",
+      "results": "ressources",
+      "badge": "En vedette",
+      "viewDetails": "Afficher les détails"
+    },
+    "loading": "Chargement des ressources de la bibliothèque...",
+    "empty": {
+      "title": "Aucune ressource ne correspond à vos filtres",
+      "description": "Essayez d'ajuster les termes de recherche ou explorez toutes les catégories pour découvrir de nouvelles contributions de la communauté.",
+      "reset": "Afficher toutes les ressources"
+    },
+    "upload": {
+      "title": "Contribution communautaire",
+      "subtitle": "Partagez vos automatisations avec l'académie",
+      "description": "Téléchargez des ressources, des modèles et de la documentation prêts à l’emploi.Tout est stocké en toute sécurité et devient instantanément disponible pour tous les étudiants.",
+      "fastTrack": "Soumission en vedette",
+      "fields": {
+        "title": "Titre du projet",
+        "description": "Description avec prise en charge de Markdown",
+        "category": "Catégorie",
+        "type": "Type de ressource",
+        "tags": "Balises",
+        "demoUrl": "URL de démonstration ou de documentation",
+        "allowDownload": "Autoriser les collègues à télécharger ce fichier",
+        "projectFile": "Dossier de projet",
+        "cover": "Image de couverture ou vidéo de démonstration"
+      },
+      "placeholders": {
+        "title": "Ex : Pack d'automatisation pour l'intégration",
+        "description": "Expliquez ce qui est inclus, répertoriez les intégrations, partagez des informations...",
+        "category": "Ex : Automatisation, Conception, No-code",
+        "type": "Sélectionnez le type de ressource",
+        "tags": "Ex : zapier, make, crm",
+        "projectFile": "Choisissez le fichier à publier dans la bibliothèque",
+        "cover": "Ajoutez une image ou une courte vidéo pour présenter cette ressource"
+      },
+      "descriptionHint": "Prise en charge de Markdown : **gras**, _italic_, listes, liens et blocs de code.",
+      "fileHint": "ZIP, JSON, MP4, PDF jusqu'à 250 Mo.",
+      "actions": {
+        "selectFile": "Sélectionner un fichier",
+        "selectCover": "Ajouter une couverture",
+        "submit": "Publier la ressource",
+        "submitting": "Édition...",
+        "reset": "Formulaire clair",
+        "close": "Annuler la soumission",
+        "errorMessage": "Nous ne pouvons pas publier la ressource pour le moment.Veuillez réessayer dans un instant.",
+        "successPending": "Ressource soumise pour approbation !Notre équipe l’examinera sous peu."
+      },
+      "preview": {
+        "title": "Conseils pour l'aperçu du Markdown",
+        "description": "Organisez la description avec Markdown pour mettre en évidence les instructions et les exigences.",
+        "markdownTitle": "Pourquoi utiliser Markdown ?",
+        "markdownHint": "Mettez en surbrillance les étapes, référencez les intégrations et joignez des commandes rapides pour vos collègues.",
+        "example": {
+          "title": "## Démarrage rapide",
+          "list": "- Importer le JSON dans Zapier\n- Mettre à jour les clés API\n- Testez l'automatisation avec des données de démonstration"
+        }
+      }
+    },
+    "detail": {
+      "files": "Fichiers disponibles",
+      "download": "Télécharger",
+      "share": "Partager",
+      "copyLink": "Copier le lien de partage",
+      "openPreview": "Ouvrir l'aperçu",
+      "rate": "Évaluez cette ressource",
+      "rateValue": "Notez avec {{value}} étoile",
+      "ratingHint": "Vos commentaires mettent en évidence les expériences les plus précieuses pour la communauté.",
+      "publishedAt": "Publié le {{date}}",
+      "comments": "Commentaires",
+      "commentPlaceholder": "Partagez comment vous avez utilisé cette ressource ou donnez des conseils d'amélioration...",
+      "commentAction": "Envoyer le commentaire",
+      "commentSubmitting": "Envoi...",
+      "noComments": "Pas encore de commentaires.Soyez le premier à collaborer !"
+    },
+    "fallbackItems": {
+      "automations": {
+        "title": "Kit d'automatisation pour les flux de travail d'intégration",
+        "description": "Un ensemble complet avec des scénarios Make, des zaps Zapier recommandés et une base Airtable pour suivre les nouveaux clients.",
+        "comments": {
+          "ana": "Mis en œuvre en moins de 20 minutes et économisé des heures à mon équipe chaque semaine !"
+        }
+      },
+      "templates": {
+        "title": "Modèle de page de vente à conversion élevée",
+        "description": "Modèle de page de destination réactif avec des sections modulaires, des invites de copie axées sur la conversion et des blocs d'analyse.",
+        "comments": {
+          "carlos": "La structure des composants a rendu très simple l'adaptation pour un lancement SaaS."
+        }
+      }
+    }
+  },
+  "libraryModeration": {
+    "header": {
+      "badge": "Bibliothèque",
+      "title": "Modération et gestion de la bibliothèque",
+      "description": "Centralisez les approbations, les sélections en vedette et les commentaires pour les soumissions de la communauté.Gardez une trace de l'engagement, des téléchargements et de la réputation du créateur.",
+      "actions": {
+        "add": "Ajouter une ressource",
+        "refresh": "Actualiser les données",
+        "viewPublic": "Voir la bibliothèque publique"
+      }
+    },
+    "status": {
+      "pending": "En attente",
+      "underReview": "En cours de révision",
+      "approved": "Approved",
+      "published": "Publié",
+      "rejected": "Rejected",
+      "archived": "Archivé"
+    },
+    "filters": {
+      "title": "Filtres de modération",
+      "description": "Choisissez le statut, la catégorie et le type pour organiser la file d'attente de révision.",
+      "searchPlaceholder": "Recherchez par titre, auteur ou tag...",
+      "categoryPlaceholder": "Catégorie",
+      "categoryAll": "Toutes les catégories",
+      "typePlaceholder": "Type de ressource",
+      "typeAll": "Tous types",
+      "status": {
+        "all": "All",
+        "pending": "En attente",
+        "underReview": "En cours de révision",
+        "approved": "Approved",
+        "published": "Publié",
+        "rejected": "Rejected"
+      }
+    },
+    "stats": {
+      "pending": {
+        "title": "En attente",
+        "caption": "Ressources en attente d'examen"
+      },
+      "published": {
+        "title": "Publié",
+        "caption": "Disponible pour les étudiants"
+      },
+      "community": {
+        "title": "Communauté",
+        "caption": "Soumissions communautaires"
+      },
+      "featured": {
+        "title": "En vedette",
+        "caption": "Faits saillants sélectionnés"
+      }
+    },
+    "resources": {
+      "title": "Ressources enregistrées",
+      "total": "{{count}} article{{count, plural, one {} other {s}}} trouvé",
+      "loading": "Chargement des données de la bibliothèque...",
+      "errorTitle": "Nous n'avons pas pu charger les ressources",
+      "errorDescription": "Vérifiez votre connexion ou réessayez dans un instant pour vous synchroniser avec la base de données officielle.",
+      "emptyTitle": "Aucune ressource ne correspond à ces filtres",
+      "emptyDescription": "Ajustez les filtres pour examiner d’autres soumissions ou utilisez la recherche par mots-clés.",
+      "dateUnknown": "Date non fournie",
+      "unknownAuthor": "Auteur non informé",
+      "noEmail": "Pas d'e-mail",
+      "feedbackCount": "{{count}} commentaires{{count, plural, one {} other {s}}}"
+    },
+    "alerts": {
+      "missingPrimaryFile": "Veuillez choisir le fichier principal de la ressource.",
+      "createError": "Nous ne pouvons pas créer la ressource pour le moment.Veuillez réessayer.",
+      "confirmRemoval": "Supprimer « {{title}} » de la bibliothèque ?",
+      "removeError": "Nous ne pouvons pas supprimer la ressource pour le moment.",
+      "noteSuccess": "Note enregistrée avec succès.",
+      "noteError": "Nous n'avons pas pu enregistrer la note."
+    },
+    "badges": {
+      "featured": "En vedette"
+    },
+    "actions": {
+      "viewDetails": "Afficher les détails",
+      "approve": "Approuver",
+      "publish": "Publier",
+      "removeFeatured": "Supprimer la vedette",
+      "markFeatured": "Surligner dans la bibliothèque",
+      "reject": "Rejeter",
+      "archive": "Archive",
+      "remove": "Retirer",
+      "retry": "Essayer à nouveau"
+    },
+    "create": {
+      "title": "Nouvelle ressource de bibliothèque",
+      "description": "Enregistrez les ressources officielles directement pour les étudiants sans passer par le workflow communautaire.",
+      "fields": {
+        "title": {
+          "label": "Titre",
+          "placeholder": "Comment doit être nommée la ressource"
+        },
+        "category": {
+          "label": "Catégorie",
+          "placeholder": "Automatisation, conception, modèle..."
+        },
+        "description": {
+          "label": "Description (Markdown pris en charge)",
+          "placeholder": "Expliquez ce qui est inclus, les principales intégrations et des instructions rapides."
+        },
+        "type": {
+          "label": "Taper",
+          "placeholder": "Sélectionnez le type"
+        },
+        "status": {
+          "label": "Statut",
+          "placeholder": "Choisissez le statut",
+          "statusOptions": {
+            "pending": "En attente",
+            "approved": "Approved",
+            "published": "Publié"
+          }
+        },
+        "tags": {
+          "label": "Balises",
+          "placeholder": "zapier, faire, croissance"
+        },
+        "file": {
+          "label": "Fichier principal",
+          "placeholder": "Sélectionnez le fichier qui sera publié dans la bibliothèque",
+          "hint": "Formats acceptés : ZIP, JSON, MP4, PDF (jusqu'à 250 Mo)"
+        },
+        "cover": {
+          "label": "Couverture (image ou vidéo)",
+          "placeholder": "Facultatif, permet de mettre en valeur la ressource dans la bibliothèque publique."
+        },
+        "demoUrl": {
+          "label": "URL de démonstration (facultatif)",
+          "placeholder": "https://external-link.com"
+        },
+        "allowDownload": "Autoriser la communauté à télécharger ce fichier"
+      },
+      "actions": {
+        "chooseFile": "Sélectionner un fichier",
+        "chooseCover": "Choisissez la couverture",
+        "cancel": "Annuler",
+        "submitting": "Édition...",
+        "submit": "Publier la ressource"
+      }
+    },
+    "details": {
+      "sentOn": "Envoyé le",
+      "contributor": {
+        "title": "Contributor"
+      },
+      "files": {
+        "title": "Fichiers téléchargés",
+        "download": "Télécharger",
+        "empty": "Aucun fichier n'a été fourni pour cette ressource."
+      },
+      "feedback": {
+        "title": "Commentaires de la communauté",
+        "anonymous": "Anonyme",
+        "empty": "Aucun commentaire enregistré pour l'instant."
+      },
+      "nextActions": {
+        "title": "Actions suivantes",
+        "approve": "Approuver la ressource",
+        "publish": "Publier immédiatement",
+        "reject": "Rejeter la ressource",
+        "archive": "Ressource d'archive"
+      },
+      "notes": {
+        "title": "Notes internes",
+        "placeholder": "Ajoutez des conseils ou des demandes de suivi pour le créateur.",
+        "saving": "Économie...",
+        "save": "Enregistrer la note",
+        "lastNote": "Dernière note"
+      },
+      "closePanel": "Fermer le panneau"
+    }
+  },
+  "lesson": {
+    "confirmDeleteComment": "Supprimer ce commentaire ?",
+    "congratulationsCompleted": "Félicitations!Vous avez terminé toutes les leçons disponibles !",
+    "mapNotAvailable": "Carte pas encore disponible.",
+    "lessons": "leçons",
+    "lessonNotFound": "Leçon introuvable.",
+    "lesson": "Leçon",
+    "back": "Dos",
+    "hideCourseMap": "Masquer la carte",
+    "courseMap": "Plan du parcours",
+    "viewCourse": "Voir le cours",
+    "course": "Cours",
+    "close": "Fermer",
+    "closeCourseMap": "Fermer la carte",
+    "downloadMaterial": "Télécharger le matériel",
+    "lessonCompletedUnmark": "Leçon terminée - décocher ?",
+    "markAsCompleted": "Marquer comme terminé",
+    "previous": "Previous: ",
+    "noPreviousLesson": "Aucune leçon précédente",
+    "next": "Next: ",
+    "noNextLesson": "Pas de prochain cours",
+    "additionalResources": "Ressources supplémentaires",
+    "items": "articles",
+    "discussion": "Discussion",
+    "replyingTo": "Répondre à",
+    "cancel": "Annuler",
+    "commentPlaceholder": "Partagez votre question ou contribution...",
+    "send": "Envoyer"
+  }
+}
