@@ -59,6 +59,27 @@ const fontFamilies = [
   { value: 'DM Sans', label: 'DM Sans' }
 ];
 
+const fontWeightOptions = [
+  { value: '300', label: 'Leve' },
+  { value: '400', label: 'Normal' },
+  { value: '500', label: 'Média' },
+  { value: '600', label: 'Semi-bold' },
+  { value: '700', label: 'Negrito' },
+  { value: '800', label: 'Extra bold' },
+  { value: '900', label: 'Black' }
+];
+
+const fontStyleOptions = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'italic', label: 'Itálico' }
+];
+
+const textAlignOptions = [
+  { value: 'left', label: 'Esquerda' },
+  { value: 'center', label: 'Centralizado' },
+  { value: 'right', label: 'Direita' }
+];
+
 const defaultTemplate = {
   name: '',
   course_id: '',
@@ -119,15 +140,22 @@ const createResizeHandleStyle = () => ({
   transform: 'translate(-50%, -50%)'
 });
 
-const resizeHandleStyles = {
-  top: createResizeHandleStyle(),
-  right: createResizeHandleStyle(),
-  bottom: createResizeHandleStyle(),
-  left: createResizeHandleStyle(),
+const cornerResizeHandleStyles = {
   topRight: createResizeHandleStyle(),
   bottomRight: createResizeHandleStyle(),
   bottomLeft: createResizeHandleStyle(),
   topLeft: createResizeHandleStyle()
+};
+
+const cornerResizeConfig = {
+  top: false,
+  right: false,
+  bottom: false,
+  left: false,
+  topRight: true,
+  bottomRight: true,
+  bottomLeft: true,
+  topLeft: true
 };
 
 const buildElement = (overrides = {}) => ({
@@ -137,6 +165,7 @@ const buildElement = (overrides = {}) => ({
   content: overrides.content || '',
   font_family: overrides.font_family || 'Poppins',
   font_weight: overrides.font_weight || '600',
+  font_style: overrides.font_style || 'normal',
   font_size: overrides.font_size || 30,
   color: overrides.color || '#0f172a',
   align: overrides.align || 'center',
@@ -148,41 +177,335 @@ const buildElement = (overrides = {}) => ({
   z_index: overrides.z_index ?? 2
 });
 
-const defaultElements = [
-  buildElement({
+const createPresetElements = ({
+  nameFontFamily = 'Playfair Display',
+  nameColor = '#f8fafc',
+  courseColor = '#e0e7ff',
+  infoColor = '#cbd5f5',
+  validationColor = '#94a3b8',
+  titleText = 'Certificado de Conclusão',
+  subtitleText = 'Certificamos que o estudante',
+  highlightText = 'concluiu com excelência o curso e está habilitado a comprovar sua jornada.',
+  footerText = 'Documento emitido digitalmente pela Hiperautomação Academy.',
+  nameY = 35,
+  courseY = 52,
+  infoY = 64,
+  validationY = 76,
+  letterSpacing = 0.4,
+  uppercaseName = true,
+  width = 82
+} = {}) => [
+  {
+    label: 'Título principal',
+    binding: 'custom',
+    content: titleText,
+    font_size: 36,
+    font_family: 'Playfair Display',
+    font_weight: '700',
+    font_style: 'normal',
+    color: '#f8fafc',
+    width: 90,
+    x: 5,
+    y: 12,
+    align: 'center',
+    uppercase: true,
+    letter_spacing: 0.8
+  },
+  {
+    label: 'Subtítulo',
+    binding: 'custom',
+    content: subtitleText,
+    font_size: 18,
+    font_family: 'DM Sans',
+    font_weight: '500',
+    font_style: 'italic',
+    color: '#cbd5f5',
+    width: 80,
+    x: 10,
+    y: 23,
+    align: 'center',
+    letter_spacing: 0.1
+  },
+  {
+    label: 'Resumo',
+    binding: 'custom',
+    content: highlightText,
+    font_size: 14,
+    font_family: 'DM Sans',
+    font_weight: '400',
+    font_style: 'normal',
+    color: '#94a3b8',
+    width: 85,
+    x: 8,
+    y: 44,
+    align: 'center',
+    letter_spacing: 0.08
+  },
+  {
     label: 'Nome do aluno',
     binding: 'student_name',
-    font_size: 42,
-    y: 38,
-    width: 80,
-    uppercase: true
-  }),
-  buildElement({
+    font_size: 44,
+    font_family: nameFontFamily,
+    font_weight: '700',
+    font_style: 'normal',
+    color: nameColor,
+    width,
+    x: 10,
+    y: nameY,
+    align: 'center',
+    uppercase: uppercaseName,
+    letter_spacing: letterSpacing
+  },
+  {
     label: 'Curso',
     binding: 'course_title',
     font_size: 26,
-    y: 50
-  }),
-  buildElement({
-    label: 'Data de conclusão',
+    font_family: 'Poppins',
+    font_weight: '600',
+    font_style: 'normal',
+    color: courseColor,
+    width: 78,
+    x: 10,
+    y: courseY,
+    align: 'center',
+    letter_spacing: 0.2
+  },
+  {
+    label: 'Conclusão',
     binding: 'completion_date',
-    font_size: 18,
-    y: 63,
-    color: '#6b7280'
-  }),
-  buildElement({
+    font_size: 16,
+    font_family: 'DM Sans',
+    font_weight: '500',
+    font_style: 'normal',
+    color: infoColor,
+    width: 75,
+    x: 12,
+    y: infoY,
+    align: 'center',
+    letter_spacing: 0.15
+  },
+  {
     label: 'Token de validação',
     binding: 'validation_code',
-    font_size: 16,
-    y: 75,
-    color: '#0f172a'
-  })
+    font_size: 14,
+    font_family: 'DM Sans',
+    font_weight: '500',
+    font_style: 'normal',
+    color: validationColor,
+    width: 72,
+    x: 12,
+    y: validationY,
+    align: 'center',
+    letter_spacing: 0.25
+  },
+  {
+    label: 'Rodapé',
+    binding: 'custom',
+    content: footerText,
+    font_size: 12,
+    font_family: 'DM Sans',
+    font_weight: '400',
+    font_style: 'normal',
+    color: '#94a3b8',
+    width: 90,
+    x: 5,
+    y: 88,
+    align: 'center',
+    letter_spacing: 0.2
+  }
+];
+
+const defaultElements = createPresetElements().map((element) => buildElement(element));
+
+const PRECONFIGURED_TEMPLATES = [
+  {
+    id: 'preset-aurora',
+    name: 'Aurora Minimalista',
+    description: 'Linhas geométricas, tipografia serifada e tons frios para um toque futurista.',
+    preview_course_title: 'Design de Experiências Digitais',
+    accent_color: '#4f46e5',
+    background_url: 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1400&q=80',
+    workload_hours: 16,
+    validation_message: 'Certificado validado via token público com chancela oficial.',
+    text_elements: createPresetElements({
+      nameColor: '#f8fafc',
+      courseColor: '#c7d2fe',
+      infoColor: '#e0f2fe',
+      validationColor: '#bae6fd',
+      nameFontFamily: 'Playfair Display',
+      letterSpacing: 0.6
+    })
+  },
+  {
+    id: 'preset-classico',
+    name: 'Clássico Colonial',
+    description: 'Serifa elegante, bordas douradas e paleta crepuscular para formaturas formais.',
+    preview_course_title: 'Gestão Histórica',
+    accent_color: '#b45309',
+    background_url: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?auto=format&fit=crop&w=1400&q=80',
+    workload_hours: 24,
+    validation_message: 'Certificado validado via token público com chancela oficial.',
+    text_elements: createPresetElements({
+      nameColor: '#fde68a',
+      courseColor: '#fcd34d',
+      infoColor: '#fbbf24',
+      validationColor: '#f97316',
+      nameFontFamily: 'Cormorant Garamond',
+      letterSpacing: 0.5
+    })
+  },
+  {
+    id: 'preset-futuro',
+    name: 'Futuro Tech',
+    description: 'Grades, neon e contraste alto para programas de tecnologia e dados.',
+    preview_course_title: 'Inteligência Artificial Aplicada',
+    accent_color: '#14b8a6',
+    background_url: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1400&q=80',
+    workload_hours: 18,
+    validation_message: 'Certificado validado via token público com chancela oficial.',
+    text_elements: createPresetElements({
+      nameColor: '#ecfeff',
+      courseColor: '#99f6e4',
+      infoColor: '#5eead4',
+      validationColor: '#22d3ee',
+      nameFontFamily: 'Montserrat',
+      letterSpacing: 0.7
+    })
+  },
+  {
+    id: 'preset-elegancia',
+    name: 'Elegância Corporativa',
+    description: 'Paleta sóbria com foco em assinaturas e símbolos institucionais.',
+    preview_course_title: 'Liderança e Estratégia',
+    accent_color: '#d97706',
+    background_url: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1400&q=80',
+    workload_hours: 20,
+    validation_message: 'Certificado validado via token público com chancela oficial.',
+    text_elements: createPresetElements({
+      nameColor: '#fff7ed',
+      courseColor: '#fdba74',
+      infoColor: '#fd7e14',
+      validationColor: '#fb923c',
+      nameFontFamily: 'Playfair Display',
+      letterSpacing: 0.55
+    })
+  },
+  {
+    id: 'preset-vibrante',
+    name: 'Vibrante Acadêmico',
+    description: 'Layout editorial e energia criativa com texturas leves e tipografia marcante.',
+    preview_course_title: 'Comunicação Transformadora',
+    accent_color: '#be123c',
+    background_url: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1400&q=80',
+    workload_hours: 22,
+    validation_message: 'Certificado validado via token público com chancela oficial.',
+    text_elements: createPresetElements({
+      nameColor: '#fce7f3',
+      courseColor: '#fecdd3',
+      infoColor: '#fde047',
+      validationColor: '#fb7185',
+      nameFontFamily: 'Poppins',
+      letterSpacing: 0.55
+    })
+  },
+  {
+    id: 'preset-premium',
+    name: 'Premium Contrast',
+    description: 'Pretos profundos com azuis luminosos para programas executivos e de alto impacto.',
+    preview_course_title: 'Marketing e Branding',
+    accent_color: '#0ea5e9',
+    background_url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1400&q=80',
+    workload_hours: 20,
+    validation_message: 'Certificado validado via token público com chancela oficial.',
+    text_elements: createPresetElements({
+      nameColor: '#e0f2fe',
+      courseColor: '#bae6fd',
+      infoColor: '#7dd3fc',
+      validationColor: '#22d3ee',
+      nameFontFamily: 'DM Sans',
+      letterSpacing: 0.35
+    })
+  },
+  {
+    id: 'preset-digital',
+    name: 'Academia Digital',
+    description: 'Campos organizados e cores suaves para cursos de automação e dados em escala.',
+    preview_course_title: 'Automação de Negócios',
+    accent_color: '#a855f7',
+    background_url: 'https://images.unsplash.com/photo-1498075702571-ecb018f3752b?auto=format&fit=crop&w=1400&q=80',
+    workload_hours: 18,
+    validation_message: 'Certificado validado via token público com chancela oficial.',
+    text_elements: createPresetElements({
+      nameColor: '#f3e8ff',
+      courseColor: '#c4b5fd',
+      infoColor: '#d8b4fe',
+      validationColor: '#c084fc',
+      nameFontFamily: 'Montserrat',
+      letterSpacing: 0.45
+    })
+  },
+  {
+    id: 'preset-signature',
+    name: 'Signature Spark',
+    description: 'Textos dramáticos com foco em assinaturas oficiais e selo do mentor.',
+    preview_course_title: 'Mentoria Premium',
+    accent_color: '#f97316',
+    background_url: 'https://images.unsplash.com/photo-1487017159836-4e23ece2e4cf?auto=format&fit=crop&w=1400&q=80',
+    workload_hours: 12,
+    validation_message: 'Certificado validado via token público com chancela oficial.',
+    text_elements: createPresetElements({
+      nameColor: '#fef3c7',
+      courseColor: '#fde68a',
+      infoColor: '#fcd34d',
+      validationColor: '#f97316',
+      nameFontFamily: 'Playfair Display',
+      letterSpacing: 0.7
+    })
+  },
+  {
+    id: 'preset-metamorfose',
+    name: 'Metamorfose',
+    description: 'Padrões fluidos e transparências para certificações criativas e artísticas.',
+    preview_course_title: 'Narrativas Visuais',
+    accent_color: '#22d3ee',
+    background_url: 'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1400&q=80',
+    workload_hours: 19,
+    validation_message: 'Certificado validado via token público com chancela oficial.',
+    text_elements: createPresetElements({
+      nameColor: '#e0f2fe',
+      courseColor: '#bae6fd',
+      infoColor: '#a5f3fc',
+      validationColor: '#38bdf8',
+      nameFontFamily: 'DM Sans',
+      letterSpacing: 0.4
+    })
+  },
+  {
+    id: 'preset-urbano',
+    name: 'Impacto Urbano',
+    description: 'Textos compactos, caixas geométricas e toque industrial para inovação urbana.',
+    preview_course_title: 'Inovação Urbana',
+    accent_color: '#15803d',
+    background_url: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1400&q=80',
+    workload_hours: 21,
+    validation_message: 'Certificado validado via token público com chancela oficial.',
+    text_elements: createPresetElements({
+      nameColor: '#f0fdf4',
+      courseColor: '#bbf7d0',
+      infoColor: '#86efac',
+      validationColor: '#4ade80',
+      nameFontFamily: 'Montserrat',
+      letterSpacing: 0.3,
+      uppercaseName: false
+    })
+  }
 ];
 
 const AdminCertificates = ({ user, onLogout }) => {
   const [templates, setTemplates] = useState([]);
   const [courses, setCourses] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
+  const [selectedPresetId, setSelectedPresetId] = useState(null);
   const [form, setForm] = useState(defaultTemplate);
   const [textElements, setTextElements] = useState(defaultElements);
   const [issued, setIssued] = useState([]);
@@ -193,7 +516,24 @@ const AdminCertificates = ({ user, onLogout }) => {
   const [issueForm, setIssueForm] = useState({ email: '', user_id: '', completed_at: '', notes: '' });
   const [assetUploading, setAssetUploading] = useState(false);
   const canvasRef = useRef(null);
-  const [canvasSize, setCanvasSize] = useState({ width: 940, height: 665 });
+  const [canvasSize, setCanvasSize] = useState({ width: 1120, height: 630 });
+  const [centerGuides, setCenterGuides] = useState({ horizontal: false, vertical: false });
+  const updateCenterGuides = useCallback(
+    (element) => {
+      if (!element) return;
+      const widthPercent = element.width ?? 60;
+      const xCenter = (element.x ?? 0) + widthPercent / 2;
+      const heightApprox = Math.min(25, Math.max(12, (element.font_size ?? 30) / 2.5));
+      const yCenter = (element.y ?? 0) + heightApprox / 2;
+      const threshold = 0.85;
+      setCenterGuides({
+        vertical: Math.abs(xCenter - 50) <= threshold,
+        horizontal: Math.abs(yCenter - 50) <= threshold
+      });
+    },
+    []
+  );
+  const [editingElementId, setEditingElementId] = useState(null);
 
   const token = useMemo(() => localStorage.getItem('token'), []);
   const authHeaders = useMemo(
@@ -218,7 +558,14 @@ const AdminCertificates = ({ user, onLogout }) => {
 
   useEffect(() => {
     setActiveElementId(null);
-  }, [selectedTemplateId]);
+    setEditingElementId(null);
+  }, [selectedTemplateId, selectedPresetId]);
+
+  useEffect(() => {
+    if (!activeElementId) {
+      setCenterGuides({ horizontal: false, vertical: false });
+    }
+  }, [activeElementId]);
 
   useEffect(() => {
     if (!canvasRef.current || typeof ResizeObserver === 'undefined') return;
@@ -226,14 +573,47 @@ const AdminCertificates = ({ user, onLogout }) => {
       entries.forEach((entry) => {
         const { width, height } = entry.contentRect;
         setCanvasSize({
-          width: width || 940,
-          height: height || 665
+          width: width || 1120,
+          height: height || 630
         });
       });
     });
     observer.observe(canvasRef.current);
     return () => observer.disconnect();
   }, []);
+
+  useEffect(() => {
+    if (!activeElementId) return;
+    const handleKeyDown = (event) => {
+      if (!['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(event.key.toLowerCase())) {
+        return;
+      }
+      const targetTag = event.target?.tagName?.toLowerCase();
+      if (['input', 'textarea', 'select', 'button'].includes(targetTag)) {
+        return;
+      }
+      event.preventDefault();
+      setTextElements((prev) =>
+        prev.map((element) => {
+          if (element.id !== activeElementId) return element;
+          const step = event.shiftKey ? 0.5 : 1;
+          const delta = {
+            x: event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0,
+            y: event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0
+          };
+          const updated = {
+            ...element,
+            x: clampNumber((element.x ?? 0) + delta.x, 0, 100, element.x ?? 0),
+            y: clampNumber((element.y ?? 0) + delta.y, 0, 100, element.y ?? 0)
+          };
+          updateCenterGuides(updated);
+          return updated;
+        })
+      );
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeElementId, updateCenterGuides]);
 
   const fetchTemplates = async () => {
     try {
@@ -279,6 +659,7 @@ const AdminCertificates = ({ user, onLogout }) => {
       resetToNewTemplate();
       return;
     }
+    setSelectedPresetId(null);
     setSelectedTemplateId(tpl.id);
     setForm({
       name: tpl.name || '',
@@ -296,12 +677,42 @@ const AdminCertificates = ({ user, onLogout }) => {
       (element) => buildElement(element)
     );
     setTextElements(mappedElements);
+    setCenterGuides({ horizontal: false, vertical: false });
+  };
+
+  const applyPreset = (preset) => {
+    if (!preset) {
+      resetToNewTemplate();
+      return;
+    }
+    setSelectedTemplateId(null);
+    setSelectedPresetId(preset.id);
+    setForm({
+      ...defaultTemplate,
+      name: preset.name || '',
+      course_id: preset.course_id || '',
+      description: preset.description || '',
+      background_url: preset.background_url || '',
+      badge_url: preset.badge_url || '',
+      accent_color: preset.accent_color || defaultTemplate.accent_color,
+      workload_hours: preset.workload_hours ?? defaultTemplate.workload_hours,
+      validation_message: preset.validation_message || defaultTemplate.validation_message,
+      signature_images: preset.signature_images || [],
+      status: 'draft'
+    });
+    const mappedElements = (preset.text_elements && preset.text_elements.length ? preset.text_elements : defaultElements).map(
+      (element) => buildElement(element)
+    );
+    setTextElements(mappedElements);
+    setCenterGuides({ horizontal: false, vertical: false });
   };
 
   const resetToNewTemplate = () => {
     setSelectedTemplateId(null);
+    setSelectedPresetId(null);
     setForm(defaultTemplate);
     setTextElements(defaultElements.map((el) => buildElement(el)));
+    setCenterGuides({ horizontal: false, vertical: false });
   };
 
   const handleFormChange = (field, value) => {
@@ -315,57 +726,109 @@ const AdminCertificates = ({ user, onLogout }) => {
     setTextElements((prev) =>
       prev.map((element) => {
         if (element.id !== id) return element;
+        let updated = element;
         if (field === 'x' || field === 'y') {
-          return { ...element, [field]: clampNumber(value, 0, 100, element[field] ?? 0) };
+          updated = { ...element, [field]: clampNumber(value, 0, 100, element[field] ?? 0) };
+        } else if (field === 'width') {
+          updated = { ...element, [field]: clampNumber(value, 10, 100, element.width ?? 60) };
+        } else if (field === 'letter_spacing') {
+          updated = { ...element, letter_spacing: clampNumber(value, -2, 5, element.letter_spacing ?? 0) };
+        } else if (field === 'uppercase') {
+          updated = { ...element, uppercase: Boolean(value) };
+        } else {
+          updated = { ...element, [field]: value };
         }
-        if (field === 'width') {
-          return { ...element, [field]: clampNumber(value, 10, 100, element[field] ?? 60) };
+        if (['x', 'y', 'width'].includes(field)) {
+          updateCenterGuides(updated);
         }
-        return { ...element, [field]: value };
+        return updated;
       })
     );
   };
 
-  const handleElementSelect = useCallback((id) => {
-    setActiveElementId(id);
-  }, []);
+  const handleElementSelect = useCallback(
+    (id) => {
+      setActiveElementId(id);
+      const element = textElements.find((entry) => entry.id === id);
+      if (element) {
+        updateCenterGuides(element);
+      }
+    },
+    [textElements, updateCenterGuides]
+  );
+
+  const handleElementDoubleClick = useCallback(
+    (id) => {
+      setEditingElementId((prev) => (prev === id ? null : id));
+      setActiveElementId(id);
+      const element = textElements.find((entry) => entry.id === id);
+      if (element) {
+        updateCenterGuides(element);
+      }
+    },
+    [textElements, updateCenterGuides]
+  );
 
   const handleElementDrag = (id, x, y) => {
     if (!canvasSize.width || !canvasSize.height) return;
+    const element = textElements.find((entry) => entry.id === id);
+    if (!element) return;
+    const xPercent = Math.round(((x / canvasSize.width) * 100 + Number.EPSILON) * 100) / 100;
+    const yPercent = Math.round(((y / canvasSize.height) * 100 + Number.EPSILON) * 100) / 100;
+    const updatedElement = {
+      ...element,
+      x: clampNumber(xPercent, 0, 100, element.x),
+      y: clampNumber(yPercent, 0, 100, element.y)
+    };
     setTextElements((prev) =>
-      prev.map((element) => {
-        if (element.id !== id) return element;
-        const xPercent = Math.round(((x / canvasSize.width) * 100 + Number.EPSILON) * 100) / 100;
-        const yPercent = Math.round(((y / canvasSize.height) * 100 + Number.EPSILON) * 100) / 100;
-        return {
-          ...element,
-          x: clampNumber(xPercent, 0, 100, element.x),
-          y: clampNumber(yPercent, 0, 100, element.y)
-        };
-      })
+      prev.map((entry) => (entry.id === id ? updatedElement : entry))
     );
+    updateCenterGuides(updatedElement);
   };
 
   const handleElementResize = (id, widthPx, positionX, positionY) => {
     if (!canvasSize.width || !canvasSize.height) return;
+    const element = textElements.find((entry) => entry.id === id);
+    if (!element) return;
     const widthPercent = clampNumber((widthPx / canvasSize.width) * 100, 10, 100, 60);
     const xPercent = clampNumber((positionX / canvasSize.width) * 100, 0, 100, 0);
     const yPercent = clampNumber((positionY / canvasSize.height) * 100, 0, 100, 0);
+    const oldWidth = element.width || 60;
+    const widthRatio = oldWidth ? widthPercent / oldWidth : 1;
+    const updatedElement = {
+      ...element,
+      width: widthPercent,
+      x: xPercent,
+      y: yPercent,
+      font_size: clampNumber(Math.round((element.font_size || 30) * widthRatio), 10, 200, element.font_size || 30)
+    };
     setTextElements((prev) =>
-      prev.map((element) => {
-        if (element.id !== id) return element;
-        const oldWidth = element.width || 60;
-        const widthRatio = oldWidth ? widthPercent / oldWidth : 1;
-        return {
-          ...element,
-          width: widthPercent,
-          x: xPercent,
-          y: yPercent,
-          font_size: clampNumber(Math.round((element.font_size || 30) * widthRatio), 10, 200, element.font_size || 30)
-        };
-      })
+      prev.map((entry) => (entry.id === id ? updatedElement : entry))
     );
+    updateCenterGuides(updatedElement);
   };
+
+  const editingElement = useMemo(
+    () => textElements.find((entry) => entry.id === editingElementId),
+    [editingElementId, textElements]
+  );
+
+  const inspectorPosition = useMemo(() => {
+    if (!editingElement || !canvasSize.width || !canvasSize.height) return null;
+    const inspectorWidth = 280;
+    const inspectorHeight = 220;
+    const leftRet = ((editingElement.x ?? 0) / 100) * canvasSize.width - 10;
+    const topRet = ((editingElement.y ?? 0) / 100) * canvasSize.height - 130;
+    const left = Math.min(Math.max(10, leftRet), canvasSize.width - inspectorWidth - 10);
+    const top = Math.min(Math.max(10, topRet), canvasSize.height - inspectorHeight - 10);
+    return { left, top };
+  }, [editingElement, canvasSize]);
+
+  const closeEditors = useCallback(() => {
+    setEditingElementId(null);
+    setActiveElementId(null);
+    setCenterGuides({ horizontal: false, vertical: false });
+  }, []);
 
   const addElement = () => {
     const newElement = buildElement({
@@ -606,6 +1069,64 @@ const AdminCertificates = ({ user, onLogout }) => {
             </div>
 
             <div className="bg-[#0a0f1c] border border-white/5 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Sparkles size={18} className="text-amber-400" />
+                  Modelos pré-configurados
+                </h2>
+                <span className="text-xs uppercase tracking-[0.3em] text-gray-400">Ponto de partida</span>
+              </div>
+              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                {PRECONFIGURED_TEMPLATES.map((preset) => {
+                  const isActive = preset.id === selectedPresetId;
+                  return (
+                    <div
+                      key={preset.id}
+                      className={`rounded-2xl border px-4 py-3 transition ${
+                        isActive
+                          ? 'border-emerald-400/60 bg-emerald-400/10'
+                          : 'border-white/5 bg-white/5 text-gray-300'
+                      }`}
+                    >
+                      <div
+                        className="relative h-24 rounded-xl overflow-hidden mb-3"
+                        style={{
+                          backgroundColor: preset.accent_color,
+                          backgroundImage: preset.background_url ? `url(${preset.background_url})` : undefined,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center'
+                        }}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                        <p className="absolute bottom-2 left-3 text-[11px] uppercase tracking-[0.3em] text-white/90">
+                          {preset.preview_course_title}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-semibold">{preset.name}</p>
+                        <p className="text-xs text-gray-400">{preset.description}</p>
+                      </div>
+                      <div className="flex items-center justify-between mt-3">
+                        <span className="text-[11px] uppercase tracking-[0.3em] text-gray-400">
+                          Carga {preset.workload_hours}h
+                        </span>
+                        <Button
+                          variant="outline"
+                          className={`text-xs px-3 py-1 ${
+                            isActive ? 'border-emerald-300 bg-emerald-400/20 text-white' : 'border-white/20 text-gray-200'
+                          }`}
+                          onClick={() => applyPreset(preset)}
+                        >
+                          {isActive ? 'Aplicado' : 'Carregar modelo'}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="bg-[#0a0f1c] border border-white/5 rounded-2xl p-5 space-y-4">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Wand2 size={18} className="text-cyan-400" />
                 Configurações do modelo
@@ -826,6 +1347,88 @@ const AdminCertificates = ({ user, onLogout }) => {
                         />
                       </div>
                     </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <Label>Peso da fonte</Label>
+                        <Select
+                          value={element.font_weight}
+                          onValueChange={(value) => handleElementChange(element.id, 'font_weight', value)}
+                        >
+                          <SelectTrigger className="bg-black/20 border-white/10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#080b14] border-white/5">
+                            {fontWeightOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Estilo</Label>
+                        <Select
+                          value={element.font_style}
+                          onValueChange={(value) => handleElementChange(element.id, 'font_style', value)}
+                        >
+                          <SelectTrigger className="bg-black/20 border-white/10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#080b14] border-white/5">
+                            {fontStyleOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Alinhamento</Label>
+                        <Select
+                          value={element.align}
+                          onValueChange={(value) => handleElementChange(element.id, 'align', value)}
+                        >
+                          <SelectTrigger className="bg-black/20 border-white/10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#080b14] border-white/5">
+                            {textAlignOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 items-center">
+                      <div>
+                        <Label>Espaçamento (em)</Label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="range"
+                            min="-1"
+                            max="3"
+                            step="0.05"
+                            value={element.letter_spacing ?? 0}
+                            onChange={(e) => handleElementChange(element.id, 'letter_spacing', Number(e.target.value))}
+                            className="h-2 w-full accent-emerald-400"
+                          />
+                          <span className="text-xs text-gray-400 w-12 text-right">
+                            {(element.letter_spacing ?? 0).toFixed(2)}em
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="mb-1">Maiúsculas</Label>
+                        <Switch
+                          checked={Boolean(element.uppercase)}
+                          onCheckedChange={(checked) => handleElementChange(element.id, 'uppercase', checked)}
+                        />
+                      </div>
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label>Posição X (%)</Label>
@@ -924,7 +1527,7 @@ const AdminCertificates = ({ user, onLogout }) => {
               </div>
 
               <div className="w-full max-w-4xl mx-auto">
-                <div className="relative w-full aspect-[1.414/1]">
+                <div className="relative w-full aspect-[16/9]" onMouseDown={closeEditors}>
                   <div
                     ref={canvasRef}
                     className="absolute inset-0 rounded-3xl overflow-hidden border-4 shadow-2xl"
@@ -937,15 +1540,9 @@ const AdminCertificates = ({ user, onLogout }) => {
                       backgroundPosition: 'center'
                     }}
                   >
-                    <div className="absolute inset-0 bg-white/80 backdrop-blur-sm pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-black/10 pointer-events-none" />
                     <div className="absolute inset-0 flex flex-col justify-between p-10 z-10 pointer-events-none">
                       <div className="flex justify-between items-center">
-                        <div>
-                          <p className="text-sm tracking-[0.55em] text-gray-500 uppercase">Certificado</p>
-                          <h1 className="text-3xl font-semibold text-[#0f172a]">
-                            {form.name || 'Certificado de Conclusão'}
-                          </h1>
-                        </div>
                         {form.badge_url ? (
                           <img src={form.badge_url} alt="Badge" className="h-16 object-contain drop-shadow" />
                         ) : (
@@ -968,6 +1565,20 @@ const AdminCertificates = ({ user, onLogout }) => {
                         </div>
                       )}
                     </div>
+                    <div className="absolute inset-0 z-30 pointer-events-none">
+                      {centerGuides.vertical && (
+                        <div
+                          className="absolute inset-y-0 w-px bg-emerald-400/70"
+                          style={{ left: '50%', transform: 'translateX(-50%)' }}
+                        />
+                      )}
+                      {centerGuides.horizontal && (
+                        <div
+                          className="absolute inset-x-0 h-px bg-emerald-400/70"
+                          style={{ top: '50%', transform: 'translateY(-50%)' }}
+                        />
+                      )}
+                    </div>
                     <div className="absolute inset-0 z-20">
                       <div className="relative h-full w-full">
                         {textElements.map((element) => {
@@ -983,17 +1594,8 @@ const AdminCertificates = ({ user, onLogout }) => {
                               bounds="parent"
                               size={{ width, height: 'auto' }}
                               position={position}
-                              enableResizing={{
-                                top: true,
-                                right: true,
-                                bottom: true,
-                                left: true,
-                                topRight: true,
-                                bottomRight: true,
-                                bottomLeft: true,
-                                topLeft: true
-                              }}
-                              resizeHandleStyles={resizeHandleStyles}
+                              enableResizing={isActiveElement ? cornerResizeConfig : false}
+                              resizeHandleStyles={cornerResizeHandleStyles}
                               onDragStart={() => handleElementSelect(element.id)}
                               onResizeStart={() => handleElementSelect(element.id)}
                               onDragStop={(e, data) => handleElementDrag(element.id, data.x, data.y)}
@@ -1012,11 +1614,25 @@ const AdminCertificates = ({ user, onLogout }) => {
                                   fontSize: `${element.font_size}px`,
                                   fontFamily: element.font_family,
                                   fontWeight: element.font_weight,
+                                  fontStyle: element.font_style || 'normal',
                                   textTransform: element.uppercase ? 'uppercase' : 'none',
                                   textAlign: element.align,
-                                  letterSpacing: `${element.letter_spacing || 0}em`
+                                  letterSpacing: `${element.letter_spacing || 0}em`,
+                                  border: isActiveElement
+                                    ? '1px dashed rgba(16,185,129,0.9)'
+                                    : '1px dashed rgba(255,255,255,0.2)',
+                                  borderRadius: 10,
+                                  backgroundColor: isActiveElement ? 'rgba(16,185,129,0.08)' : 'transparent',
+                                  textShadow: '0 4px 25px rgba(15,23,42,0.85)'
                                 }}
-                                onMouseDown={() => handleElementSelect(element.id)}
+                                onMouseDown={(event) => {
+                                  event.stopPropagation();
+                                  handleElementSelect(element.id);
+                                }}
+                                onDoubleClick={(event) => {
+                                  event.stopPropagation();
+                                  handleElementDoubleClick(element.id);
+                                }}
                               >
                                 {isActiveElement &&
                                   anchorDots.map((offset, index) => (
@@ -1032,6 +1648,131 @@ const AdminCertificates = ({ user, onLogout }) => {
                         })}
                       </div>
                     </div>
+                    {editingElement && inspectorPosition && (
+                      <div
+                        className="absolute z-40 pointer-events-auto rounded-2xl border border-white/20 bg-[#05070d]/90 p-4 shadow-[0_30px_80px_rgba(2,6,23,0.7)] text-xs text-white max-w-[280px]"
+                        style={{
+                          left: inspectorPosition.left,
+                          top: inspectorPosition.top
+                        }}
+                        onMouseDown={(event) => event.stopPropagation()}
+                      >
+                        <p className="text-[11px] uppercase tracking-[0.4em] text-emerald-300 mb-2">
+                          Editar elemento
+                        </p>
+                        <div className="space-y-2 text-sm">
+                          {editingElement.binding === 'custom' && (
+                            <div>
+                              <Label className="text-[11px] uppercase tracking-[0.3em]">Conteúdo</Label>
+                              <Textarea
+                                rows={2}
+                                className="bg-black/40 border-white/10 text-white text-xs"
+                                value={editingElement.content}
+                                onChange={(e) =>
+                                  handleElementChange(editingElement.id, 'content', e.target.value)
+                                }
+                              />
+                            </div>
+                          )}
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-[11px] uppercase tracking-[0.3em]">Tamanho</Label>
+                              <Input
+                                type="number"
+                                min="8"
+                                value={editingElement.font_size}
+                                onChange={(e) =>
+                                  handleElementChange(editingElement.id, 'font_size', Number(e.target.value))
+                                }
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-[11px] uppercase tracking-[0.3em]">Cor</Label>
+                              <Input
+                                type="color"
+                                value={editingElement.color}
+                                onChange={(e) =>
+                                  handleElementChange(editingElement.id, 'color', e.target.value)
+                                }
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <Select
+                              value={editingElement.font_weight}
+                              onValueChange={(value) => handleElementChange(editingElement.id, 'font_weight', value)}
+                            >
+                              <SelectTrigger className="bg-black/30 border-white/10 text-[11px]">
+                                <SelectValue placeholder="Peso" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#080b14] border-white/10 text-xs">
+                                {fontWeightOptions.map((option) => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select
+                              value={editingElement.font_style}
+                              onValueChange={(value) => handleElementChange(editingElement.id, 'font_style', value)}
+                            >
+                              <SelectTrigger className="bg-black/30 border-white/10 text-[11px]">
+                                <SelectValue placeholder="Estilo" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#080b14] border-white/10 text-xs">
+                                {fontStyleOptions.map((option) => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select
+                              value={editingElement.align}
+                              onValueChange={(value) => handleElementChange(editingElement.id, 'align', value)}
+                            >
+                              <SelectTrigger className="bg-black/30 border-white/10 text-[11px]">
+                                <SelectValue placeholder="Alinhar" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#080b14] border-white/10 text-xs">
+                                {textAlignOptions.map((option) => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[11px] uppercase tracking-[0.3em] mb-0">Maiúsculas</Label>
+                            <Switch
+                              checked={Boolean(editingElement.uppercase)}
+                              onCheckedChange={(checked) =>
+                                handleElementChange(editingElement.id, 'uppercase', checked)
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-[11px] uppercase tracking-[0.3em]">Espaçamento</Label>
+                            <input
+                              type="range"
+                              min="-1"
+                              max="3"
+                              step="0.05"
+                              value={editingElement.letter_spacing ?? 0}
+                              onChange={(e) =>
+                                handleElementChange(editingElement.id, 'letter_spacing', Number(e.target.value))
+                              }
+                              className="h-2 w-full accent-emerald-400"
+                            />
+                            <p className="text-[10px] text-gray-400 text-right">
+                              {(editingElement.letter_spacing ?? 0).toFixed(2)}em
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <p className="text-center text-xs text-gray-500 mt-4">
