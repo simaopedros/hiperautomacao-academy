@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,21 +12,24 @@ import {
   HeadphonesIcon,
   Play,
   Archive,
-  Award
+  Award,
+  Menu,
+  X
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 
-const UnifiedHeader = ({ 
-  user, 
-  onLogout, 
-  showInsights, 
+const UnifiedHeader = ({
+  user,
+  onLogout,
+  showInsights,
   setShowInsights, 
   supportConfig,
   resumeLessonId,
   showBackButton = false,
   onBack
 }) => {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
@@ -151,6 +154,18 @@ const UnifiedHeader = ({
               </button>
             )}
 
+            {/* Mobile menu toggle */}
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen((prev) => !prev)}
+              className="md:hidden flex items-center justify-center h-10 w-10 rounded-xl border border-white/10 bg-white/5 text-gray-200 hover:bg-white/10 transition-colors"
+              aria-expanded={mobileNavOpen}
+              aria-controls="mobile-navigation"
+              aria-label={mobileNavOpen ? 'Ocultar navegação' : 'Mostrar navegação'}
+            >
+              {mobileNavOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
+
             {/* Always show Resume action */}
             {resumeLessonId && (
               <a
@@ -223,33 +238,39 @@ const UnifiedHeader = ({
         </div>
 
         {/* Mobile Navigation */}
-        <nav 
-          className="flex md:hidden gap-2 overflow-x-auto pb-2"
-          role="navigation"
-          aria-label="Navegação móvel"
-        >
-          {navigationItems.map((item) => {
-            const Icon = item.icon;
-            const isCurrent = isCurrentPage(item.path);
-            
-            return (
-              <button
-                key={`mobile-${item.path}`}
-                onClick={() => navigate(item.path)}
-                className={`chip whitespace-nowrap transition-all duration-300 ${
-                  isCurrent
-                    ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200'
-                    : 'border-white/15 text-gray-200 hover:text-white hover:bg-white/5'
-                }`}
-                aria-current={isCurrent ? 'page' : undefined}
-                aria-label={`Ir para ${item.label}`}
-              >
-                <Icon size={14} />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
+        {mobileNavOpen && (
+          <nav 
+            id="mobile-navigation"
+            className="w-full flex md:hidden flex-wrap gap-2 pb-2"
+            role="navigation"
+            aria-label="Navega��o m�vel"
+          >
+            {navigationItems.map((item) => {
+              const Icon = item.icon;
+              const isCurrent = isCurrentPage(item.path);
+              
+              return (
+                <button
+                  key={`mobile-${item.path}`}
+                  onClick={() => {
+                    setMobileNavOpen(false);
+                    navigate(item.path);
+                  }}
+                  className={`chip flex-1 min-w-[120px] justify-center gap-2 text-center transition-all duration-300 whitespace-normal break-words ${
+                    isCurrent
+                      ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200'
+                      : 'border-white/15 text-gray-200 hover:text-white hover:bg-white/5'
+                  }`}
+                  aria-current={isCurrent ? 'page' : undefined}
+                  aria-label={`Ir para ${item.label}`}
+                >
+                  <Icon size={14} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+        )}
       </div>
     </header>
   );
